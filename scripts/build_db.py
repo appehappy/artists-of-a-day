@@ -84,8 +84,9 @@ def build(snapshot_dir, db_path):
             img_kind = parse.classify_image(img["position"], filename, img["caption"], t["subject"])
             title_, y0, y1, circa = (parse.parse_caption(caption) if img_kind == "artwork"
                                      else (None, None, None, False))
-            images.append((post_id, img["position"], img["src_url"], img["link_url"],
-                           parse.original_image_url(img["src_url"]), filename,
+            original = parse.original_image_url(img["src_url"])
+            images.append((post_id, img["position"], parse.image_key(img["src_url"], original),
+                           img["src_url"], img["link_url"], original, filename,
                            img["width"], img["height"], caption, caption_source,
                            title_, y0, y1, int(circa), img_kind, "heuristic"))
 
@@ -136,9 +137,9 @@ def build(snapshot_dir, db_path):
                    [(pid, artist_ids[slug]) for pid, slug in post_artists])
     db.executemany("INSERT OR IGNORE INTO post_tags VALUES (?, ?)", tags)
     db.executemany(
-        "INSERT INTO images (post_id, position, src_url, link_url, original_url, filename, width, "
-        "height, caption_raw, caption_source, title, year_start, year_end, circa, kind, kind_source) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", images)
+        "INSERT INTO images (post_id, position, url_hash, src_url, link_url, original_url, filename, "
+        "width, height, caption_raw, caption_source, title, year_start, year_end, circa, kind, "
+        "kind_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", images)
     db.executemany("INSERT INTO build_info VALUES (?, ?)", [
         ("snapshot", snapshot_dir.name),
         ("built_at", datetime.now(timezone.utc).isoformat()),
@@ -170,7 +171,7 @@ def main():
     print(f"Snapshot {snapshot} -> {DB_PATH}")
     print(f"posts: {len(posts)}  {dict(Counter(p['kind'] for p in posts))}")
     print(f"artists: {len(artists)}  {dict(Counter(a['type'] for a in artists.values()))}")
-    print(f"images: {len(images)}  {dict(Counter(i[14] for i in images))}")
+    print(f"images: {len(images)}  {dict(Counter(i[15] for i in images))}")
     flag_counts = Counter(f for p in posts for f in p["flags"])
     print(f"flags: {dict(flag_counts.most_common())}")
     print(f"review list: {DATA_DIR / 'review' / 'flagged_posts.csv'}")

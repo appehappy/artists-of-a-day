@@ -25,14 +25,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from aotd.config import DATA_DIR, DB_PATH, IMAGES_DIR, USER_AGENT  # noqa: E402
 from aotd.imageinfo import FORMATS, sniff  # noqa: E402
+from aotd.manifest import MANIFEST  # noqa: E402
 
 ORIGINALS = IMAGES_DIR / "originals"
-MANIFEST = IMAGES_DIR / "manifest.jsonl"
 TMP_DIR = DATA_DIR / "tmp_downloads"  # same volume as Dropbox, so the final move is atomic
-
-
-def url_hash(url):
-    return hashlib.sha1(url.encode()).hexdigest()[:10]
 
 
 def post_dir(published, post_id):
@@ -56,10 +52,8 @@ def fetch(url, retries=5):
 
 
 def download(row):
-    image_id, post_id, published, position, src_url, original_url = row
-    key = original_url or src_url
-    h = url_hash(key)
-    record = {"image_id": image_id, "post_id": post_id, "position": position,
+    h, post_id, published, position, src_url, original_url = row
+    record = {"post_id": post_id, "position": position,
               "url": original_url, "url_hash": h,
               "fetched_at": datetime.now(timezone.utc).isoformat()}
     try:
@@ -107,14 +101,14 @@ def main():
     post_filter = ("WHERE p.id IN (SELECT id FROM posts ORDER BY published DESC LIMIT %d)"
                    % args.posts if args.posts else "")
     rows = db.execute(
-        "SELECT i.id, p.id, p.published, i.position, i.src_url, i.original_url "
+        "SELECT i.url_hash, p.id, p.published, i.position, i.src_url, i.original_url "
         "FROM images i JOIN posts p ON p.id = i.post_id " + post_filter +
         " ORDER BY p.published DESC, i.position").fetchall()
     db.close()
 
     have = existing_files()
     todo = [r for r in rows
-            if (f"{r[2][:10]}_{r[1]}", r[3], url_hash(r[5] or r[4])) not in have]
+            if (f"{r[2][:10]}_{r[1]}", r[3], r[0]) not in have]
     print(f"{len(rows)} images in scope, {len(rows) - len(todo)} already on disk, "
           f"{len(todo)} to fetch -> {ORIGINALS}")
     if not todo:

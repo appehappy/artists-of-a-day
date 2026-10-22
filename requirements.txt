@@ -1,0 +1,7 @@
+# Enrichment pipeline (thumbnails, colours, CLIP). Python 3.12:
+#   /opt/homebrew/bin/python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# Phases 0–2 and build_db.py need only the standard library.
+pillow==13.0.0
+numpy==2.5.4
+torch==2.14.1
+open_clip_torch==3.3.0

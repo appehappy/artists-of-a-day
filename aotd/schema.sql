@@ -52,6 +52,7 @@ CREATE TABLE images (
     id            INTEGER PRIMARY KEY,
     post_id       TEXT NOT NULL REFERENCES posts(id),
     position      INTEGER NOT NULL,   -- order within the post, from 0
+    url_hash      TEXT NOT NULL,      -- stable key (aotd.parse.image_key); ids change on rebuild
     src_url       TEXT NOT NULL,      -- as embedded in the post
     link_url      TEXT,               -- the <a href> wrapping the image, if any
     original_url  TEXT,               -- full-resolution URL; NULL for embedded data: images
@@ -69,6 +70,7 @@ CREATE TABLE images (
 );
 
 CREATE INDEX images_post ON images(post_id, position);
+CREATE UNIQUE INDEX images_key ON images(post_id, url_hash, position);
 CREATE INDEX images_kind ON images(kind);
 CREATE INDEX post_artists_artist ON post_artists(artist_id);
 CREATE INDEX posts_feature_date ON posts(feature_date);

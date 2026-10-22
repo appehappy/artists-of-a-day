@@ -4,6 +4,7 @@ Nine years of hand-typed titles and captions means every rule here is a heuristi
 Callers keep the raw values next to the parsed ones, and parsers return flags for
 anything they had to guess at so it can be reviewed later.
 """
+import hashlib
 import html as htmllib
 import re
 import unicodedata
@@ -271,6 +272,12 @@ def original_image_url(src):
         return None
     out = re.sub(r"/(s\d+(?:-[a-z0-9-]+)?|w\d+-h\d+[^/]*|d)/([^/]+)$", r"/s0/\2", src)
     return re.sub(r"=[swh]\d[^/=]*$", "=s0", out)
+
+
+def image_key(src_url, original_url):
+    """Stable short id for an image, independent of database row ids. Matches the
+    <hash> in downloaded filenames (<position>_<hash>.<ext>)."""
+    return hashlib.sha1((original_url or src_url).encode()).hexdigest()[:10]
 
 
 def image_filename(src):

@@ -12,6 +12,12 @@ ARCHIVE_ROOT = Path(
 
 RAW_DIR = ARCHIVE_ROOT / "raw"
 IMAGES_DIR = ARCHIVE_ROOT / "images"
+THUMBS_DIR = IMAGES_DIR / "thumbs"
+# Machine-made enrichment (colours, embeddings, similar works): slow to recompute,
+# so it's kept in Dropbox, keyed by image url_hash / artist slug, never by row id.
+DERIVED_DIR = ARCHIVE_ROOT / "derived"
+# Human-reviewed decisions (Wikidata matches, overrides) are small and versioned.
+CURATION_DIR = Path(__file__).resolve().parent.parent / "curation"
 
 # Derived, rebuildable data lives in the repo (gitignored).
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"

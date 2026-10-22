@@ -16,7 +16,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from aotd.config import DB_PATH, IMAGES_DIR  # noqa: E402
+from aotd.config import DB_PATH  # noqa: E402
+from aotd.manifest import load_downloads  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "site" / "public" / "data"
 
@@ -42,20 +43,10 @@ def disciplines_for(roles, descriptor):
     return found or ["other"]
 
 
-def load_manifest():
-    files = {}
-    with open(IMAGES_DIR / "manifest.jsonl") as f:
-        for line in f:
-            r = json.loads(line)
-            if "error" not in r:
-                files[r["image_id"]] = r  # later lines win, so retries override failures
-    return files
-
-
 def main():
     db = sqlite3.connect(DB_PATH)
     db.row_factory = sqlite3.Row
-    files = load_manifest()
+    files = load_downloads()
 
     post_rows = db.execute(
         "SELECT p.*, pa.artist_id FROM posts p LEFT JOIN post_artists pa ON pa.post_id = p.id "
@@ -66,7 +57,7 @@ def main():
         images_by_post.setdefault(r["post_id"], []).append(r)
 
     def filename(image_row):
-        f = files.get(image_row["id"])
+        f = files.get((image_row["post_id"], image_row["url_hash"]))
         return f and Path(f["path"]).name
 
     posts, post_index, artworks = [], {}, []
@@ -90,7 +81,7 @@ def main():
         if artist:
             artist_posts.setdefault(artist["id"], []).append(idx)
         for i in imgs:
-            f = files.get(i["id"])
+            f = files.get((i["post_id"], i["url_hash"]))
             if i["kind"] != "artwork" or not f:
                 continue
             if artist and i["year_start"]:
