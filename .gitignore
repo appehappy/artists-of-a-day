@@ -1,0 +1,9 @@
+# Archive data (raw snapshots, images) lives in Dropbox, not git — see aotd/config.py
+/data/
+*.sqlite
+*.sqlite-journal
+
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
