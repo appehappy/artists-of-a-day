@@ -1,6 +1,6 @@
 ---
 import Base from "../layouts/Base.astro";
-import { artists, disciplines, posts } from "../lib/data";
+import { artists, colours, disciplines, posts, regions } from "../lib/data";
 import { ERAS } from "../lib/eras";
 
 const firstYear = posts[0]?.date.slice(0, 4);
@@ -26,6 +26,17 @@ const firstYear = posts[0]?.date.slice(0, 4);
           <button class="chip" type="button" data-value={e.key} aria-pressed="false">{e.label}</button>
         ))}
       </div>
+      <div class="chips" data-group="region" aria-label="Region">
+        {regions.filter((r) => r.artists >= 5).map((r) => (
+          <button class="chip" type="button" data-value={r.key} aria-pressed="false">{r.key}</button>
+        ))}
+      </div>
+      <div class="chips swatches" data-group="colour" aria-label="Colour">
+        {colours.map((c) => (
+          <button class="swatch" type="button" data-value={c.key} aria-pressed="false"
+                  aria-label={c.key} title={c.key} style={`--c:${c.hex}`}></button>
+        ))}
+      </div>
       <div class="chips">
         <button class="chip" type="button" data-toggle="living" aria-pressed="false">Living artists</button>
         <button class="chip" type="button" data-reshuffle>↻ Reshuffle</button>
@@ -47,6 +58,13 @@ const firstYear = posts[0]?.date.slice(0, 4);
   .wall-head p { margin: 0; }
   .filters { display: grid; gap: 8px; justify-items: end; }
   .filters .chips { justify-content: flex-end; }
+  .swatches { gap: 8px; padding: 2px 0; }
+  .swatch {
+    width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--c); padding: 0; transition: transform 0.2s var(--ease), box-shadow 0.2s;
+  }
+  .swatch:hover { transform: scale(1.15); }
+  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); transform: scale(1.1); }
   @media (max-width: 900px) {
     .wall-head { grid-template-columns: 1fr; }
     .filters, .filters .chips { justify-items: start; justify-content: flex-start; }
@@ -75,7 +93,7 @@ const firstYear = posts[0]?.date.slice(0, 4);
 <script>
   import { loadArtworks, loadSite, mulberry32, onPage, shuffleInPlace } from "../lib/client";
   import { eraOf } from "../lib/eras";
-  import { imgUrl, type ArtworkRow, type Post } from "../lib/types";
+  import { artworkHasColour, thumbUrl, type ArtworkRow, type Post } from "../lib/types";
 
   const BATCH = 48;
   const KEY = "wall-state";
@@ -84,14 +102,19 @@ const firstYear = posts[0]?.date.slice(0, 4);
     lastNavType = (e as unknown as { navigationType: string }).navigationType;
   });
 
-  interface State { disc: string[]; era: string | null; living: boolean; seed: number; shown: number; scrollY: number; }
+  interface State {
+    disc: string[]; era: string | null; region: string | null; colour: string | null;
+    living: boolean; seed: number; shown: number; scrollY: number;
+  }
 
   function readState(): State {
+    const fresh: State = { disc: [], era: null, region: null, colour: null, living: false,
+                           seed: (Math.random() * 2 ** 31) | 0, shown: 0, scrollY: 0 };
     try {
-      const s = JSON.parse(sessionStorage.getItem(KEY) || "null");
-      if (s) return s;
-    } catch {}
-    return { disc: [], era: null, living: false, seed: (Math.random() * 2 ** 31) | 0, shown: 0, scrollY: 0 };
+      return { ...fresh, ...JSON.parse(sessionStorage.getItem(KEY) || "{}") };
+    } catch {
+      return fresh;
+    }
   }
   const saveState = (s: State) => { try { sessionStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
 
@@ -104,8 +127,10 @@ const firstYear = posts[0]?.date.slice(0, 4);
     const artistBySlug = new Map(site.artists.map((a) => [a.slug, a]));
     const postMeta = site.posts.map((p: Post) => {
       const a = p.artist ? artistBySlug.get(p.artist) : undefined;
-      return { post: p, artist: a, disc: new Set(a?.disciplines ?? []), living: !!a?.living };
+      return { post: p, artist: a, disc: new Set(a?.disciplines ?? []), living: !!a?.living,
+               region: a?.region ?? null };
     });
+    const colourIndex = new Map(site.colours.map((c, i) => [c.key, i]));
 
     const countEl = document.querySelector("[data-count]")!;
     const sentinel = document.querySelector<HTMLElement>("[data-sentinel]")!;
@@ -120,8 +145,12 @@ const firstYear = posts[0]?.date.slice(0, 4);
         b.setAttribute("aria-pressed", String(state.disc.includes(b.dataset.value!))));
       document.querySelectorAll<HTMLButtonElement>('[data-group="era"] .chip').forEach((b) =>
         b.setAttribute("aria-pressed", String(state.era === b.dataset.value)));
+      for (const group of ["region", "colour"] as const) {
+        document.querySelectorAll<HTMLButtonElement>(`[data-group="${group}"] [data-value]`).forEach((b) =>
+          b.setAttribute("aria-pressed", String(state[group] === b.dataset.value)));
+      }
       document.querySelector('[data-toggle="living"]')!.setAttribute("aria-pressed", String(state.living));
-      clearBtn.hidden = !(state.disc.length || state.era || state.living);
+      clearBtn.hidden = !(state.disc.length || state.era || state.region || state.colour || state.living);
     }
 
     function compute() {
@@ -131,6 +160,8 @@ const firstYear = posts[0]?.date.slice(0, 4);
         if (disc.size && ![...disc].some((d) => m.disc.has(d))) return false;
         if (state.living && !m.living) return false;
         if (state.era && eraOf(r[4]) !== state.era) return false;
+        if (state.region && m.region !== state.region) return false;
+        if (state.colour && !artworkHasColour(r[6], colourIndex.get(state.colour)!, state.colour)) return false;
         return true;
       });
       shuffleInPlace(order, mulberry32(state.seed));
@@ -175,7 +206,7 @@ const firstYear = posts[0]?.date.slice(0, 4);
       img.loading = "lazy";
       img.decoding = "async";
       img.alt = [title, artist?.name ?? post.subject].filter(Boolean).join(" — ");
-      img.src = imgUrl(post, file);
+      img.src = thumbUrl(post, file);
       img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
       const cap = document.createElement("div");
       cap.className = "cap";
@@ -225,6 +256,13 @@ const firstYear = posts[0]?.date.slice(0, 4);
         state.era = state.era === b.dataset.value ? null : b.dataset.value!;
         reset();
       }));
+    for (const group of ["region", "colour"] as const) {
+      document.querySelectorAll<HTMLButtonElement>(`[data-group="${group}"] [data-value]`).forEach((b) =>
+        b.addEventListener("click", () => {
+          state[group] = state[group] === b.dataset.value ? null : b.dataset.value!;
+          reset();
+        }));
+    }
     document.querySelector('[data-toggle="living"]')!.addEventListener("click", () => {
       state.living = !state.living;
       reset();
@@ -235,7 +273,7 @@ const firstYear = posts[0]?.date.slice(0, 4);
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
     clearBtn.addEventListener("click", () => {
-      Object.assign(state, { disc: [], era: null, living: false });
+      Object.assign(state, { disc: [], era: null, region: null, colour: null, living: false });
       reset();
     });
 

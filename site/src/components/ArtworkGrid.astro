@@ -1,8 +1,11 @@
 ---
-// Masonry grid of artworks with a full-screen viewer (arrow keys to step through).
+// Masonry grid of artworks with a full-screen viewer (arrow keys to step through)
+// that also shows visually similar works by other artists.
 export interface Item {
-  src: string;
+  src: string; // original, for the viewer and the lead image
+  thumb: string; // grid image
   file: string;
+  post: number; // post index, for similar works
   w: number;
   h: number;
   title: string | null;
@@ -18,9 +21,9 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
 <div class="works" data-lightbox>
   {items.map((it, i) => (
     <button class="work" type="button" data-lb-index={i} data-file={it.file} data-src={it.src}
-            data-caption={caption(it)} data-year={it.year ?? ""}>
+            data-post={it.post} data-caption={caption(it)} data-year={it.year ?? ""}>
       <span class="frame" style={`aspect-ratio:${it.w}/${it.h}`}>
-        <img class="fade" src={it.src} alt={caption(it) || "Untitled"} loading="lazy" decoding="async" />
+        <img class="fade" src={it.thumb} alt={caption(it) || "Untitled"} loading="lazy" decoding="async" />
       </span>
       {caption(it) && <span class="cap">{caption(it)}</span>}
     </button>
@@ -32,6 +35,10 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
   <button class="lb-prev" type="button" aria-label="Previous">‹</button>
   <figure><img alt="" /><figcaption></figcaption></figure>
   <button class="lb-next" type="button" aria-label="Next">›</button>
+  <section class="similar" hidden>
+    <h3>More like this</h3>
+    <div class="similar-row"></div>
+  </section>
 </div>
 
 <style>
@@ -44,22 +51,70 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
   .frame img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
   .work:hover .frame img { transform: scale(1.02); }
   .cap { display: block; margin-top: 7px; font-size: 13px; color: var(--muted); line-height: 1.35; }
+
+  .lightbox { flex-direction: column; }
+  .lightbox figure { flex: 1; min-height: 0; justify-content: center; }
+  .lightbox:has(.similar:not([hidden])) figure img { max-height: calc(100vh - 290px); }
+  .similar { width: 100%; max-width: 1100px; margin-top: 18px; }
+  .similar h3 { font: 12px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin: 0 0 10px; }
+  .similar-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+  .similar-row :global(a) { flex: 0 0 auto; display: block; text-decoration: none; color: #bbb; font-size: 12px; width: 110px; }
+  .similar-row :global(img) { width: 110px; height: 110px; object-fit: cover; border-radius: 3px; margin-bottom: 4px; transition: transform 0.3s var(--ease); }
+  .similar-row :global(a:hover img) { transform: scale(1.05); }
+  .similar-row :global(span) { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 
 <script>
-  import { onPage } from "../lib/client";
+  import { navigate } from "astro:transitions/client";
+  import { loadSite, onPage } from "../lib/client";
+  import { thumbUrl, type SimilarMap } from "../lib/types";
+
+  const similarCache = new Map<string, Promise<SimilarMap>>();
+  const loadSimilar = (post: string) => {
+    if (!similarCache.has(post)) {
+      similarCache.set(post, fetch(`/data/similar/${post}.json`)
+        .then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+    }
+    return similarCache.get(post)!;
+  };
 
   onPage("[data-lightbox]", (grid) => {
     const box = document.querySelector<HTMLElement>(".lightbox")!;
-    const img = box.querySelector("img")!;
+    const img = box.querySelector("figure img") as HTMLImageElement;
     const cap = box.querySelector("figcaption")!;
+    const similar = box.querySelector<HTMLElement>(".similar")!;
+    const row = box.querySelector<HTMLElement>(".similar-row")!;
     const items = [...grid.querySelectorAll<HTMLElement>("[data-lb-index]")];
     let i = 0;
+
+    const showSimilar = async (item: HTMLElement) => {
+      const [map, site] = await Promise.all([loadSimilar(item.dataset.post!), loadSite()]);
+      if (items[i] !== item) return; // moved on while loading
+      const bySlug = new Map(site.artists.map((a) => [a.slug, a]));
+      const links = (map[item.dataset.file!] ?? []).map(([pi, file]) => {
+        const post = site.posts[pi];
+        const name = post.artist ? bySlug.get(post.artist)?.name : post.subject;
+        const a = document.createElement("a");
+        a.href = `${post.artist ? `/artist/${post.artist}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}`;
+        const t = document.createElement("img");
+        t.src = thumbUrl(post, file);
+        t.alt = "";
+        t.loading = "lazy";
+        const s = document.createElement("span");
+        s.textContent = name ?? "";
+        a.append(t, s);
+        a.addEventListener("click", (e) => { e.preventDefault(); close(); navigate(a.getAttribute("href")!); });
+        return a;
+      });
+      row.replaceChildren(...links);
+      similar.hidden = links.length === 0;
+    };
 
     const show = (n: number) => {
       i = (n + items.length) % items.length;
       img.src = items[i].dataset.src!;
       cap.textContent = `${items[i].dataset.caption || "Untitled"}  ·  ${i + 1} / ${items.length}`;
+      showSimilar(items[i]);
     };
     const close = () => { box.classList.remove("open"); document.body.style.overflow = ""; };
 

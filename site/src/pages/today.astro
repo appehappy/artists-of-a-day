@@ -38,7 +38,7 @@ import Base from "../layouts/Base.astro";
 
 <script>
   import { loadSite, onPage } from "../lib/client";
-  import { imgUrl } from "../lib/types";
+  import { thumbUrl } from "../lib/types";
 
   const LEAP_YEAR = 2024; // any leap year, so Feb 29 is reachable
 
@@ -76,7 +76,7 @@ import Base from "../layouts/Base.astro";
         if (p.intro) {
           const img = document.createElement("img");
           img.className = "fade";
-          img.src = imgUrl(p, p.intro);
+          img.src = thumbUrl(p, p.intro);
           img.alt = "";
           img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
           box.append(img);

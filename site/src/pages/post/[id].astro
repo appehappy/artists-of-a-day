@@ -4,7 +4,7 @@ import ArtworkGrid, { type Item } from "../../components/ArtworkGrid.astro";
 import Feature from "../../components/Feature.astro";
 import Base from "../../layouts/Base.astro";
 import { artworksByPost, posts } from "../../lib/data";
-import { formatDate, imgUrl, type Post } from "../../lib/types";
+import { formatDate, imgUrl, thumbUrl, type Post } from "../../lib/types";
 
 export function getStaticPaths() {
   return posts.map((post, i) => ({ params: { id: post.id }, props: { post, i } }));
@@ -12,7 +12,7 @@ export function getStaticPaths() {
 
 const { post, i } = Astro.props as { post: Post; i: number };
 const items: Item[] = (artworksByPost.get(i) ?? []).map(([, file, w, h, year, title]) => ({
-  src: imgUrl(post, file), file, w, h, year, title,
+  src: imgUrl(post, file), thumb: thumbUrl(post, file), file, post: i, w, h, year, title,
 }));
 const intro = post.intro ? imgUrl(post, post.intro) : items[0]?.src ?? null;
 ---

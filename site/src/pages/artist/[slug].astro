@@ -3,7 +3,7 @@ import ArtworkGrid, { type Item } from "../../components/ArtworkGrid.astro";
 import Feature from "../../components/Feature.astro";
 import Base from "../../layouts/Base.astro";
 import { artistBySlug, artists, artworksByPost, disciplineLabel, posts } from "../../lib/data";
-import { formatDate, imgUrl, lifeDates, type Artist } from "../../lib/types";
+import { formatDate, imgUrl, lifeDates, thumbUrl, type Artist } from "../../lib/types";
 
 export function getStaticPaths() {
   return artists.map((a) => ({ params: { slug: a.slug }, props: { artist: a } }));
@@ -14,14 +14,18 @@ const features = artist.posts.map((i) => ({ i, post: posts[i] }))
   .sort((a, b) => a.post.date.localeCompare(b.post.date));
 const items: Item[] = features.flatMap(({ i, post }) =>
   (artworksByPost.get(i) ?? []).map(([, file, w, h, year, title]) => ({
-    src: imgUrl(post, file), file, w, h, year, title,
+    src: imgUrl(post, file), thumb: thumbUrl(post, file), file, post: i, w, h, year, title,
   })));
 const first = features[0]?.post;
 const intro = first?.intro ? imgUrl(first, first.intro) : items[0]?.src ?? null;
-const meta = [lifeDates(artist), artist.nationality].filter(Boolean).join(" · ");
+const meta = [lifeDates(artist), artist.nationality, artist.region].filter(Boolean).join(" · ");
+const movements = artist.wikidata?.movements ?? [];
+const wikipedia = artist.wikidata?.enwiki
+  ? `https://en.wikipedia.org/wiki/${encodeURIComponent(artist.wikidata.enwiki.replaceAll(" ", "_"))}`
+  : null;
 const neighbours = artist.neighbours.map((s) => artistBySlug.get(s)!).map((n) => {
   const p = posts[n.posts[0]];
-  return { ...n, img: p?.intro ? imgUrl(p, p.intro) : null };
+  return { ...n, img: p?.intro ? thumbUrl(p, p.intro) : null };
 });
 ---
 
@@ -35,6 +39,9 @@ const neighbours = artist.neighbours.map((s) => artistBySlug.get(s)!).map((n) =>
       {artist.roles.length > 0 && (
         <ul class="roles">{artist.roles.map((r) => <li>{r}</li>)}</ul>
       )}
+      {movements.length > 0 && (
+        <p class="movements muted">Associated with {movements.join(", ")}</p>
+      )}
       <section class="featured">
         <h2>Featured on Artist of the Day</h2>
         <ul>
@@ -46,7 +53,10 @@ const neighbours = artist.neighbours.map((s) => artistBySlug.get(s)!).map((n) =>
           ))}
         </ul>
       </section>
-      <p class="muted small">{items.length} works in the archive</p>
+      <p class="muted small">
+        {items.length} works in the archive
+        {wikipedia && <> · <a class="wiki" href={wikipedia} target="_blank" rel="noopener">Wikipedia ↗</a></>}
+      </p>
     </div>
   </article>
 
@@ -87,6 +97,8 @@ const neighbours = artist.neighbours.map((s) => artistBySlug.get(s)!).map((n) =>
   .featured a { color: var(--accent); text-decoration: none; white-space: nowrap; }
   .featured a:hover { text-decoration: underline; }
   .small { font-size: 13px; }
+  .movements { font-size: 14px; margin: -14px 0 24px; }
+  .wiki { color: inherit; }
   .block { padding-bottom: 48px; }
   .section-title { font-size: 34px; margin: 0 0 20px; padding-top: 24px; border-top: 1px solid var(--line); }
   .neighbours { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 20px; }

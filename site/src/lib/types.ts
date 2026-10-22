@@ -25,6 +25,8 @@ export interface Artist {
   living: boolean;
   posts: number[]; // indexes into posts
   neighbours: string[]; // slugs
+  region: string | null;
+  wikidata: { qid: string; enwiki: string | null; movements: string[] } | null;
 }
 
 export interface Discipline {
@@ -37,12 +39,19 @@ export interface SiteData {
   posts: Post[];
   artists: Artist[];
   disciplines: Discipline[];
+  regions: { key: string; artists: number }[];
+  colours: { key: string; hex: string }[]; // see artworkHasColour
 }
 
-// [post index, filename, width, height, year, title]
-export type ArtworkRow = [number, string, number, number, number | null, string | null];
+// [post index, filename, width, height, year, title, colours (see artworkHasColour)]
+export type ArtworkRow = [number, string, number, number, number | null, string | null, number];
+
+// Similar works for one post, from /data/similar/<post index>.json
+export type SimilarMap = Record<string, [number, string][]>;
 
 export const imgUrl = (post: Post, file: string) => `/img/${post.dir}/${file}`;
+export const thumbUrl = (post: Post, file: string) =>
+  `/thumbs/${post.dir}/${file.replace(/\.[a-z]+$/i, ".webp")}`;
 
 export function lifeDates(a: Pick<Artist, "birth" | "death">): string {
   if (a.birth && a.death) return `${a.birth}–${a.death}`;
@@ -54,4 +63,14 @@ export function formatDate(iso: string): string {
   return new Date(iso + "T12:00:00").toLocaleDateString("en-US", {
     year: "numeric", month: "long", day: "numeric",
   });
+}
+
+const NEUTRALS = new Set(["black", "grey", "white"]);
+
+/** Colour i (index into SiteData.colours) for an artwork's packed colours int: bits
+ *  0–11 mark colours covering >= 12% of the image, bits 12+ hold 1 + its main hue.
+ *  Chromatic swatches match the main hue, so a blue backdrop doesn't make a brown
+ *  sculpture "blue"; black, grey and white match any noticeable share. */
+export function artworkHasColour(packed: number, i: number, key: string): boolean {
+  return NEUTRALS.has(key) ? (packed & (1 << i)) !== 0 : packed >> 12 === i + 1;
 }
