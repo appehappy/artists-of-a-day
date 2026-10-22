@@ -1,0 +1,229 @@
+---
+import Base from "../../layouts/Base.astro";
+
+export function getStaticPaths() {
+  return [
+    { params: { field: "colour" }, props: {
+      title: "Colour Field",
+      blurb: "Every artwork arranged by its main colour, light to dark. Black-and-white works gather on the left.",
+    } },
+    { params: { field: "constellation" }, props: {
+      title: "Constellation",
+      blurb: "Every artwork placed by visual likeness: similar works cluster together, whoever made them.",
+    } },
+  ];
+}
+
+const { field } = Astro.params;
+const { title, blurb } = Astro.props;
+const views = [
+  { key: "colour", label: "Colour Field" },
+  { key: "constellation", label: "Constellation" },
+];
+---
+
+<Base title={title}>
+  <section class="explore" data-field={field}>
+    <canvas class="field-canvas" aria-label={`${title}: a zoomable mosaic of every artwork`}></canvas>
+
+    <div class="panel top-left">
+      <nav class="switch" aria-label="Views">
+        {views.map((v) => (
+          <a href={`/explore/${v.key}`} aria-current={v.key === field ? "page" : undefined}>{v.label}</a>
+        ))}
+      </nav>
+      <p class="blurb">{blurb}</p>
+      <p class="hint">Drag to move · pinch or ⌘-scroll to zoom · click a work</p>
+    </div>
+
+    <div class="panel bottom-left controls">
+      <button type="button" data-zoom="1.8" aria-label="Zoom in">+</button>
+      <button type="button" data-zoom="0.55" aria-label="Zoom out">−</button>
+      <button type="button" data-fit>Whole field</button>
+      <button type="button" data-surprise>Surprise me</button>
+    </div>
+
+    <div class="loading" data-loading>Laying out 89,000 works…</div>
+    <div class="tip" hidden></div>
+
+    <aside class="card" aria-live="polite" hidden>
+      <button type="button" class="card-close" aria-label="Close">×</button>
+      <div class="card-img"><img alt="" /></div>
+      <a class="card-artist serif" href="#"></a>
+      <p class="card-meta"></p>
+      <a class="card-open" href="#">Open artist page →</a>
+      <h3>More like this</h3>
+      <div class="card-similar"></div>
+    </aside>
+  </section>
+</Base>
+
+<style>
+  .explore { position: relative; height: calc(100vh - 61px); height: calc(100dvh - 61px); overflow: hidden; }
+  .field-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  .field-canvas:active { cursor: grabbing; }
+  .panel {
+    position: absolute; z-index: 2; padding: 14px 16px; border-radius: 14px;
+    background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(12px);
+    border: 1px solid var(--line); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  }
+  .top-left { top: 16px; left: 16px; max-width: 330px; }
+  .bottom-left { bottom: 16px; left: 16px; display: flex; gap: 6px; padding: 8px; }
+  .switch { display: flex; gap: 4px; margin-bottom: 8px; }
+  .switch a { text-decoration: none; padding: 5px 12px; border-radius: 999px; font-size: 13px; color: var(--muted); }
+  .switch a[aria-current="page"] { background: var(--ink); color: var(--bg); }
+  .blurb { margin: 0 0 6px; font-size: 14px; }
+  .hint { margin: 0; font-size: 12px; color: var(--muted); }
+  .controls button {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 999px;
+    min-width: 36px; height: 36px; padding: 0 14px; font-size: 14px;
+  }
+  .controls button:hover { border-color: var(--muted); }
+  .loading {
+    position: absolute; inset: 0; display: grid; place-items: center; z-index: 1;
+    font: 28px var(--serif); color: var(--muted); background: var(--bg); transition: opacity 0.6s var(--ease);
+  }
+  .loading.done { opacity: 0; pointer-events: none; }
+  .tip {
+    position: absolute; z-index: 3; pointer-events: none; max-width: 260px;
+    background: var(--ink); color: var(--bg); padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.35;
+  }
+  .tip b { display: block; font: 15px/1.2 var(--serif); font-weight: 400; }
+
+  .card {
+    position: absolute; z-index: 3; top: 16px; right: 16px; bottom: 16px; width: min(360px, calc(100% - 32px));
+    overflow-y: auto; padding: 16px; border-radius: 16px; background: var(--surface);
+    border: 1px solid var(--line); box-shadow: 0 16px 50px rgba(0, 0, 0, 0.22);
+    animation: card-in 0.45s var(--ease) both;
+  }
+  .card[hidden] { display: none; }
+  @keyframes card-in { from { opacity: 0; transform: translateX(24px); } }
+  .card-close { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 24px; color: var(--muted); }
+  .card-img { border-radius: 8px; overflow: hidden; background: var(--tile); margin: 18px 0 14px; }
+  .card-img img { width: 100%; max-height: 52vh; object-fit: contain; display: block; }
+  .card-artist { display: block; font-size: 30px; line-height: 1.05; text-decoration: none; }
+  .card-meta { margin: 6px 0 10px; color: var(--muted); font-size: 14px; }
+  .card-open { color: var(--accent); text-decoration: none; font-size: 14px; }
+  .card h3 { font: 12px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; }
+  .card-similar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .card-similar :global(button) { border: 0; padding: 0; background: var(--tile); aspect-ratio: 1; border-radius: 4px; overflow: hidden; }
+  .card-similar :global(img) { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s var(--ease); }
+  .card-similar :global(button:hover img) { transform: scale(1.08); }
+  @media (max-width: 720px) {
+    .explore { height: calc(100dvh - 140px); }
+    .top-left { right: 16px; max-width: none; }
+    .blurb { display: none; }
+    .card { top: auto; height: 62%; }
+  }
+</style>
+
+<script>
+  import { loadArtworks, loadSite, onPage } from "../../lib/client";
+  import { FieldView, loadField } from "../../lib/field";
+  import { imgUrl, thumbUrl, type SimilarMap } from "../../lib/types";
+
+  let view: FieldView | null = null;
+  document.addEventListener("astro:before-swap", () => { view?.destroy(); view = null; });
+
+  onPage("[data-field]", async (root) => {
+    const name = root.dataset.field!;
+    const loading = root.querySelector<HTMLElement>("[data-loading]")!;
+    let site, rows, field;
+    try {
+      [site, rows, field] = await Promise.all([loadSite(), loadArtworks(), loadField(name)]);
+    } catch {
+      loading.textContent = "This view's data isn't built yet. Run scripts/build_fields.py, then reload.";
+      return;
+    }
+    const bySlug = new Map(site.artists.map((a) => [a.slug, a]));
+    const rowByKey = new Map(rows.map((r, i) => [`${r[0]}|${r[1]}`, i]));
+    const thumb = (row: number) => thumbUrl(site.posts[rows[row][0]], rows[row][1]);
+    const describe = (row: number) => {
+      const [pi, , , , year, title] = rows[row];
+      const post = site.posts[pi];
+      const artist = post.artist ? bySlug.get(post.artist) : undefined;
+      return { post, artist, name: artist?.name ?? post.subject ?? "", work: [title, year].filter(Boolean).join(", ") };
+    };
+
+    const tip = root.querySelector<HTMLElement>(".tip")!;
+    const card = root.querySelector<HTMLElement>(".card")!;
+    const cardImg = card.querySelector<HTMLImageElement>(".card-img img")!;
+    const similarCache = new Map<number, Promise<SimilarMap>>();
+
+    const select = async (row: number | null) => {
+      if (row === null) { card.hidden = true; return; }
+      const { post, artist, name: who, work } = describe(row);
+      const [pi, file] = rows[row];
+      const href = `${artist ? `/artist/${artist.slug}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}`;
+      cardImg.src = thumb(row);
+      const full = new Image();
+      full.onload = () => { if (cardImg.dataset.row === String(row)) cardImg.src = full.src; };
+      full.src = imgUrl(post, file);
+      cardImg.dataset.row = String(row);
+      const nameEl = card.querySelector<HTMLAnchorElement>(".card-artist")!;
+      nameEl.textContent = who;
+      nameEl.href = href;
+      card.querySelector(".card-meta")!.textContent =
+        [work || "Untitled", artist?.nationality, artist?.region].filter(Boolean).join(" · ");
+      card.querySelector<HTMLAnchorElement>(".card-open")!.href = href;
+      card.hidden = false;
+
+      if (!similarCache.has(pi)) {
+        similarCache.set(pi, fetch(`/data/similar/${pi}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+      }
+      const similar = (await similarCache.get(pi)!)[file] ?? [];
+      if (cardImg.dataset.row !== String(row)) return;
+      const box = card.querySelector(".card-similar")!;
+      box.replaceChildren(...similar.map(([spi, sfile]) => rowByKey.get(`${spi}|${sfile}`))
+        .filter((r): r is number => r !== undefined)
+        .map((r) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.title = describe(r).name;
+          const img = document.createElement("img");
+          img.src = thumb(r);
+          img.alt = describe(r).name;
+          b.append(img);
+          // Hop across the field to the similar work.
+          b.addEventListener("click", () => {
+            view!.selected = r;
+            view!.flyToRow(r, Math.max(view!.cam.s, 120));
+            select(r);
+          });
+          return b;
+        }));
+    };
+
+    view = new FieldView(root.querySelector("canvas")!, field.base, field.layout, field.cells, field.overview, {
+      thumbUrl: thumb,
+      onHover: (row, x, y) => {
+        if (row === null) { tip.hidden = true; return; }
+        const { name: who, work } = describe(row);
+        tip.innerHTML = "";
+        const b = document.createElement("b");
+        b.textContent = who;
+        tip.append(b, work);
+        tip.hidden = false;
+        tip.style.left = `${Math.min(x + 14, root.clientWidth - 270)}px`;
+        tip.style.top = `${y + 16}px`;
+      },
+      onSelect: select,
+    });
+    root.querySelector("[data-loading]")!.classList.add("done");
+
+    root.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) =>
+      b.addEventListener("click", () => view!.flyTo({ s: view!.cam.s * Number(b.dataset.zoom) }, 350)));
+    root.querySelector("[data-fit]")!.addEventListener("click", () => view!.fit());
+    root.querySelector("[data-surprise]")!.addEventListener("click", () => {
+      const row = Math.floor(Math.random() * rows.length);
+      view!.selected = row;
+      view!.flyToRow(row, 180);
+      select(row);
+    });
+    card.querySelector(".card-close")!.addEventListener("click", () => {
+      card.hidden = true;
+      view!.selected = null;
+      view!.invalidate();
+    });
+  });
+</script>

@@ -9,13 +9,13 @@ const firstYear = posts[0]?.date.slice(0, 4);
 <Base>
   <section class="wall-head wrap">
     <div>
-      <h1 class="serif">Every artwork, every artist, since {firstYear}.</h1>
-      <p class="muted">
+      <h1 class="serif reveal" style="--i:0">Every artwork, every artist, since {firstYear}.</h1>
+      <p class="muted reveal" style="--i:1">
         <span data-count>…</span> from {artists.length.toLocaleString()} artists featured on{" "}
         <a href="https://visualdiplomacyusa.blogspot.com/" target="_blank" rel="noopener">Artist of the Day</a>.
       </p>
     </div>
-    <div class="filters">
+    <div class="filters reveal" style="--i:2">
       <div class="chips" data-group="disc" aria-label="Discipline">
         {disciplines.filter((d) => d.key !== "other").map((d) => (
           <button class="chip" type="button" data-value={d.key} aria-pressed="false">{d.label}</button>
@@ -86,6 +86,8 @@ const firstYear = posts[0]?.date.slice(0, 4);
   .wall :global(.tile .cap b) { display: block; font: 19px/1.15 var(--serif); font-weight: 400; }
   .wall :global(.tile:hover .cap), .wall :global(.tile:focus-visible .cap) { opacity: 1; transform: none; }
   .wall :global(.tile:hover img) { transform: scale(1.025); }
+  .wall :global(.tile) { transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease); }
+  .wall :global(.tile:hover) { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); }
   .wall :global(.tile img) { transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
   .wall-end { text-align: center; padding: 24px 0 64px; min-height: 40px; }
 </style>
@@ -96,6 +98,7 @@ const firstYear = posts[0]?.date.slice(0, 4);
   import { artworkHasColour, thumbUrl, type ArtworkRow, type Post } from "../lib/types";
 
   const BATCH = 48;
+  const motion = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
   const KEY = "wall-state";
   let lastNavType: string | null = null;
   document.addEventListener("astro:before-preparation", (e) => {
@@ -165,7 +168,22 @@ const firstYear = posts[0]?.date.slice(0, 4);
         return true;
       });
       shuffleInPlace(order, mulberry32(state.seed));
-      countEl.textContent = `${order.length.toLocaleString()} works`;
+      countTo(order.length);
+    }
+
+    // The works count rolls to its new value.
+    let shownCount = 0;
+    let countFrame = 0;
+    function countTo(n: number) {
+      cancelAnimationFrame(countFrame);
+      const from = shownCount, start = performance.now();
+      const tick = () => {
+        const t = motion() ? Math.min(1, (performance.now() - start) / 600) : 1;
+        shownCount = Math.round(from + (n - from) * (1 - Math.pow(1 - t, 3)));
+        countEl.textContent = `${shownCount.toLocaleString()} works`;
+        if (t < 1) countFrame = requestAnimationFrame(tick);
+      };
+      tick();
     }
 
     function columnCount() {
@@ -222,24 +240,42 @@ const firstYear = posts[0]?.date.slice(0, 4);
       return a;
     }
 
-    function more(count = BATCH) {
+    function more(count = BATCH, animate = true) {
       const start = tiles.length;
-      for (const r of order.slice(start, start + count)) {
+      order.slice(start, start + count).forEach((r, k) => {
         const t = makeTile(r);
         tiles.push(t);
         place(t);
-      }
+        // New tiles cascade in, column by column.
+        if (animate && motion()) {
+          t.animate([{ opacity: 0, transform: "translateY(28px) scale(0.97)" }, { opacity: 1, transform: "none" }],
+                    { duration: 650, delay: Math.min(k, 30) * 26, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "backwards" });
+        }
+      });
       state.shown = tiles.length;
       sentinel.textContent = tiles.length >= order.length
         ? (order.length ? "That's everything." : "Nothing matches these filters.") : "";
     }
 
-    function reset() {
+    // Filter changes: tiles on screen drop away, then the new set rises in.
+    let resetToken = 0;
+    async function reset() {
+      const token = ++resetToken;
+      syncChips();
+      if (motion() && tiles.length) {
+        const onScreen = tiles.filter((t) => {
+          const r = t.getBoundingClientRect();
+          return r.bottom > 0 && r.top < innerHeight;
+        });
+        await Promise.all(onScreen.map((t, k) => t.animate(
+          [{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(-14px) scale(0.96)" }],
+          { duration: 220, delay: Math.min(k, 20) * 8, easing: "ease-in", fill: "forwards" }).finished.catch(() => {})));
+        if (token !== resetToken) return; // another filter click arrived meanwhile
+      }
       tiles = [];
       compute();
       layout();
       more();
-      syncChips();
       state.scrollY = 0;
       saveState(state);
     }
@@ -269,8 +305,8 @@ const firstYear = posts[0]?.date.slice(0, 4);
     });
     document.querySelector("[data-reshuffle]")!.addEventListener("click", () => {
       state.seed = (Math.random() * 2 ** 31) | 0;
+      window.scrollTo({ top: 0, behavior: motion() ? "smooth" : "auto" });
       reset();
-      window.scrollTo({ top: 0, behavior: "smooth" });
     });
     clearBtn.addEventListener("click", () => {
       Object.assign(state, { disc: [], era: null, region: null, colour: null, living: false });
@@ -280,7 +316,7 @@ const firstYear = posts[0]?.date.slice(0, 4);
     // Initial render, restoring position when coming back
     compute();
     layout();
-    more(Math.max(BATCH, restoring ? state.shown : 0));
+    more(Math.max(BATCH, restoring ? state.shown : 0), !restoring);
     syncChips();
     if (restoring && state.scrollY) window.scrollTo(0, state.scrollY);
     saveState(state);

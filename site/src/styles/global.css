@@ -121,6 +121,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .lightbox { padding: 48px 12px; }
 }
 
+/* Page transitions (see pageMotion in Base.astro) */
+@keyframes page-out { to { opacity: 0; transform: translateY(-10px); } }
+@keyframes page-in { from { opacity: 0; transform: translateY(18px); } }
+@keyframes page-out-back { to { opacity: 0; transform: translateY(10px); } }
+@keyframes page-in-back { from { opacity: 0; transform: translateY(-18px); } }
+
+/* Reveal-on-load for page content: add .reveal, stagger with --i */
+.reveal { animation: rise 0.7s var(--ease) both; animation-delay: calc(var(--i, 0) * 70ms + 120ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }

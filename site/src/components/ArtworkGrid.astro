@@ -1,6 +1,6 @@
 ---
-// Masonry grid of artworks with a full-screen viewer (arrow keys to step through)
-// that also shows visually similar works by other artists.
+// Masonry grid of artworks with a full-screen viewer. Thumbnails morph into the
+// viewer and back; "More like this" hops to a similar work inside the viewer.
 export interface Item {
   src: string; // original, for the viewer and the lead image
   thumb: string; // grid image
@@ -21,7 +21,7 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
 <div class="works" data-lightbox>
   {items.map((it, i) => (
     <button class="work" type="button" data-lb-index={i} data-file={it.file} data-src={it.src}
-            data-post={it.post} data-caption={caption(it)} data-year={it.year ?? ""}>
+            data-thumb={it.thumb} data-post={it.post} data-caption={caption(it)} data-year={it.year ?? ""}>
       <span class="frame" style={`aspect-ratio:${it.w}/${it.h}`}>
         <img class="fade" src={it.thumb} alt={caption(it) || "Untitled"} loading="lazy" decoding="async" />
       </span>
@@ -46,29 +46,38 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
   .work {
     display: block; width: 100%; break-inside: avoid; margin: 0 0 22px;
     border: 0; padding: 0; background: none; text-align: left; cursor: zoom-in;
+    opacity: 0; transform: translateY(18px);
+    transition: opacity 0.6s var(--ease), transform 0.7s var(--ease);
   }
+  .work.in { opacity: 1; transform: none; }
   .frame { display: block; background: var(--tile); border-radius: 3px; overflow: hidden; }
   .frame img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
-  .work:hover .frame img { transform: scale(1.02); }
+  .work:hover .frame img { transform: scale(1.03); }
   .cap { display: block; margin-top: 7px; font-size: 13px; color: var(--muted); line-height: 1.35; }
 
   .lightbox { flex-direction: column; }
+  .lightbox.open { animation: lb-fade 0.3s var(--ease) both; }
+  @keyframes lb-fade { from { background: rgba(10, 9, 8, 0); } }
   .lightbox figure { flex: 1; min-height: 0; justify-content: center; }
   .lightbox:has(.similar:not([hidden])) figure img { max-height: calc(100vh - 290px); }
+  .lightbox figcaption :global(a) { color: #fff; }
   .similar { width: 100%; max-width: 1100px; margin-top: 18px; }
   .similar h3 { font: 12px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: #999; margin: 0 0 10px; }
   .similar-row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
-  .similar-row :global(a) { flex: 0 0 auto; display: block; text-decoration: none; color: #bbb; font-size: 12px; width: 110px; }
+  .similar-row :global(button) {
+    flex: 0 0 auto; display: block; border: 0; padding: 0; background: none; text-align: left;
+    color: #bbb; font-size: 12px; width: 110px; animation: rise 0.45s var(--ease) both;
+  }
   .similar-row :global(img) { width: 110px; height: 110px; object-fit: cover; border-radius: 3px; margin-bottom: 4px; transition: transform 0.3s var(--ease); }
-  .similar-row :global(a:hover img) { transform: scale(1.05); }
+  .similar-row :global(button:hover img) { transform: scale(1.06); }
   .similar-row :global(span) { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 
 <script>
-  import { navigate } from "astro:transitions/client";
-  import { loadSite, onPage } from "../lib/client";
-  import { thumbUrl, type SimilarMap } from "../lib/types";
+  import { loadArtworks, loadSite, onPage } from "../lib/client";
+  import { imgUrl, thumbUrl, type SimilarMap } from "../lib/types";
 
+  const motion = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
   const similarCache = new Map<string, Promise<SimilarMap>>();
   const loadSimilar = (post: string) => {
     if (!similarCache.has(post)) {
@@ -78,65 +87,165 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
     return similarCache.get(post)!;
   };
 
+  /** Run a DOM change as a view transition when the browser supports it. */
+  function morph(update: () => Promise<void> | void) {
+    const start = (document as Document & { startViewTransition?: (cb: () => Promise<void> | void) => { finished: Promise<void> } }).startViewTransition;
+    if (!start || !motion()) return Promise.resolve(update());
+    return start.call(document, update).finished;
+  }
+
+  interface Shown { post: string; file: string; thumb: string; src: string; caption: string;
+                    artist?: { name: string; href: string } }
+
   onPage("[data-lightbox]", (grid) => {
     const box = document.querySelector<HTMLElement>(".lightbox")!;
-    const img = box.querySelector("figure img") as HTMLImageElement;
+    const figure = box.querySelector("figure")!;
+    const img = figure.querySelector("img") as HTMLImageElement;
     const cap = box.querySelector("figcaption")!;
     const similar = box.querySelector<HTMLElement>(".similar")!;
     const row = box.querySelector<HTMLElement>(".similar-row")!;
     const items = [...grid.querySelectorAll<HTMLElement>("[data-lb-index]")];
     let i = 0;
+    let shown: Shown | null = null;
 
-    const showSimilar = async (item: HTMLElement) => {
-      const [map, site] = await Promise.all([loadSimilar(item.dataset.post!), loadSite()]);
-      if (items[i] !== item) return; // moved on while loading
-      const bySlug = new Map(site.artists.map((a) => [a.slug, a]));
-      const links = (map[item.dataset.file!] ?? []).map(([pi, file]) => {
-        const post = site.posts[pi];
-        const name = post.artist ? bySlug.get(post.artist)?.name : post.subject;
+    // Works rise in as they scroll into view, a few at a time.
+    const io = new IntersectionObserver((entries) => {
+      entries.filter((e) => e.isIntersecting).forEach((e, n) => {
+        (e.target as HTMLElement).style.transitionDelay = `${Math.min(n, 8) * 45}ms`;
+        e.target.classList.add("in");
+        io.unobserve(e.target);
+      });
+    }, { rootMargin: "0px 0px -40px 0px" });
+    items.forEach((el) => io.observe(el));
+
+    const fromItem = (el: HTMLElement): Shown => ({
+      post: el.dataset.post!, file: el.dataset.file!, thumb: el.dataset.thumb!, src: el.dataset.src!,
+      caption: `${el.dataset.caption || "Untitled"}  ·  ${Number(el.dataset.lbIndex) + 1} / ${items.length}`,
+    });
+
+    /** Show a work: the (cached) thumbnail first so a morph has something to land on,
+     *  then the original once it has loaded. */
+    const render = async (s: Shown) => {
+      shown = s;
+      img.src = s.thumb;
+      await img.decode().catch(() => {});
+      cap.textContent = s.caption;
+      if (s.artist) {
         const a = document.createElement("a");
-        a.href = `${post.artist ? `/artist/${post.artist}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}`;
+        a.href = s.artist.href;
+        a.textContent = `${s.artist.name} →`;
+        cap.append("  ·  ", a);
+      }
+      const full = new Image();
+      full.onload = () => { if (shown === s) img.src = s.src; };
+      full.src = s.src;
+      showSimilar(s);
+    };
+
+    const showSimilar = async (s: Shown) => {
+      const [map, site] = await Promise.all([loadSimilar(s.post), loadSite()]);
+      if (shown !== s) return;
+      const bySlug = new Map(site.artists.map((a) => [a.slug, a]));
+      const buttons = (map[s.file] ?? []).map(([pi, file], n) => {
+        const post = site.posts[pi];
+        const name = (post.artist ? bySlug.get(post.artist)?.name : post.subject) ?? "";
+        const b = document.createElement("button");
+        b.type = "button";
+        b.style.animationDelay = `${n * 35}ms`;
         const t = document.createElement("img");
         t.src = thumbUrl(post, file);
         t.alt = "";
-        t.loading = "lazy";
-        const s = document.createElement("span");
-        s.textContent = name ?? "";
-        a.append(t, s);
-        a.addEventListener("click", (e) => { e.preventDefault(); close(); navigate(a.getAttribute("href")!); });
-        return a;
+        const label = document.createElement("span");
+        label.textContent = name;
+        b.append(t, label);
+        b.addEventListener("click", () => hop(t, pi, file, name));
+        return b;
       });
-      row.replaceChildren(...links);
-      similar.hidden = links.length === 0;
+      row.replaceChildren(...buttons);
+      similar.hidden = buttons.length === 0;
     };
 
-    const show = (n: number) => {
-      i = (n + items.length) % items.length;
-      img.src = items[i].dataset.src!;
-      cap.textContent = `${items[i].dataset.caption || "Untitled"}  ·  ${i + 1} / ${items.length}`;
-      showSimilar(items[i]);
+    /** Morph a similar work's thumbnail into the viewer and keep exploring from there. */
+    const hop = async (thumb: HTMLImageElement, pi: number, file: string, name: string) => {
+      const [site, rows] = await Promise.all([loadSite(), loadArtworks()]);
+      const post = site.posts[pi];
+      const r = rows.find((x) => x[0] === pi && x[1] === file);
+      const next: Shown = {
+        post: String(pi), file, thumb: thumbUrl(post, file), src: imgUrl(post, file),
+        caption: r ? [r[5], r[4]].filter(Boolean).join(", ") || "Untitled" : "Untitled",
+        artist: { name, href: `${post.artist ? `/artist/${post.artist}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}` },
+      };
+      thumb.style.viewTransitionName = "lb-art";
+      img.style.viewTransitionName = "";
+      await morph(async () => {
+        thumb.style.viewTransitionName = "";
+        img.style.viewTransitionName = "lb-art";
+        await render(next);
+      });
+      img.style.viewTransitionName = "";
     };
-    const close = () => { box.classList.remove("open"); document.body.style.overflow = ""; };
 
-    items.forEach((el, n) => el.addEventListener("click", () => {
-      show(n);
-      box.classList.add("open");
-      document.body.style.overflow = "hidden";
-    }));
+    const open = async (n: number) => {
+      i = n;
+      const thumb = items[n].querySelector("img")!;
+      thumb.style.viewTransitionName = "lb-art";
+      await morph(async () => {
+        thumb.style.viewTransitionName = "";
+        img.style.viewTransitionName = "lb-art";
+        box.classList.add("open");
+        document.body.style.overflow = "hidden";
+        await render(fromItem(items[n]));
+      });
+      img.style.viewTransitionName = "";
+    };
+
+    const close = async () => {
+      if (!box.classList.contains("open")) return;
+      // Morph back into the grid if we're still on one of this page's works.
+      const thumb = shown && !shown.artist ? items[i].querySelector("img") : null;
+      const visible = thumb && thumb.getBoundingClientRect().bottom > 0 && thumb.getBoundingClientRect().top < innerHeight;
+      if (thumb && visible) img.style.viewTransitionName = "lb-art";
+      await morph(() => {
+        img.style.viewTransitionName = "";
+        if (thumb && visible) thumb.style.viewTransitionName = "lb-art";
+        box.classList.remove("open");
+        document.body.style.overflow = "";
+      });
+      if (thumb) thumb.style.viewTransitionName = "";
+      shown = null;
+    };
+
+    /** Step through this page's works, sliding in the direction of travel. */
+    const step = async (dir: number) => {
+      i = (i + dir + items.length) % items.length;
+      if (motion()) {
+        await figure.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: `translateX(${-dir * 40}px)` }],
+                             { duration: 140, easing: "ease-in" }).finished;
+      }
+      await render(fromItem(items[i]));
+      if (motion()) {
+        figure.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }],
+                       { duration: 260, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      }
+    };
+
+    items.forEach((el, n) => el.addEventListener("click", () => open(n)));
     box.querySelector(".lb-close")!.addEventListener("click", close);
-    box.querySelector(".lb-prev")!.addEventListener("click", () => show(i - 1));
-    box.querySelector(".lb-next")!.addEventListener("click", () => show(i + 1));
+    box.querySelector(".lb-prev")!.addEventListener("click", () => step(-1));
+    box.querySelector(".lb-next")!.addEventListener("click", () => step(1));
     box.addEventListener("click", (e) => { if (e.target === box) close(); });
     const onKey = (e: KeyboardEvent) => {
       if (!box.classList.contains("open")) return;
       if (e.key === "Escape") close();
-      if (e.key === "ArrowLeft") show(i - 1);
-      if (e.key === "ArrowRight") show(i + 1);
+      if (e.key === "ArrowLeft") step(-1);
+      if (e.key === "ArrowRight") step(1);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("astro:before-swap", () => {
       document.removeEventListener("keydown", onKey);
-      close();
+      io.disconnect();
+      box.classList.remove("open");
+      document.body.style.overflow = "";
     }, { once: true });
   });
 </script>

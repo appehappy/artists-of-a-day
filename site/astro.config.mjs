@@ -32,5 +32,16 @@ function reloadOnDataExport() {
 export default defineConfig({
   prefetch: { prefetchAll: false, defaultStrategy: "hover" },
   devToolbar: { enabled: false },
-  vite: { plugins: [reloadOnDataExport()] },
+  vite: {
+    plugins: [reloadOnDataExport()],
+    // Never watch the image folders: the symlinks lead to ~190k files in Dropbox, and
+    // crawling them pins the CPU and memory.
+    server: {
+      watch: {
+        ignored: ["**/public/img/**", "**/public/thumbs/**", "**/public/fields/**",
+                  "**/public/data/similar/**", "**/public/review/**"],
+        followSymlinks: false,
+      },
+    },
+  },
 });

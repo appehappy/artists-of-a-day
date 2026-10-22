@@ -55,6 +55,7 @@ python3 scripts/build_db.py                 #          merge enrichment
 .venv/bin/python scripts/analyze_embeddings.py  #      image kinds + similar works
 python3 scripts/build_db.py                 #          merge again
 python3 scripts/export_site_data.py         # site JSON
+.venv/bin/python scripts/build_fields.py    # Explore views: layouts + map tiles (~5 min)
 python3 -m unittest                         # tests
 ```
 
@@ -86,6 +87,14 @@ needing a human look are listed in `data/review/flagged_posts.csv`.
 An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterable by
 discipline, era, region, colour and living artists), artist pages with similar works
 in the viewer, theme post pages, On this day, Shuffle and artist search.
+
+Explore (prototypes) shows every artwork as one zoomable mosaic, drawn like a slippy
+map from `site/public/fields/` (built by `build_fields.py`, not part of `refresh.py`
+yet): **Colour Field** arranges works by main hue and lightness; **Constellation**
+places them by visual likeness (UMAP of the CLIP embeddings) with CLIP-named regions.
+Motion: tiles cascade in and filter changes animate; thumbnails morph into the viewer
+and back; "More like this" hops between works inside the viewer; pages rise in.
+All motion respects `prefers-reduced-motion`.
 
 ```bash
 ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/originals site/public/img

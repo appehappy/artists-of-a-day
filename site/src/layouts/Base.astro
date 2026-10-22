@@ -8,9 +8,22 @@ interface Props {
 const { title } = Astro.props;
 const path = Astro.url.pathname;
 const nav = [
-  { href: "/", label: "Wall" },
-  { href: "/today", label: "On this day" },
+  { href: "/", label: "Wall", match: (p: string) => p === "/" },
+  { href: "/explore/constellation", label: "Explore", match: (p: string) => p.startsWith("/explore") },
+  { href: "/today", label: "On this day", match: (p: string) => p === "/today" },
 ];
+
+// Page changes: the old page drifts up and fades, the new one rises into place.
+const pageMotion = {
+  forwards: {
+    old: { name: "page-out", duration: "0.22s", easing: "cubic-bezier(0.4, 0, 1, 1)", fillMode: "both" },
+    new: { name: "page-in", duration: "0.42s", delay: "0.06s", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fillMode: "both" },
+  },
+  backwards: {
+    old: { name: "page-out-back", duration: "0.22s", easing: "cubic-bezier(0.4, 0, 1, 1)", fillMode: "both" },
+    new: { name: "page-in-back", duration: "0.42s", delay: "0.06s", easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fillMode: "both" },
+  },
+};
 ---
 
 <!doctype html>
@@ -32,7 +45,7 @@ const nav = [
       <a class="wordmark" href="/"><b>Artist of the Day</b><span>Archive</span></a>
       <nav class="site-nav">
         {nav.map((n) => (
-          <a href={n.href} aria-current={path === n.href ? "page" : undefined}>{n.label}</a>
+          <a href={n.href} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>
         ))}
         <button type="button" data-shuffle>Shuffle</button>
       </nav>
@@ -41,7 +54,7 @@ const nav = [
         <ul hidden></ul>
       </div>
     </header>
-    <main>
+    <main transition:animate={pageMotion}>
       <slot />
     </main>
 
