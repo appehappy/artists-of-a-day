@@ -1,0 +1,99 @@
+---
+import ArtworkGrid, { type Item } from "../../components/ArtworkGrid.astro";
+import Feature from "../../components/Feature.astro";
+import Base from "../../layouts/Base.astro";
+import { artistBySlug, artists, artworksByPost, disciplineLabel, posts } from "../../lib/data";
+import { formatDate, imgUrl, lifeDates, type Artist } from "../../lib/types";
+
+export function getStaticPaths() {
+  return artists.map((a) => ({ params: { slug: a.slug }, props: { artist: a } }));
+}
+
+const { artist } = Astro.props as { artist: Artist };
+const features = artist.posts.map((i) => ({ i, post: posts[i] }))
+  .sort((a, b) => a.post.date.localeCompare(b.post.date));
+const items: Item[] = features.flatMap(({ i, post }) =>
+  (artworksByPost.get(i) ?? []).map(([, file, w, h, year, title]) => ({
+    src: imgUrl(post, file), file, w, h, year, title,
+  })));
+const first = features[0]?.post;
+const intro = first?.intro ? imgUrl(first, first.intro) : items[0]?.src ?? null;
+const meta = [lifeDates(artist), artist.nationality].filter(Boolean).join(" · ");
+const neighbours = artist.neighbours.map((s) => artistBySlug.get(s)!).map((n) => {
+  const p = posts[n.posts[0]];
+  return { ...n, img: p?.intro ? imgUrl(p, p.intro) : null };
+});
+---
+
+<Base title={artist.name}>
+  <article class="artist wrap">
+    <Feature src={intro} />
+    <div class="about">
+      <p class="kicker muted">{artist.disciplines.map((d) => disciplineLabel.get(d)).join(" · ")}</p>
+      <h1 class="serif">{artist.name}</h1>
+      {meta && <p class="meta">{meta}</p>}
+      {artist.roles.length > 0 && (
+        <ul class="roles">{artist.roles.map((r) => <li>{r}</li>)}</ul>
+      )}
+      <section class="featured">
+        <h2>Featured on Artist of the Day</h2>
+        <ul>
+          {features.map(({ post }) => (
+            <li>
+              <span>{formatDate(post.date)}{post.number && <span class="muted"> · #{post.number}</span>}</span>
+              <a href={post.url} target="_blank" rel="noopener">Read the original post ↗</a>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <p class="muted small">{items.length} works in the archive</p>
+    </div>
+  </article>
+
+  <section class="wrap block">
+    <h2 class="serif section-title">Works</h2>
+    <ArtworkGrid items={items} />
+  </section>
+
+  {neighbours.length > 0 && (
+    <section class="wrap block">
+      <h2 class="serif section-title">Nearby in the archive</h2>
+      <div class="neighbours">
+        {neighbours.map((n) => (
+          <a class="nb" href={`/artist/${n.slug}`}>
+            <span class="nb-img">{n.img && <img class="fade" src={n.img} alt="" loading="lazy" />}</span>
+            <b>{n.name}</b>
+            <span class="muted">{[lifeDates(n), n.nationality].filter(Boolean).join(" · ")}</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  .artist {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+    gap: 48px; padding-top: 40px; padding-bottom: 40px; align-items: start;
+  }
+  .kicker { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 10px; }
+  h1 { font-size: clamp(44px, 6vw, 84px); line-height: 0.95; margin: 0 0 14px; }
+  .meta { font-size: 17px; margin: 0 0 16px; }
+  .roles { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 0 0 28px; }
+  .roles li { border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; font-size: 13px; color: var(--muted); }
+  .featured h2 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; margin: 0 0 8px; }
+  .featured ul { list-style: none; padding: 0; margin: 0 0 18px; border-top: 1px solid var(--line); }
+  .featured li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .featured a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+  .featured a:hover { text-decoration: underline; }
+  .small { font-size: 13px; }
+  .block { padding-bottom: 48px; }
+  .section-title { font-size: 34px; margin: 0 0 20px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .neighbours { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 20px; }
+  .nb { text-decoration: none; display: grid; gap: 4px; font-size: 13px; }
+  .nb b { font: 20px/1.15 var(--serif); font-weight: 400; margin-top: 6px; }
+  .nb-img { display: block; aspect-ratio: 4 / 5; background: var(--tile); border-radius: 3px; overflow: hidden; }
+  .nb-img img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
+  .nb:hover img { transform: scale(1.04); }
+  @media (max-width: 900px) { .artist { grid-template-columns: 1fr; gap: 24px; } }
+</style>

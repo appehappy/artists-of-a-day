@@ -27,6 +27,22 @@ python3 scripts/download_images.py   # phase 2: images -> Dropbox (resumable, re
 python3 -m unittest             # parser tests
 ```
 
+## Site (v0, local only)
+
+An Astro site in `site/`: the Wall (filterable, shuffled masonry of every artwork),
+artist pages, theme post pages, On this day, Shuffle and artist search.
+
+```bash
+python3 scripts/export_site_data.py   # db + image manifest -> site/public/data/*.json
+ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/originals site/public/img
+npm --prefix site install
+npm --prefix site run dev             # http://localhost:4321
+```
+
+Only `npm run dev` is supported for now: `astro build` would copy the ~10 GB image
+symlink into `dist/`. Publishing needs thumbnails and an image host first. The site
+shows factual metadata and captions only, never the author's post text.
+
 `data/aotd.sqlite` is derived and rebuilt from scratch each run (schema in
 `aotd/schema.sql`): `posts`, `artists`, `post_artists`, `post_tags`, `images`.
 Parsed fields (subject, nationality, roles, life dates, artwork title/year, image

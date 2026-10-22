@@ -7,3 +7,10 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+
+# Site: dependencies, build output, generated data, and the image symlink into Dropbox
+site/node_modules/
+site/dist/
+site/.astro/
+site/public/data/
+site/public/img

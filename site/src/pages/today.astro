@@ -1,0 +1,107 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="On this day">
+  <section class="today wrap" data-today>
+    <div class="day-nav">
+      <button type="button" class="arrow" data-step="-1" aria-label="Previous day">‹</button>
+      <div>
+        <p class="kicker muted">On this day</p>
+        <h1 class="serif" data-label>…</h1>
+      </div>
+      <button type="button" class="arrow" data-step="1" aria-label="Next day">›</button>
+      <button type="button" class="chip" data-reset>Today</button>
+    </div>
+    <p class="muted" data-summary></p>
+    <div class="years" data-years></div>
+  </section>
+</Base>
+
+<style>
+  .today { padding-top: 40px; padding-bottom: 64px; }
+  .day-nav { display: flex; align-items: center; gap: 18px; }
+  .kicker { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; }
+  h1 { font-size: clamp(44px, 6vw, 84px); line-height: 1; margin: 4px 0 0; min-width: 6ch; }
+  .arrow { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; width: 44px; height: 44px; font-size: 22px; }
+  .arrow:hover { border-color: var(--muted); }
+  .years { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px 22px; margin-top: 28px; }
+  .years :global(.card) { text-decoration: none; display: grid; gap: 6px; animation: rise 0.5s var(--ease) both; }
+  .years :global(.card .yr) { font: 15px/1 var(--sans); font-weight: 600; letter-spacing: 0.08em; color: var(--accent); }
+  .years :global(.card .img) { aspect-ratio: 4 / 5; background: var(--tile); border-radius: 4px; overflow: hidden; }
+  .years :global(.card img) { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
+  .years :global(.card:hover img) { transform: scale(1.03); }
+  .years :global(.card b) { font: 24px/1.1 var(--serif); font-weight: 400; }
+  .years :global(.card .d) { font-size: 13px; color: var(--muted); }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+</style>
+
+<script>
+  import { loadSite, onPage } from "../lib/client";
+  import { imgUrl } from "../lib/types";
+
+  const LEAP_YEAR = 2024; // any leap year, so Feb 29 is reachable
+
+  onPage("[data-today]", async (root) => {
+    const { posts } = await loadSite();
+    const label = root.querySelector("[data-label]")!;
+    const summary = root.querySelector("[data-summary]")!;
+    const years = root.querySelector<HTMLElement>("[data-years]")!;
+
+    const fromHash = () => {
+      const m = location.hash.match(/^#(\d{2})-(\d{2})$/);
+      const now = new Date();
+      return m ? new Date(LEAP_YEAR, +m[1] - 1, +m[2]) : new Date(LEAP_YEAR, now.getMonth(), now.getDate());
+    };
+    let day = fromHash();
+
+    const render = () => {
+      const mmdd = `${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+      history.replaceState(history.state, "", `#${mmdd}`);
+      label.textContent = day.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      const hits = posts.filter((p) => p.date.slice(5) === mmdd).sort((a, b) => b.date.localeCompare(a.date));
+      summary.textContent = hits.length
+        ? `${hits.length} feature${hits.length > 1 ? "s" : ""} on this date, ${hits.at(-1)!.date.slice(0, 4)}–${hits[0].date.slice(0, 4)}`
+        : "Nothing was featured on this date.";
+      years.replaceChildren(...hits.map((p, n) => {
+        const a = document.createElement("a");
+        a.className = "card";
+        a.href = p.artist ? `/artist/${p.artist}` : `/post/${p.id}`;
+        a.style.animationDelay = `${n * 50}ms`;
+        const yr = document.createElement("span");
+        yr.className = "yr";
+        yr.textContent = p.date.slice(0, 4);
+        const box = document.createElement("span");
+        box.className = "img";
+        if (p.intro) {
+          const img = document.createElement("img");
+          img.className = "fade";
+          img.src = imgUrl(p, p.intro);
+          img.alt = "";
+          img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
+          box.append(img);
+        }
+        const b = document.createElement("b");
+        b.textContent = p.subject ?? "";
+        const d = document.createElement("span");
+        d.className = "d";
+        d.textContent = p.descriptor ?? "";
+        a.append(yr, box, b, d);
+        return a;
+      }));
+    };
+
+    root.querySelectorAll<HTMLButtonElement>("[data-step]").forEach((b) =>
+      b.addEventListener("click", () => {
+        day = new Date(LEAP_YEAR, day.getMonth(), day.getDate() + Number(b.dataset.step));
+        if (day.getFullYear() !== LEAP_YEAR) day = new Date(LEAP_YEAR, day.getMonth(), day.getDate());
+        render();
+      }));
+    root.querySelector("[data-reset]")!.addEventListener("click", () => {
+      history.replaceState(history.state, "", location.pathname);
+      day = fromHash();
+      render();
+    });
+    render();
+  });
+</script>

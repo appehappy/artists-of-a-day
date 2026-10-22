@@ -1,0 +1,87 @@
+---
+// Masonry grid of artworks with a full-screen viewer (arrow keys to step through).
+export interface Item {
+  src: string;
+  file: string;
+  w: number;
+  h: number;
+  title: string | null;
+  year: number | null;
+}
+interface Props {
+  items: Item[];
+}
+const { items } = Astro.props;
+const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
+---
+
+<div class="works" data-lightbox>
+  {items.map((it, i) => (
+    <button class="work" type="button" data-lb-index={i} data-file={it.file} data-src={it.src}
+            data-caption={caption(it)} data-year={it.year ?? ""}>
+      <span class="frame" style={`aspect-ratio:${it.w}/${it.h}`}>
+        <img class="fade" src={it.src} alt={caption(it) || "Untitled"} loading="lazy" decoding="async" />
+      </span>
+      {caption(it) && <span class="cap">{caption(it)}</span>}
+    </button>
+  ))}
+</div>
+
+<div class="lightbox" role="dialog" aria-modal="true" aria-label="Artwork viewer">
+  <button class="lb-close" type="button" aria-label="Close">×</button>
+  <button class="lb-prev" type="button" aria-label="Previous">‹</button>
+  <figure><img alt="" /><figcaption></figcaption></figure>
+  <button class="lb-next" type="button" aria-label="Next">›</button>
+</div>
+
+<style>
+  .works { columns: 250px; column-gap: 18px; }
+  .work {
+    display: block; width: 100%; break-inside: avoid; margin: 0 0 22px;
+    border: 0; padding: 0; background: none; text-align: left; cursor: zoom-in;
+  }
+  .frame { display: block; background: var(--tile); border-radius: 3px; overflow: hidden; }
+  .frame img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
+  .work:hover .frame img { transform: scale(1.02); }
+  .cap { display: block; margin-top: 7px; font-size: 13px; color: var(--muted); line-height: 1.35; }
+</style>
+
+<script>
+  import { onPage } from "../lib/client";
+
+  onPage("[data-lightbox]", (grid) => {
+    const box = document.querySelector<HTMLElement>(".lightbox")!;
+    const img = box.querySelector("img")!;
+    const cap = box.querySelector("figcaption")!;
+    const items = [...grid.querySelectorAll<HTMLElement>("[data-lb-index]")];
+    let i = 0;
+
+    const show = (n: number) => {
+      i = (n + items.length) % items.length;
+      img.src = items[i].dataset.src!;
+      cap.textContent = `${items[i].dataset.caption || "Untitled"}  ·  ${i + 1} / ${items.length}`;
+    };
+    const close = () => { box.classList.remove("open"); document.body.style.overflow = ""; };
+
+    items.forEach((el, n) => el.addEventListener("click", () => {
+      show(n);
+      box.classList.add("open");
+      document.body.style.overflow = "hidden";
+    }));
+    box.querySelector(".lb-close")!.addEventListener("click", close);
+    box.querySelector(".lb-prev")!.addEventListener("click", () => show(i - 1));
+    box.querySelector(".lb-next")!.addEventListener("click", () => show(i + 1));
+    box.addEventListener("click", (e) => { if (e.target === box) close(); });
+    const onKey = (e: KeyboardEvent) => {
+      if (!box.classList.contains("open")) return;
+      if (e.key === "Escape") close();
+      if (e.key === "ArrowLeft") show(i - 1);
+      if (e.key === "ArrowRight") show(i + 1);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("astro:before-swap", () => {
+      document.removeEventListener("keydown", onKey);
+      close();
+    }, { once: true });
+  });
+</script>

@@ -1,0 +1,123 @@
+---
+import { ClientRouter } from "astro:transitions";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+}
+const { title } = Astro.props;
+const path = Astro.url.pathname;
+const nav = [
+  { href: "/", label: "Wall" },
+  { href: "/today", label: "On this day" },
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title ? `${title} · Artist of the Day Archive` : "Artist of the Day Archive"}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap"
+    />
+    <ClientRouter />
+  </head>
+  <body>
+    <header class="site-header" transition:animate="none">
+      <a class="wordmark" href="/"><b>Artist of the Day</b><span>Archive</span></a>
+      <nav class="site-nav">
+        {nav.map((n) => (
+          <a href={n.href} aria-current={path === n.href ? "page" : undefined}>{n.label}</a>
+        ))}
+        <button type="button" data-shuffle>Shuffle</button>
+      </nav>
+      <div class="search">
+        <input type="search" placeholder="Search 2,300+ artists" aria-label="Search artists" autocomplete="off" />
+        <ul hidden></ul>
+      </div>
+    </header>
+    <main>
+      <slot />
+    </main>
+
+    <script>
+      import { navigate } from "astro:transitions/client";
+      import { loadSite } from "../lib/client";
+
+      const fold = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+      const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+      // Lead image: show the artwork the visitor clicked (?art=<file>) and give it the
+      // same view-transition-name as the Wall tile so it morphs into place. This runs
+      // on after-swap, inside the transition, so it must live here rather than in
+      // the page's own script (which hasn't loaded yet on a first visit).
+      function applyFeature() {
+        const fig = document.querySelector<HTMLElement>("[data-feature]");
+        const file = new URLSearchParams(location.search).get("art");
+        if (!fig || !file) return;
+        const item = document.querySelector<HTMLElement>(`[data-file="${CSS.escape(file)}"]`);
+        if (!item) return;
+        let img = fig.querySelector("img");
+        if (!img) { img = document.createElement("img"); fig.prepend(img); }
+        img.src = item.dataset.src!;
+        img.style.viewTransitionName = "focus-art";
+        fig.querySelector("figcaption")!.textContent = item.dataset.caption || "";
+      }
+      document.addEventListener("astro:after-swap", applyFeature);
+
+      document.addEventListener("astro:page-load", () => {
+        applyFeature();
+        document.querySelectorAll<HTMLImageElement>("img.fade:not(.loaded)").forEach((img) => {
+          if (img.complete && img.naturalWidth) img.classList.add("loaded");
+          else img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
+        });
+
+        document.querySelector("[data-shuffle]")?.addEventListener("click", async () => {
+          const { artists } = await loadSite();
+          navigate(`/artist/${artists[Math.floor(Math.random() * artists.length)].slug}`);
+        });
+
+        const input = document.querySelector<HTMLInputElement>(".search input")!;
+        const list = document.querySelector<HTMLUListElement>(".search ul")!;
+        let active = -1;
+
+        const render = async () => {
+          const q = fold(input.value.trim());
+          if (q.length < 2) { list.hidden = true; return; }
+          const { artists } = await loadSite();
+          const hits = artists
+            .map((a) => ({ a, n: fold(a.name) }))
+            .filter(({ n }) => n.split(/[\s-]+/).some((w) => w.startsWith(q)) || n.includes(q))
+            .sort((x, y) => Number(!x.n.startsWith(q)) - Number(!y.n.startsWith(q)))
+            .slice(0, 10);
+          active = -1;
+          list.innerHTML = hits.length
+            ? hits.map(({ a }) => `<li><a href="/artist/${a.slug}">${esc(a.name)}<small>${esc([a.nationality, a.roles.slice(0, 2).join(", ")].filter(Boolean).join(" · "))}</small></a></li>`).join("")
+            : `<li class="muted" style="padding:8px 10px">No artists match</li>`;
+          list.hidden = false;
+        };
+
+        input.addEventListener("input", render);
+        input.addEventListener("focus", () => { loadSite(); render(); });
+        input.addEventListener("blur", () => setTimeout(() => (list.hidden = true), 150));
+        input.addEventListener("keydown", (e) => {
+          const links = [...list.querySelectorAll("a")];
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            active = (active + (e.key === "ArrowDown" ? 1 : -1) + links.length) % links.length;
+            links.forEach((l, i) => l.classList.toggle("active", i === active));
+          } else if (e.key === "Enter" && links.length) {
+            navigate(links[Math.max(active, 0)].getAttribute("href")!);
+          } else if (e.key === "Escape") {
+            list.hidden = true;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

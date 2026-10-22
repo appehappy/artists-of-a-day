@@ -1,0 +1,49 @@
+---
+// A single post: used for theme round-ups, which have no one artist to show.
+import ArtworkGrid, { type Item } from "../../components/ArtworkGrid.astro";
+import Feature from "../../components/Feature.astro";
+import Base from "../../layouts/Base.astro";
+import { artworksByPost, posts } from "../../lib/data";
+import { formatDate, imgUrl, type Post } from "../../lib/types";
+
+export function getStaticPaths() {
+  return posts.map((post, i) => ({ params: { id: post.id }, props: { post, i } }));
+}
+
+const { post, i } = Astro.props as { post: Post; i: number };
+const items: Item[] = (artworksByPost.get(i) ?? []).map(([, file, w, h, year, title]) => ({
+  src: imgUrl(post, file), file, w, h, year, title,
+}));
+const intro = post.intro ? imgUrl(post, post.intro) : items[0]?.src ?? null;
+---
+
+<Base title={post.subject ?? "Post"}>
+  <article class="post wrap">
+    <Feature src={intro} />
+    <div>
+      <p class="kicker muted">{post.kind === "theme" ? "Theme" : "Feature"} · {formatDate(post.date)}</p>
+      <h1 class="serif">{post.subject}</h1>
+      {post.descriptor && <p class="meta">{post.descriptor}</p>}
+      {post.artist && <p><a href={`/artist/${post.artist}`}>View artist page →</a></p>}
+      <p><a class="orig" href={post.url} target="_blank" rel="noopener">Read the original post ↗</a></p>
+      <p class="muted small">{items.length} works</p>
+    </div>
+  </article>
+  <section class="wrap block">
+    <ArtworkGrid items={items} />
+  </section>
+</Base>
+
+<style>
+  .post {
+    display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+    gap: 48px; padding-top: 40px; padding-bottom: 40px; align-items: start;
+  }
+  .kicker { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 10px; }
+  h1 { font-size: clamp(40px, 5vw, 72px); line-height: 0.98; margin: 0 0 14px; }
+  .meta { font-size: 17px; }
+  .orig { color: var(--accent); text-decoration: none; }
+  .small { font-size: 13px; }
+  .block { padding-bottom: 48px; }
+  @media (max-width: 900px) { .post { grid-template-columns: 1fr; gap: 24px; } }
+</style>
