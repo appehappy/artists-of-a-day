@@ -65,6 +65,16 @@ and each step skips work already done):
 .venv/bin/python scripts/refresh.py
 ```
 
+It runs automatically every day at 09:00 (or on wake, if the Mac was asleep) via a
+LaunchAgent that calls `scripts/refresh-daily.sh`. Output goes to
+`data/logs/refresh.log`; a notification appears when new posts arrive or a step
+fails. Install or remove it with the commands in
+`scripts/launchd/local.aotd-archive.refresh.plist`. Run it now with:
+
+```bash
+launchctl kickstart gui/$(id -u)/local.aotd-archive.refresh
+```
+
 `data/aotd.sqlite` is derived and rebuilt from scratch each run (schema in
 `aotd/schema.sql`). Parsed fields (subject, nationality, roles, life dates, artwork
 title/year, image kind) are heuristics; raw titles, labels and captions are kept
