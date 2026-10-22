@@ -20,4 +20,12 @@ images/                  downloaded artwork images (phase 2)
 
 ```bash
 python3 scripts/fetch_feed.py   # phase 0: raw feed snapshot (resumable)
+python3 scripts/build_db.py     # phase 1: parse latest snapshot -> data/aotd.sqlite
+python3 -m unittest             # parser tests
 ```
+
+`data/aotd.sqlite` is derived and rebuilt from scratch each run (schema in
+`aotd/schema.sql`): `posts`, `artists`, `post_artists`, `post_tags`, `images`.
+Parsed fields (subject, nationality, roles, life dates, artwork title/year, image
+kind) are heuristics; raw titles, labels and captions are kept beside them.
+Posts needing a human look are listed in `data/review/flagged_posts.csv`.

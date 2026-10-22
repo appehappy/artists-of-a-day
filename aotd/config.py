@@ -13,4 +13,8 @@ ARCHIVE_ROOT = Path(
 RAW_DIR = ARCHIVE_ROOT / "raw"
 IMAGES_DIR = ARCHIVE_ROOT / "images"
 
+# Derived, rebuildable data lives in the repo (gitignored).
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+DB_PATH = DATA_DIR / "aotd.sqlite"
+
 USER_AGENT = "ArtistOfTheDayArchive/0.1 (personal archival project; contact: owner of this archive)"
