@@ -4,18 +4,24 @@ Saves every feed page exactly as received, plus a manifest, under
     <ARCHIVE_ROOT>/raw/feed/<snapshot>/
 All later parsing works from these files, so the blog only needs to be hit once.
 
+With --since, saves an incremental snapshot instead: only posts updated after that
+time, in <snapshot>-inc/, which build_db.py layers over the latest full snapshot.
+
 Blogger caps each response by size (~54 posts), not by max-results. Its rel="next"
 links still assume max-results per page and would skip most posts, so we page by
 start-index + entries actually received. Re-running resumes from pages on disk.
 
 Usage: python3 scripts/fetch_feed.py [--snapshot 2026-10-21] [--delay 1.5]
+       python3 scripts/fetch_feed.py --since 2026-10-17T03:00:00-04:00
 """
 import argparse
 import hashlib
 import json
 import sys
 import time
+import shutil
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,8 +35,8 @@ FEEDS = {
 }
 
 
-def page_url(base, start):
-    return f"{base}?alt=json&max-results=500&start-index={start}"
+def page_url(base, start, extra=""):
+    return f"{base}?alt=json&max-results=500&start-index={start}{extra}"
 
 
 def fetch(url, retries=5):
@@ -49,10 +55,10 @@ def fetch(url, retries=5):
     raise RuntimeError(f"giving up on {url}")
 
 
-def capture(name, base_url, out_dir, delay):
+def capture(name, base_url, out_dir, delay, extra=""):
     start, page_no, pages, ids, total = 1, 1, [], set(), None
     while True:
-        url = page_url(base_url, start)
+        url = page_url(base_url, start, extra)
         path = out_dir / f"{name}-{page_no:04d}.json"
         if path.exists():
             raw = path.read_bytes()
@@ -88,21 +94,47 @@ def capture(name, base_url, out_dir, delay):
             "complete": total is not None and len(ids) == total, "pages": pages}
 
 
+def newer_than(out_dir, manifest, since):
+    """Whether any captured post was updated strictly after `since`."""
+    cutoff = datetime.fromisoformat(since)
+    for page in manifest["feeds"]["posts"]["pages"]:
+        for e in json.loads((out_dir / page["file"]).read_text())["feed"].get("entry", []):
+            if datetime.fromisoformat(e["updated"]["$t"]) > cutoff:
+                return True
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--snapshot", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    ap.add_argument("--snapshot", help="folder name (default: today, or a timestamp with --since)")
+    ap.add_argument("--since", help="RFC 3339 time; fetch only posts updated after it")
     ap.add_argument("--delay", type=float, default=1.5, help="seconds between requests")
     args = ap.parse_args()
 
-    out_dir = RAW_DIR / "feed" / args.snapshot
+    now = datetime.now(timezone.utc)
+    if args.since:
+        snapshot = args.snapshot or now.strftime("%Y-%m-%dT%H%MZ") + "-inc"
+        feeds = {"posts": FEEDS["posts"]}
+        extra = "&orderby=updated&updated-min=" + urllib.parse.quote(args.since)
+    else:
+        snapshot = args.snapshot or now.strftime("%Y-%m-%d")
+        feeds, extra = FEEDS, ""
+    out_dir = RAW_DIR / "feed" / snapshot
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"Snapshot dir: {out_dir}")
 
-    manifest = {"blog": BLOG_URL, "snapshot": args.snapshot,
-                "started_at": datetime.now(timezone.utc).isoformat(), "feeds": {}}
-    for name, base_url in FEEDS.items():
-        manifest["feeds"][name] = capture(name, base_url, out_dir, args.delay)
+    manifest = {"blog": BLOG_URL, "snapshot": snapshot,
+                "type": "incremental" if args.since else "full", "since": args.since,
+                "started_at": now.isoformat(), "feeds": {}}
+    for name, base_url in feeds.items():
+        manifest["feeds"][name] = capture(name, base_url, out_dir, args.delay, extra)
     manifest["finished_at"] = datetime.now(timezone.utc).isoformat()
+
+    if args.since and not newer_than(out_dir, manifest, args.since):
+        # Blogger's updated-min is inclusive, so the newest known post always comes back.
+        shutil.rmtree(out_dir)
+        print(f"No posts updated since {args.since}")
+        return
 
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2))
     for name, info in manifest["feeds"].items():

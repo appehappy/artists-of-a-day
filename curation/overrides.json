@@ -1,0 +1,26 @@
+{
+  "_doc": "Manual fixes applied by build_db.py after parsing. Keys starting with _ are ignored.",
+  "post_kind": {
+    "_doc": "post id -> artist | group | theme",
+    "2104560825250454489": "group",
+    "4977553020997572212": "group",
+    "3692408309885224644": "group",
+    "4455035437694185635": "group"
+  },
+  "post_subject": {
+    "_doc": "post id -> cleaned subject name (used as the artist name)",
+    "2104560825250454489": "Etam Cru",
+    "4977553020997572212": "Michael Osborne Design",
+    "3692408309885224644": "Ken Browar & Deborah Ory",
+    "4455035437694185635": "Ferdinand Porsche & Ferdinand Anton Ernst Porsche"
+  },
+  "image_kind": {
+    "_doc": "\"post id/url_hash\" -> artwork | intro | portrait | other"
+  },
+  "artist_merge": {
+    "_doc": "duplicate artist slug -> slug to merge it into",
+    "lyonel-charles-feininger": "lyonel-feininger",
+    "rafa-olbinski": "rafal-olbinski",
+    "lawren-stewart-harris": "lawren-harris"
+  }
+}

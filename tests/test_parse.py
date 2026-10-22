@@ -100,6 +100,9 @@ class ClassifyPostTests(unittest.TestCase):
         self.assertEqual(self.kind("Artist of the Day, October 17, 2026 :  The evolution of women’s headwear (#2660)"), "theme")
         self.assertEqual(self.kind("Artists of the Day, February 11, 2023: What Happened in 1923: Major News and Events, History (#1776)"), "theme")
         self.assertEqual(self.kind("Artist of the Day, May 18, 2022: Claude & François-Xavier Lalanne, French sculptor and installation artists (#1572)"), "group")
+        self.assertEqual(self.kind("Artist of the Day, October 3, 2024: Elizabeth Fritsch, a British studio potter, and ceramist (#2127)"), "artist")
+        self.assertEqual(self.kind("Artist of the day, May 1, 2020: Lawren Stewart Harris, a Canadian painter (member of Group of Seven)"), "artist")
+        self.assertEqual(self.kind("Artist of the Day, May 1, 2022: Clark Orr (CODC Studio), an American graphic designer (#1561)"), "artist")
 
 
 class DescriptorTests(unittest.TestCase):
@@ -165,6 +168,8 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(classify_image(1, "02 not smiling portrait of artist chroma david.jpg", None, "Christa David"), "portrait")
         self.assertEqual(classify_image(2, "0 1895 Self-Portrait with Cigarette, 1895.jpg", "Self-Portrait with Cigarette, 1895", "Edvard Munch"), "artwork")
         self.assertEqual(classify_image(1, None, "Edvard Munch", "Edvard Munch"), "portrait")
+        self.assertEqual(classify_image(1, None, "Ms. Elizabeth Fritsch", "Elizabeth Fritsch"), "portrait")
+        self.assertEqual(classify_image(3, None, "The Artist", "Elizabeth Fritsch"), "artwork")
         self.assertEqual(classify_image(5, "2017 Yep, I'm Ready, 2017.jpg", "2017 Yep, I'm Ready", "Christa David"), "artwork")
 
 

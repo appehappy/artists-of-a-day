@@ -8,43 +8,82 @@ without their consent.
 
 ## Data layout
 
-Code lives here. Large data lives in Dropbox (`~/Dropbox/ArtistOfTheDayArchive`,
-override with `AOTD_ARCHIVE_ROOT`):
+Code and human-reviewed decisions live here. Large or slow-to-recompute data lives
+in Dropbox (`~/Dropbox/ArtistOfTheDayArchive`, override with `AOTD_ARCHIVE_ROOT`):
 
 ```
-raw/feed/<YYYY-MM-DD>/   untouched Blogger JSON feed pages + manifest.json
+raw/feed/<YYYY-MM-DD>/          full Blogger JSON feed snapshot + manifest.json
+raw/feed/<timestamp>-inc/       incremental snapshots: posts updated since the last run
+raw/wikidata/                   cached Wikidata responses
 images/originals/<YYYY>/<YYYY-MM-DD>_<post id>/<position>_<url hash>.<ext>
-                         full-resolution images as uploaded to the blog (~9 GB)
-images/manifest.jsonl    one line per download attempt: size, sha256, pixels or error
+                                full-resolution images as uploaded to the blog (~9 GB)
+images/thumbs/…/<position>_<url hash>.webp   480px thumbnails (~4 GB)
+images/manifest.jsonl           one line per download attempt: size, sha256, pixels or error
+derived/colors.jsonl            5-colour palette per image
+derived/clip/                   CLIP image embeddings (float16) + keys
+derived/image_kinds.jsonl       artworks CLIP re-classified as artist portraits
+derived/similar.jsonl           12 most similar artworks (other posts) per artwork
+derived/wikidata_artists.json   Wikidata facts for matched artists
 ```
+
+In the repo, `curation/wikidata_matches.csv` records each artist's Wikidata match;
+edit `needs_review` rows to `confirmed` (fixing `qid` if needed) or `wrong`.
+`curation/overrides.json` holds manual fixes (post kind, subject name, image kind,
+artist merges). Everything is keyed by stable ids (post id, image `url_hash`, artist
+slug), never by database row ids.
 
 ## Pipeline
 
+Phases 0–2 and `build_db.py` use only the Python standard library. The enrichment
+steps need Python 3.12 with the packages in `requirements.txt`:
+
 ```bash
-python3 scripts/fetch_feed.py   # phase 0: raw feed snapshot (resumable)
-python3 scripts/build_db.py     # phase 1: parse latest snapshot -> data/aotd.sqlite
-python3 scripts/download_images.py   # phase 2: images -> Dropbox (resumable, retries failures)
-python3 -m unittest             # parser tests
+/opt/homebrew/bin/python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
-## Site (v0, local only)
-
-An Astro site in `site/`: the Wall (filterable, shuffled masonry of every artwork),
-artist pages, theme post pages, On this day, Shuffle and artist search.
+First run, in order:
 
 ```bash
-python3 scripts/export_site_data.py   # db + image manifest -> site/public/data/*.json
+python3 scripts/fetch_feed.py               # phase 0: full raw feed snapshot
+python3 scripts/build_db.py                 # phase 1: snapshots -> data/aotd.sqlite
+python3 scripts/download_images.py          # phase 2: images -> Dropbox
+.venv/bin/python scripts/make_thumbs.py     # phase 3: thumbnails
+.venv/bin/python scripts/extract_colors.py  #          colour palettes
+.venv/bin/python scripts/embed_images.py    #          CLIP embeddings (Apple GPU)
+python3 scripts/match_wikidata.py           #          Wikidata matching
+python3 scripts/build_db.py                 #          merge enrichment
+.venv/bin/python scripts/analyze_embeddings.py  #      image kinds + similar works
+python3 scripts/build_db.py                 #          merge again
+python3 scripts/export_site_data.py         # site JSON
+python3 -m unittest                         # tests
+```
+
+After that, one command keeps everything current (fetches only new or edited posts,
+and each step skips work already done):
+
+```bash
+.venv/bin/python scripts/refresh.py
+```
+
+`data/aotd.sqlite` is derived and rebuilt from scratch each run (schema in
+`aotd/schema.sql`). Parsed fields (subject, nationality, roles, life dates, artwork
+title/year, image kind) are heuristics; raw titles, labels and captions are kept
+beside them. Wikidata replaces parsed life dates where it has a birth year. Posts
+needing a human look are listed in `data/review/flagged_posts.csv`.
+
+## Site (local only)
+
+An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterable by
+discipline, era, region, colour and living artists), artist pages with similar works
+in the viewer, theme post pages, On this day, Shuffle and artist search.
+
+```bash
 ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/originals site/public/img
+ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/thumbs site/public/thumbs
 npm --prefix site install
 npm --prefix site run dev             # http://localhost:4321
 ```
 
-Only `npm run dev` is supported for now: `astro build` would copy the ~10 GB image
-symlink into `dist/`. Publishing needs thumbnails and an image host first. The site
-shows factual metadata and captions only, never the author's post text.
-
-`data/aotd.sqlite` is derived and rebuilt from scratch each run (schema in
-`aotd/schema.sql`): `posts`, `artists`, `post_artists`, `post_tags`, `images`.
-Parsed fields (subject, nationality, roles, life dates, artwork title/year, image
-kind) are heuristics; raw titles, labels and captions are kept beside them.
-Posts needing a human look are listed in `data/review/flagged_posts.csv`.
+Only `npm run dev` is supported for now: `astro build` would copy the image symlinks
+into `dist/`. Publishing needs an image host first. The site shows factual metadata
+and captions only, never the author's post text.

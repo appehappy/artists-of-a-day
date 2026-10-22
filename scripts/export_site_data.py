@@ -1,8 +1,10 @@
 """Export data/aotd.sqlite + the image manifest into JSON for the site.
 
-Writes site/public/data/site.json (posts, artists, disciplines) and
-site/public/data/artworks.json (compact rows for the Wall). An image's URL is
-/img/<post dir>/<file>; site/public/img is a symlink to images/originals.
+Writes site/public/data/site.json (posts, artists, disciplines, regions, colours),
+site/public/data/artworks.json (compact rows for the Wall) and
+site/public/data/similar/<post index>.json (similar works, loaded on demand).
+An image's URL is /img/<post dir>/<file> and its thumbnail /thumbs/<post dir>/<stem>.webp;
+site/public/img and site/public/thumbs are symlinks into the Dropbox images folder.
 
 The author's prose is never exported — only factual metadata and captions.
 
@@ -10,12 +12,14 @@ Usage: python3 scripts/export_site_data.py
 """
 import json
 import re
+import shutil
 import sqlite3
 import statistics
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from aotd.colors import BUCKETS  # noqa: E402
 from aotd.config import DB_PATH  # noqa: E402
 from aotd.manifest import load_downloads  # noqa: E402
 
@@ -55,12 +59,21 @@ def main():
     images_by_post = {}
     for r in db.execute("SELECT * FROM images ORDER BY post_id, position"):
         images_by_post.setdefault(r["post_id"], []).append(r)
+    # Colours per artwork as one int: bits 0–11 = colour buckets covering >= 12% of the
+    # image (in BUCKETS order); bits 12+ = 1 + index of its main chromatic hue (0: none).
+    bucket_index = {name: i for i, name in enumerate(BUCKETS)}
+    colours = {}
+    for r in db.execute("SELECT post_id, url_hash, buckets, hue FROM image_colors"):
+        mask = sum(1 << bucket_index[n] for n in json.loads(r["buckets"]))
+        hue = bucket_index[r["hue"]] + 1 if r["hue"] else 0
+        colours[(r["post_id"], r["url_hash"])] = mask | hue << 12
+    wikidata = {r["artist_id"]: r for r in db.execute("SELECT * FROM artist_wikidata")}
 
     def filename(image_row):
         f = files.get((image_row["post_id"], image_row["url_hash"]))
         return f and Path(f["path"]).name
 
-    posts, post_index, artworks = [], {}, []
+    posts, post_index, artworks, exported = [], {}, [], {}
     artist_posts, artist_years = {}, {}
     for p in post_rows:
         imgs = images_by_post.get(p["id"], [])
@@ -86,8 +99,10 @@ def main():
                 continue
             if artist and i["year_start"]:
                 artist_years.setdefault(artist["id"], []).append(i["year_start"])
+            exported[(i["post_id"], i["url_hash"])] = (idx, Path(f["path"]).name)
             artworks.append([idx, Path(f["path"]).name, f["width"], f["height"],
-                             i["year_start"], (i["title"] or "")[:140] or None])
+                             i["year_start"], (i["title"] or "")[:140] or None,
+                             colours.get((i["post_id"], i["url_hash"]), 0)])
 
     artists = []
     for aid, a in artist_rows.items():
@@ -96,12 +111,15 @@ def main():
         descriptor = " ".join(posts[i]["descriptor"] or "" for i in pidx)
         years = artist_years.get(aid, [])
         living = bool(a["birth_year"] and a["birth_year"] >= 1925 and not a["death_year"])
+        w = wikidata.get(aid)
         artists.append({
             "slug": a["slug"], "name": a["name"], "type": a["type"],
             "birth": a["birth_year"], "death": a["death_year"],
             "nationality": a["nationality"], "roles": roles,
             "disciplines": disciplines_for(roles, descriptor),
-            "living": living, "posts": pidx,
+            "living": living, "posts": pidx, "region": a["region"],
+            "wikidata": {"qid": w["qid"], "enwiki": w["enwiki"],
+                         "movements": json.loads(w["movements"])} if w else None,
             "era": a["birth_year"] + 35 if a["birth_year"] else
                    (int(statistics.median(years)) if years else None),
         })
@@ -130,15 +148,41 @@ def main():
                    for k, label, _ in DISCIPLINES] + \
                   [{"key": "other", "label": "Other", "artists": counts.get("other", 0)}]
 
+    region_counts = {}
+    for a in artists:
+        if a["region"]:
+            region_counts[a["region"]] = region_counts.get(a["region"], 0) + 1
+    regions = [{"key": r, "artists": n} for r, n in sorted(region_counts.items(), key=lambda x: -x[1])]
+
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "site.json").write_text(json.dumps(
-        {"posts": posts, "artists": artists, "disciplines": disciplines},
+        {"posts": posts, "artists": artists, "disciplines": disciplines, "regions": regions,
+         "colours": [{"key": k, "hex": v} for k, v in BUCKETS.items()]},
         ensure_ascii=False, separators=(",", ":")))
     (OUT / "artworks.json").write_text(json.dumps(
-        {"columns": ["post", "file", "w", "h", "year", "title"], "rows": artworks},
+        {"columns": ["post", "file", "w", "h", "year", "title", "colours"], "rows": artworks},
         ensure_ascii=False, separators=(",", ":")))
+
+    # Similar works, one small file per post: {file: [[post index, file], ...]}
+    similar_dir = OUT / "similar"
+    shutil.rmtree(similar_dir, ignore_errors=True)
+    similar_dir.mkdir()
+    by_post = {}
+    for r in db.execute("SELECT post_id, url_hash, similar FROM image_similar"):
+        me = exported.get((r["post_id"], r["url_hash"]))
+        if not me:
+            continue
+        nbrs = [list(exported[(pid, h)]) for pid, h, _ in json.loads(r["similar"])
+                if (pid, h) in exported]
+        by_post.setdefault(me[0], {})[me[1]] = nbrs
+    for idx, files_ in by_post.items():
+        (similar_dir / f"{idx}.json").write_text(json.dumps(files_, separators=(",", ":")))
+
     print(f"posts {len(posts)}  artists {len(artists)}  artworks {len(artworks)}")
     print("disciplines:", {d["key"]: d["artists"] for d in disciplines})
+    print("regions:", {r["key"]: r["artists"] for r in regions})
+    print(f"artworks with colours: {sum(1 for a in artworks if a[6])}  "
+          f"posts with similar works: {len(by_post)}")
     for name in ("site.json", "artworks.json"):
         print(f"{name}: {(OUT / name).stat().st_size / 1e6:.1f} MB")
 

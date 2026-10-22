@@ -32,7 +32,42 @@ CREATE TABLE artists (
     death_year    INTEGER,
     nationality   TEXT,               -- as written: "British-born American"
     roles         TEXT NOT NULL,      -- JSON array: ["ceramist", "sculptor"]
-    wikidata_qid  TEXT                -- filled in phase 3
+    wikidata_qid  TEXT,               -- phase 3, when matched (auto or confirmed)
+    dates_source  TEXT,               -- wikidata | parsed | NULL
+    region        TEXT                -- Europe, Asia, Africa, North America, ...
+);
+
+-- Phase 3 enrichment, merged in from derived/ and curation/ on every build.
+CREATE TABLE artist_wikidata (
+    artist_id     INTEGER PRIMARY KEY REFERENCES artists(id),
+    qid           TEXT NOT NULL,
+    label         TEXT,
+    description   TEXT,
+    birth_year    INTEGER,
+    death_year    INTEGER,
+    gender        TEXT,
+    countries     TEXT NOT NULL,      -- JSON array of country names
+    birthplace    TEXT,               -- JSON {name, lat, lon}
+    movements     TEXT NOT NULL,      -- JSON array
+    occupations   TEXT NOT NULL,      -- JSON array
+    enwiki        TEXT                -- English Wikipedia article title
+);
+
+CREATE TABLE image_colors (
+    post_id       TEXT NOT NULL,
+    url_hash      TEXT NOT NULL,
+    palette       TEXT NOT NULL,      -- JSON [[hex, weight], ...]
+    buckets       TEXT NOT NULL,      -- JSON colour names covering >= 12%
+    hue           TEXT,               -- strongest chromatic colour, NULL if neutral
+    lightness     REAL,
+    PRIMARY KEY (post_id, url_hash)
+);
+
+CREATE TABLE image_similar (
+    post_id       TEXT NOT NULL,
+    url_hash      TEXT NOT NULL,
+    similar       TEXT NOT NULL,      -- JSON [[post_id, url_hash, cosine], ...] from other posts
+    PRIMARY KEY (post_id, url_hash)
 );
 
 CREATE TABLE post_artists (

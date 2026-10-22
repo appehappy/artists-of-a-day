@@ -1,6 +1,7 @@
-"""Phase 1: parse a raw feed snapshot into SQLite.
+"""Phase 1: parse the raw feed snapshots into SQLite.
 
-Rebuilds data/aotd.sqlite from scratch on every run, and writes
+Rebuilds data/aotd.sqlite from scratch on every run, from the latest full snapshot
+plus any incremental snapshots taken after it, and writes
 data/review/flagged_posts.csv listing posts whose parse needs a human look.
 
 Usage: python3 scripts/build_db.py [--snapshot 2026-10-22]
@@ -16,20 +17,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from aotd import parse  # noqa: E402
+from aotd import enrich, parse  # noqa: E402
 from aotd.config import DATA_DIR, DB_PATH, RAW_DIR  # noqa: E402
+from aotd.feed import load_snapshot, merge_entries, snapshot_layers  # noqa: E402
 
 SCHEMA = Path(__file__).resolve().parent.parent / "aotd" / "schema.sql"
-
-
-def load_entries(snapshot_dir):
-    manifest = json.loads((snapshot_dir / "manifest.json").read_text())
-    if not manifest["feeds"]["posts"]["complete"]:
-        sys.exit(f"{snapshot_dir} is an incomplete snapshot; re-run fetch_feed.py")
-    entries = []
-    for page in manifest["feeds"]["posts"]["pages"]:
-        entries += json.loads((snapshot_dir / page["file"]).read_text())["feed"]["entry"]
-    return entries
 
 
 def is_subject_label(label, subject):
@@ -50,8 +42,9 @@ def flag_number_outliers(posts):
             p["flags"].append("post_number_duplicate")
 
 
-def build(snapshot_dir, db_path):
-    entries = load_entries(snapshot_dir)
+def build(full, increments, db_path):
+    entries = merge_entries([load_snapshot(d) for d in [full] + increments])
+    overrides = enrich.load_overrides()
     posts, images, artists, post_artists, tags = [], [], {}, [], []
 
     for e in entries:
@@ -62,9 +55,13 @@ def build(snapshot_dir, db_path):
         url = next(l["href"] for l in e["link"] if l["rel"] == "alternate")
 
         t = parse.parse_title(title, e["published"]["$t"])
-        kind = parse.classify_post(t["subject"], t["descriptor"], t["plural"])
-        text = parse.body_text(html)
         flags = list(t["flags"])
+        kind = parse.classify_post(t["subject"], t["descriptor"], t["plural"])
+        if post_id in overrides["post_kind"]:
+            kind = overrides["post_kind"][post_id]
+            flags.append("manual_kind")
+        t["subject"] = overrides["post_subject"].get(post_id, t["subject"])
+        text = parse.body_text(html)
 
         birth = death = life_raw = None
         if kind == "artist":
@@ -92,6 +89,7 @@ def build(snapshot_dir, db_path):
 
         if kind in ("artist", "group"):
             slug = parse.slugify(t["subject"])
+            slug = overrides["artist_merge"].get(slug, slug)
             nationality, roles = parse.parse_descriptor(t["descriptor"])
             a = artists.setdefault(slug, {
                 "slug": slug, "name": t["subject"], "type": "person" if kind == "artist" else "group",
@@ -140,8 +138,10 @@ def build(snapshot_dir, db_path):
         "INSERT INTO images (post_id, position, url_hash, src_url, link_url, original_url, filename, "
         "width, height, caption_raw, caption_source, title, year_start, year_end, circa, kind, "
         "kind_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", images)
+    enrich_stats = enrich.merge(db, overrides)
     db.executemany("INSERT INTO build_info VALUES (?, ?)", [
-        ("snapshot", snapshot_dir.name),
+        ("snapshot", full.name),
+        ("increments", json.dumps([d.name for d in increments])),
         ("built_at", datetime.now(timezone.utc).isoformat()),
     ])
     db.commit()
@@ -156,24 +156,24 @@ def build(snapshot_dir, db_path):
             if p["flags"]:
                 w.writerow([p["published"][:10], p["post_number"], p["kind"],
                             " ".join(p["flags"]), p["title"], p["url"]])
-    return posts, artists, images
+    return posts, artists, images, enrich_stats
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--snapshot", help="snapshot folder name (default: latest)")
     args = ap.parse_args()
-    feed_dir = RAW_DIR / "feed"
-    snapshot = args.snapshot or sorted(p.name for p in feed_dir.iterdir() if p.is_dir())[-1]
+    full, increments = snapshot_layers(RAW_DIR / "feed", args.snapshot)
 
-    posts, artists, images = build(feed_dir / snapshot, DB_PATH)
+    posts, artists, images, enrich_stats = build(full, increments, DB_PATH)
 
-    print(f"Snapshot {snapshot} -> {DB_PATH}")
+    print(f"Snapshot {full.name} + {len(increments)} incremental -> {DB_PATH}")
     print(f"posts: {len(posts)}  {dict(Counter(p['kind'] for p in posts))}")
     print(f"artists: {len(artists)}  {dict(Counter(a['type'] for a in artists.values()))}")
     print(f"images: {len(images)}  {dict(Counter(i[15] for i in images))}")
     flag_counts = Counter(f for p in posts for f in p["flags"])
     print(f"flags: {dict(flag_counts.most_common())}")
+    print(f"enrichment: {dict(enrich_stats)}")
     print(f"review list: {DATA_DIR / 'review' / 'flagged_posts.csv'}")
 
 

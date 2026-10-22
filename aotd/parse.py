@@ -201,7 +201,12 @@ def classify_post(subject, descriptor, plural):
         return "theme"
     if descriptor is None:
         return "artist" if (not plural and looks_like_name(subject)) else "theme"
-    if GROUP_WORDS.search(descriptor) or GROUP_WORDS.search(subject):
+    # Asides don't make a group: "Clark Orr (CODC Studio)", "painter (member of Group of
+    # Seven)"; nor does a studio craft: "studio potter".
+    desc = re.sub(r"\([^)]*\)", " ", descriptor)
+    desc = re.sub(r"\bstudio (potter|glass|ceramic\w*|jewel\w*|furniture)", " ", desc, flags=re.I)
+    subj = re.sub(r"\([^)]*\)", " ", subject)
+    if GROUP_WORDS.search(desc) or GROUP_WORDS.search(subj):
         return "group"
     if not looks_like_name(subject):
         return "theme"
@@ -347,6 +352,12 @@ def filename_caption(filename):
     return stem
 
 
+# Words that can sit beside the artist's name in a caption of their photo:
+# "Ms. Elizabeth Fritsch", "Portrait of the artist Sonia Delaunay".
+CAPTION_NAME_EXTRAS = {"photo", "portrait", "mr", "mrs", "ms", "miss", "dr", "sir", "dame",
+                       "the", "of", "artist", "by", "designer", "photographer"}
+
+
 def classify_image(position, filename, caption, subject):
     """artwork | intro | portrait | other, from filename and caption cues."""
     f = (filename or "").lower()
@@ -366,7 +377,9 @@ def classify_image(position, filename, caption, subject):
         surname = name.split()[-1]
         if "portrait" in f and (not c or surname in c):
             return "portrait"
-        if c and _name_tokens(c) and _name_tokens(c) <= _name_tokens(name) | {"photo", "portrait"}:
+        tokens = _name_tokens(c)
+        if (tokens & (_name_tokens(name) - {"the", "of"})
+                and tokens <= _name_tokens(name) | CAPTION_NAME_EXTRAS):
             return "portrait"
     if position == 0 and not caption and not filename:
         return "intro"

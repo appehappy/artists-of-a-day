@@ -1,9 +1,15 @@
 """Read images/manifest.jsonl, written by scripts/download_images.py."""
 import json
+from pathlib import Path
 
-from aotd.config import IMAGES_DIR
+from aotd.config import IMAGES_DIR, THUMBS_DIR
 
 MANIFEST = IMAGES_DIR / "manifest.jsonl"
+
+
+def thumb_path(original_rel):
+    """'originals/2026/…/007_ab12.jpg' -> THUMBS_DIR/'2026/…/007_ab12.webp'."""
+    return THUMBS_DIR / Path(original_rel).relative_to("originals").with_suffix(".webp")
 
 
 def load_downloads():
