@@ -56,6 +56,7 @@ python3 scripts/build_db.py                 #          merge enrichment
 python3 scripts/build_db.py                 #          merge again
 python3 scripts/export_site_data.py         # site JSON
 .venv/bin/python scripts/build_fields.py    # Explore views: layouts + map tiles (~5 min)
+.venv/bin/python scripts/build_colourmaps.py  # Colour maps explorer: sprite sheets, colours, maps
 python3 -m unittest                         # tests
 ```
 
@@ -96,6 +97,15 @@ outwards, greys at the core; each hue's petal as long as that hue is common), wi
 visual likeness: CLIP-embedding clusters become islands arranged by a UMAP, named by
 CLIP at two zoom levels (islands, then regions within them), with labels that never
 overlap. `build_fields.py --only colour|constellation` rebuilds one view.
+
+**Colour maps** (`/explore/maps`) draws Fabio Crameri's Scientific Colour Maps with
+artworks: pick a shape (band, ring, bow-tie, spiral, disc, steps), a map and how many
+works. In the browser, each stretch of the gradient takes the closest-matching works
+from the whole archive (sized to how many slots the shape has there), lined up by
+fine gradient position and lightness (~350 ms). A WebGL2 renderer draws every work
+from sprite sheets and flies them between layouts on the GPU; from far away tiles are
+tinted towards their slot's colour, fading out as you zoom in, where real thumbnails
+take over. Combinations are kept in the URL (`?map=vik&shape=bowtie&n=6000`).
 Motion: tiles cascade in and filter changes animate; thumbnails morph into the viewer
 and back; "More like this" hops between works inside the viewer; pages rise in.
 All motion respects `prefers-reduced-motion`.

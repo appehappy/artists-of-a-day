@@ -1,0 +1,276 @@
+---
+// Colour maps made of artworks: pick a shape and a Scientific Colour Map, and the
+// archive's closest-matching works fly into place to draw it.
+import fs from "node:fs";
+import path from "node:path";
+import ExploreSwitch from "../../components/ExploreSwitch.astro";
+import Base from "../../layouts/Base.astro";
+import { cssGradient, SHAPES, type ColourMap } from "../../lib/colourmaps";
+import "../../styles/explore.css";
+
+const mapsFile = path.resolve("public/fields/maps/maps.json");
+const data: { credit: string; maps: ColourMap[] } = fs.existsSync(mapsFile)
+  ? JSON.parse(fs.readFileSync(mapsFile, "utf8"))
+  : { credit: "", maps: [] };
+const types = [...new Set(data.maps.map((m) => m.type))];
+
+// Simple outline icons for the shapes.
+const icons: Record<string, string> = {
+  band: '<rect x="2" y="8" width="20" height="8" rx="1.5"/>',
+  ring: '<circle cx="12" cy="12" r="7.5" fill="none" stroke-width="4"/>',
+  bowtie: '<path d="M2 5 L12 10 L22 5 V19 L12 14 L2 19 Z"/>',
+  spiral: '<path fill="none" stroke-width="2.4" stroke-linecap="round" d="M12 12 a1.5 1.5 0 1 1 1.5 1.5 a4 4 0 1 1 -4 -4.5 a7 7 0 1 1 7.5 8"/>',
+  disc: '<circle cx="12" cy="12" r="9"/>',
+  steps: '<rect x="1.5" y="7" width="5" height="10" rx="1"/><rect x="9.5" y="7" width="5" height="10" rx="1"/><rect x="17.5" y="7" width="5" height="10" rx="1"/>',
+};
+---
+
+<Base title="Colour maps">
+  <section class="explore" data-maps>
+    <canvas class="mosaic-canvas gl" aria-hidden="true"></canvas>
+    <canvas class="mosaic-canvas top" aria-label="A colour map drawn with artworks"></canvas>
+
+    <div class="panel top-left">
+      <ExploreSwitch current="maps" />
+      <p class="blurb">Pick a shape and a colour map: the archive's closest-matching works fly in to draw it. Zoom in to see each work.</p>
+      <p class="hint">Drag to move · pinch or ⌘-scroll to zoom · click a work</p>
+    </div>
+
+    <div class="panel picker">
+      <h4>Shape</h4>
+      <div class="shapes">
+        {SHAPES.map((s) => (
+          <button type="button" data-shape={s.key} aria-pressed="false" title={`${s.label} · suits ${s.suits.toLowerCase()} maps`}>
+            <svg viewBox="0 0 24 24" aria-hidden="true" set:html={icons[s.key]} />
+            <span>{s.label}</span>
+          </button>
+        ))}
+      </div>
+      {types.map((type) => (
+        <>
+          <h4>{type}</h4>
+          <div class="maps">
+            {data.maps.filter((m) => m.type === type).map((m) => (
+              <button type="button" data-map={m.name} aria-pressed="false" title={m.name}>
+                <span class="swatch" style={`background:${cssGradient(m)}`}></span>
+                <span class="name">{m.name}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ))}
+      <label class="amount">
+        <span>Works <output data-amount-label>6,000</output></span>
+        <input type="range" min="1000" max="20000" step="500" value="6000" data-amount />
+      </label>
+      <p class="readout" data-readout>…</p>
+      <p class="credit">{data.credit.replace(/ \(doi.*\)/, "")}</p>
+    </div>
+
+    <div class="panel bottom-left controls">
+      <button type="button" data-zoom="1.8" aria-label="Zoom in">+</button>
+      <button type="button" data-zoom="0.55" aria-label="Zoom out">−</button>
+      <button type="button" data-fit>Whole shape</button>
+      <button type="button" data-surprise>Surprise me</button>
+    </div>
+
+    <div class="loading" data-loading>{data.maps.length ? "Gathering 89,000 works…" : "Colour map data isn't built yet. Run scripts/build_colourmaps.py."}</div>
+    <div class="tip" hidden></div>
+
+    <aside class="card" aria-live="polite" hidden>
+      <button type="button" class="card-close" aria-label="Close">×</button>
+      <div class="card-img"><img alt="" /></div>
+      <a class="card-artist serif" href="#"></a>
+      <p class="card-meta"></p>
+      <a class="card-open" href="#">Open artist page →</a>
+    </aside>
+  </section>
+</Base>
+
+<style>
+  .top { z-index: 1; }
+  .picker {
+    top: 16px; right: 16px; bottom: 16px; width: 300px; overflow-y: auto; z-index: 2;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .picker h4 { margin: 8px 0 0; font: 500 11px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .shapes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .shapes button {
+    display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12px;
+    transition: all 0.2s var(--ease);
+  }
+  .shapes svg { width: 26px; height: 26px; fill: currentColor; stroke: currentColor; }
+  .shapes button:hover { color: var(--ink); border-color: var(--muted); }
+  .shapes button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px; }
+  .maps button { border: 0; background: none; padding: 0; text-align: left; color: var(--muted); font-size: 11px; }
+  .maps .swatch {
+    display: block; height: 18px; border-radius: 4px; margin-bottom: 3px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: transform 0.2s var(--ease), box-shadow 0.2s;
+  }
+  .maps button:hover .swatch { transform: scaleY(1.2); }
+  .maps button[aria-pressed="true"] { color: var(--ink); }
+  .maps button[aria-pressed="true"] .swatch { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink); }
+  .amount { display: grid; gap: 6px; margin-top: 10px; font-size: 13px; }
+  .amount output { color: var(--ink); font-weight: 500; margin-left: 4px; }
+  .amount input { width: 100%; accent-color: var(--accent); }
+  .readout { margin: 0; font-size: 12px; color: var(--muted); }
+  .credit { margin: 4px 0 0; font-size: 11px; color: var(--muted); }
+  .card { z-index: 4; }
+  @media (max-width: 720px) {
+    .picker { top: auto; left: 16px; width: auto; height: 42%; }
+  }
+</style>
+
+<script>
+  import { loadArtworks, loadSite, onPage } from "../../lib/client";
+  import { makeShape, match, SHAPES, type ColourMap, type ShapeKey } from "../../lib/colourmaps";
+  import { MosaicView, type AtlasInfo } from "../../lib/mosaic";
+  import { imgUrl, thumbUrl } from "../../lib/types";
+
+  let view: MosaicView | null = null;
+  document.addEventListener("astro:before-swap", () => { view?.destroy(); view = null; });
+
+  onPage("[data-maps]", async (root) => {
+    const loading = root.querySelector<HTMLElement>("[data-loading]")!;
+    const base = "/fields/maps";
+    let site, rows, atlas: AtlasInfo, lab: Float32Array, maps: ColourMap[];
+    try {
+      const ok = (r: Response) => { if (!r.ok) throw new Error(r.url); return r; };
+      let mapsData;
+      [site, rows, atlas, lab, mapsData] = await Promise.all([
+        loadSite(), loadArtworks(),
+        fetch(`${base}/atlas.json`).then(ok).then((r) => r.json()),
+        fetch(`${base}/colour.bin`).then(ok).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b)),
+        fetch(`${base}/maps.json`).then(ok).then((r) => r.json()),
+      ]);
+      maps = mapsData.maps;
+    } catch {
+      loading.textContent = "Colour map data isn't built yet. Run scripts/build_colourmaps.py, then reload.";
+      return;
+    }
+
+    // Where each artwork's tile sits in the sprite sheets.
+    const uvs = new Float32Array(atlas.count * 3);
+    for (let i = 0; i < atlas.count; i++) {
+      const j = i % atlas.perSheet;
+      uvs[i * 3] = ((j % atlas.perRow) * atlas.tile) / atlas.sheet;
+      uvs[i * 3 + 1] = (Math.floor(j / atlas.perRow) * atlas.tile) / atlas.sheet;
+      uvs[i * 3 + 2] = Math.floor(i / atlas.perSheet);
+    }
+
+    const bySlug = new Map(site.artists.map((a) => [a.slug, a]));
+    const describe = (row: number) => {
+      const [pi, file, , , year, title] = rows[row];
+      const post = site.posts[pi];
+      const artist = post.artist ? bySlug.get(post.artist) : undefined;
+      const href = `${artist ? `/artist/${artist.slug}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}`;
+      return { post, file, artist, href, name: artist?.name ?? post.subject ?? "",
+               work: [title, year].filter(Boolean).join(", ") };
+    };
+
+    const tip = root.querySelector<HTMLElement>(".tip")!;
+    const card = root.querySelector<HTMLElement>(".card")!;
+    const cardImg = card.querySelector<HTMLImageElement>(".card-img img")!;
+    const select = (row: number | null) => {
+      if (row === null) { card.hidden = true; return; }
+      const d = describe(row);
+      cardImg.src = thumbUrl(d.post, d.file);
+      const full = new Image();
+      full.onload = () => { if (cardImg.dataset.row === String(row)) cardImg.src = full.src; };
+      full.src = imgUrl(d.post, d.file);
+      cardImg.dataset.row = String(row);
+      const nameEl = card.querySelector<HTMLAnchorElement>(".card-artist")!;
+      nameEl.textContent = d.name;
+      nameEl.href = d.href;
+      card.querySelector(".card-meta")!.textContent =
+        [d.work || "Untitled", d.artist?.nationality].filter(Boolean).join(" · ");
+      card.querySelector<HTMLAnchorElement>(".card-open")!.href = d.href;
+      card.hidden = false;
+    };
+
+    try {
+      view = new MosaicView(root.querySelector(".gl")!, root.querySelector(".top")!, base, atlas, uvs, {
+        thumbUrl: (row) => thumbUrl(site.posts[rows[row][0]], rows[row][1]),
+        onHover: (row, x, y) => {
+          if (row === null) { tip.hidden = true; return; }
+          const d = describe(row);
+          tip.replaceChildren();
+          const b = document.createElement("b");
+          b.textContent = d.name;
+          tip.append(b, d.work);
+          tip.hidden = false;
+          tip.style.left = `${Math.min(x + 14, root.clientWidth - 270)}px`;
+          tip.style.top = `${y + 16}px`;
+        },
+        onSelect: select,
+      });
+    } catch {
+      loading.textContent = "This view needs WebGL2, which this browser doesn't offer.";
+      return;
+    }
+
+    // Keep the shape clear of the picker on wide screens.
+    const picker = root.querySelector<HTMLElement>(".picker")!;
+    const syncInset = () => {
+      view!.insetRight = innerWidth > 720 ? picker.offsetWidth + 32 : 0;
+    };
+    syncInset();
+    addEventListener("resize", syncInset);
+    document.addEventListener("astro:before-swap", () => removeEventListener("resize", syncInset), { once: true });
+
+    // State lives in the URL so a combination can be shared.
+    const params = new URLSearchParams(location.search);
+    const state = {
+      map: maps.some((m) => m.name === params.get("map")) ? params.get("map")! : "batlow",
+      shape: (SHAPES.some((s) => s.key === params.get("shape")) ? params.get("shape") : "band") as ShapeKey,
+      n: Math.min(20000, Math.max(1000, Number(params.get("n")) || 6000)),
+    };
+    const amount = root.querySelector<HTMLInputElement>("[data-amount]")!;
+    const amountLabel = root.querySelector("[data-amount-label]")!;
+    amount.value = String(state.n);
+
+    const apply = () => {
+      const t0 = performance.now();
+      const map = maps.find((m) => m.name === state.map)!;
+      const slots = makeShape(state.shape, state.n);
+      const m = match(lab, map, slots);
+      view!.setLayout({ rows: m.rows, x: slots.x, y: slots.y, t: slots.t, slotRgb: m.slotRgb });
+      card.hidden = true;
+      root.querySelectorAll<HTMLButtonElement>("[data-shape]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b.dataset.shape === state.shape)));
+      root.querySelectorAll<HTMLButtonElement>("[data-map]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b.dataset.map === state.map)));
+      amountLabel.textContent = slots.n.toLocaleString();
+      root.querySelector("[data-readout]")!.textContent =
+        `${state.map} · ${slots.n.toLocaleString()} works · average colour distance ${m.distance.toFixed(3)} · arranged in ${Math.round(performance.now() - t0)} ms`;
+      history.replaceState(history.state, "", `?map=${state.map}&shape=${state.shape}&n=${state.n}`);
+    };
+
+    root.querySelectorAll<HTMLButtonElement>("[data-shape]").forEach((b) =>
+      b.addEventListener("click", () => { state.shape = b.dataset.shape as ShapeKey; apply(); }));
+    root.querySelectorAll<HTMLButtonElement>("[data-map]").forEach((b) =>
+      b.addEventListener("click", () => { state.map = b.dataset.map!; apply(); }));
+    amount.addEventListener("input", () => { amountLabel.textContent = Number(amount.value).toLocaleString(); });
+    amount.addEventListener("change", () => { state.n = Number(amount.value); apply(); });
+    root.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) =>
+      b.addEventListener("click", () => view!.flyTo({ s: view!.cam.s * Number(b.dataset.zoom) }, 350)));
+    root.querySelector("[data-fit]")!.addEventListener("click", () => view!.fit());
+    root.querySelector("[data-surprise]")!.addEventListener("click", () => {
+      const row = view!.randomRow();
+      if (row === null) return;
+      view!.selected = row;
+      view!.flyToRow(row, 160);
+      select(row);
+    });
+    card.querySelector(".card-close")!.addEventListener("click", () => {
+      card.hidden = true;
+      view!.selected = null;
+      view!.invalidate();
+    });
+
+    apply();
+    loading.classList.add("done");
+  });
+</script>

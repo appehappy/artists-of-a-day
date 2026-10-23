@@ -1,0 +1,18 @@
+---
+// Tabs between the Explore views.
+interface Props {
+  current: string;
+}
+const { current } = Astro.props;
+const views = [
+  { key: "colour", label: "Colour Field" },
+  { key: "maps", label: "Colour maps" },
+  { key: "constellation", label: "Constellation" },
+];
+---
+
+<nav class="switch" aria-label="Views">
+  {views.map((v) => (
+    <a href={`/explore/${v.key}`} aria-current={v.key === current ? "page" : undefined}>{v.label}</a>
+  ))}
+</nav>
