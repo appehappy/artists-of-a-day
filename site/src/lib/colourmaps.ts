@@ -129,12 +129,13 @@ export function makeShape(shape: ShapeKey, n: number): Slots {
     }
     case "steps": {
       // Nine separate blocks: a discrete palette, each block a slice of the gradient.
+      // Every block is a perfect square, so the count rounds to 9 × side².
       const k = 9;
-      const per = Math.ceil(n / k);
-      const side = Math.ceil(Math.sqrt(per));
+      const side = Math.max(2, Math.round(Math.sqrt(n / k)));
+      const per = side * side;
       const gap = Math.max(2, Math.round(side * 0.18));
       const cells = [];
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < k * per; i++) {
         const b = Math.floor(i / per), j = i % per;
         const col = Math.floor(j / side), row = j % side;
         cells.push({ x: b * (side + gap) + col, y: row, t: (b + (col + 0.5) / side) / k, v: (row + 0.5) / side });
