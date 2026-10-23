@@ -1,46 +1,53 @@
 ---
 import Base from "../layouts/Base.astro";
-import { artists, colours, disciplines, posts, regions } from "../lib/data";
+import { artists, colours, disciplines, regions } from "../lib/data";
 import { ERAS } from "../lib/eras";
-
-const firstYear = posts[0]?.date.slice(0, 4);
 ---
 
 <Base>
   <section class="wall-head wrap">
-    <div>
-      <h1 class="serif reveal" style="--i:0">Every artwork, every artist, since {firstYear}.</h1>
-      <p class="muted reveal" style="--i:1">
-        <span data-count>…</span> from {artists.length.toLocaleString()} artists featured on{" "}
-        <a href="https://visualdiplomacyusa.blogspot.com/" target="_blank" rel="noopener">Artist of the Day</a>.
-      </p>
-    </div>
-    <div class="filters reveal" style="--i:2">
-      <div class="chips" data-group="disc" aria-label="Discipline">
-        {disciplines.filter((d) => d.key !== "other").map((d) => (
-          <button class="chip" type="button" data-value={d.key} aria-pressed="false">{d.label}</button>
-        ))}
+    <p class="summary reveal" style="--i:0">
+      <span data-count>…</span> from {artists.length.toLocaleString()} artists featured on{" "}
+      <a href="https://visualdiplomacyusa.blogspot.com/" target="_blank" rel="noopener">Artist of the Day</a>.
+    </p>
+    <div class="filters reveal" style="--i:1">
+      <div class="filter-row">
+        <div class="chips" data-group="disc" aria-label="Discipline">
+          {disciplines.filter((d) => d.key !== "other").map((d) => (
+            <button class="chip" type="button" data-value={d.key} aria-pressed="false">{d.label}</button>
+          ))}
+        </div>
       </div>
-      <div class="chips" data-group="era" aria-label="Era">
-        {ERAS.map((e) => (
-          <button class="chip" type="button" data-value={e.key} aria-pressed="false">{e.label}</button>
-        ))}
+      <div class="filter-row">
+        <div class="chips" data-group="era" aria-label="Era">
+          {ERAS.map((e) => (
+            <button class="chip" type="button" data-value={e.key} aria-pressed="false">{e.label}</button>
+          ))}
+        </div>
       </div>
-      <div class="chips" data-group="region" aria-label="Region">
-        {regions.filter((r) => r.artists >= 5).map((r) => (
-          <button class="chip" type="button" data-value={r.key} aria-pressed="false">{r.key}</button>
-        ))}
+      <div class="filter-row">
+        <div class="chips" data-group="region" aria-label="Region">
+          {regions.filter((r) => r.artists >= 5).map((r) => (
+            <button class="chip" type="button" data-value={r.key} aria-pressed="false">{r.key}</button>
+          ))}
+        </div>
       </div>
-      <div class="chips swatches" data-group="colour" aria-label="Colour">
-        {colours.map((c) => (
-          <button class="swatch" type="button" data-value={c.key} aria-pressed="false"
-                  aria-label={c.key} title={c.key} style={`--c:${c.hex}`}></button>
-        ))}
+      <div class="filter-row">
+        <div class="chips swatches" data-group="colour" aria-label="Colour">
+          {colours.map((c) => (
+            <button class="swatch" type="button" data-value={c.key} aria-pressed="false"
+                    aria-label={c.key} title={c.key} style={`--c:${c.hex}`}></button>
+          ))}
+        </div>
       </div>
-      <div class="chips">
-        <button class="chip" type="button" data-toggle="living" aria-pressed="false">Living artists</button>
-        <button class="chip" type="button" data-reshuffle>↻ Reshuffle</button>
-        <button class="chip" type="button" data-clear hidden>Clear filters</button>
+      <div class="filter-row">
+        <div class="chips">
+          <button class="chip" type="button" data-toggle="living" aria-pressed="false">Living artists</button>
+          <span class="actions">
+            <button class="chip" type="button" data-clear hidden>Clear filters</button>
+            <button class="chip" type="button" data-reshuffle>↻ Reshuffle</button>
+          </span>
+        </div>
       </div>
     </div>
   </section>
@@ -50,14 +57,14 @@ const firstYear = posts[0]?.date.slice(0, 4);
 </Base>
 
 <style>
-  .wall-head {
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
-    gap: 24px 48px; align-items: end; padding-top: 36px; padding-bottom: 24px;
-  }
-  h1 { font-size: clamp(34px, 4.4vw, 60px); line-height: 1.02; margin: 0 0 10px; }
-  .wall-head p { margin: 0; }
-  .filters { display: grid; gap: 8px; justify-items: end; }
-  .filters .chips { justify-content: flex-end; }
+  .wall-head { padding-top: 28px; padding-bottom: 28px; }
+  .summary { margin: 0 0 22px; font-size: 17px; color: var(--muted); }
+  .summary [data-count] { color: var(--ink); font-weight: 500; }
+  .summary a { color: inherit; }
+  /* Filters: one row of chips per kind. */
+  .filters { display: grid; gap: 10px; }
+  .filters .chips { align-items: center; }
+  .actions { display: flex; gap: 6px; margin-left: auto; }
   .swatches { gap: 8px; padding: 2px 0; }
   .swatch {
     width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
@@ -65,9 +72,8 @@ const firstYear = posts[0]?.date.slice(0, 4);
   }
   .swatch:hover { transform: scale(1.15); }
   .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); transform: scale(1.1); }
-  @media (max-width: 900px) {
-    .wall-head { grid-template-columns: 1fr; }
-    .filters, .filters .chips { justify-items: start; justify-content: flex-start; }
+  @media (max-width: 720px) {
+    .actions { margin-left: 0; }
   }
 
   .wall { display: flex; gap: 14px; align-items: flex-start; padding-bottom: 24px; }
