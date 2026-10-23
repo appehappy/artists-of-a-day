@@ -34,8 +34,13 @@ export interface Layout {
   h?: Float32Array;
   rot?: Float32Array; // radians, clockwise
   round?: number; // corner radius as a fraction of the tile's shorter side (0.5 = pill)
-  /** A solid disc drawn under the tiles, e.g. the dark sun at the centre of Orbits. */
-  disc?: { x: number; y: number; r: number; rgb: [number, number, number] };
+  /** A solid disc drawn under the tiles, e.g. the dark sun at the centre of Orbits;
+   *  with no colour, just the place the loading clock is drawn. */
+  disc?: { x: number; y: number; r: number; rgb: [number, number, number] | null };
+  /** Names drawn over the tiles: level 0 from afar, level 1 closer in. */
+  labels?: { text: string; x: number; y: number; size?: number; level?: number }[];
+  /** Lines between points, like a star chart's: x1, y1, x2, y2, strength (0–1). */
+  links?: [number, number, number, number, number][];
   /** Radians per second each tile turns about the disc when idle. */
   spin?: Float32Array;
   stagger?: number; // ms from the first tile's flight to the last's (default STAGGER)
@@ -171,7 +176,8 @@ void main() {
   v_fade = a_hi.z >= 0.0 ? 1.0 : u_sheetFade[int(a_uv.z)];
   v_local = local;
   v_half = half_;
-  v_radius = a_shape.w * 2.0 * min(half_.x, half_.y);
+  // Tiles only a pixel or two across drop the rounding, so they stay bright.
+  v_radius = a_shape.w * 2.0 * min(half_.x, half_.y) * smoothstep(1.0, 3.0, min(half_.x, half_.y));
 }`;
 
 const FRAG = `#version 300 es
@@ -245,6 +251,10 @@ export class MosaicView {
   private hiReady = false;
   private startPending = false; // the entrance clock starts on the first frame drawn
   private gradient: string[] | null = null;
+  private labels: NonNullable<Layout["labels"]> = [];
+  private links: NonNullable<Layout["links"]> = [];
+  private linked: number[] = []; // works joined to the selected one by lines
+  private maxSize = 1; // the widest tile, cells
   // High-res tile cache: which slot holds which artwork, and when it was last on screen.
   private hiTex: WebGLTexture;
   private slotOfRow: Int32Array;
@@ -265,6 +275,7 @@ export class MosaicView {
   // Per artwork in the current layout: size (cells), rotation and corner radius.
   private shape: Float32Array;
   private placedRows: Int32Array = new Int32Array(0);
+  private placed = new Set<number>();
   private hash = new Map<number, number[]>(); // floor(centre) key -> rows, for hit testing
   private bounds = { x0: 0, y0: 0, x1: 1, y1: 1 };
   /** Screen px covered by panels on either side, kept clear when fitting the shape.
@@ -389,6 +400,7 @@ export class MosaicView {
     this.bindInput();
     const loop = () => {
       if (this.destroyed) return;
+      requestAnimationFrame(loop); // first, so an error in one frame can't stop the next
       this.stepCamera();
       const now = performance.now();
       if (this.startPending) this.start = now;
@@ -401,7 +413,6 @@ export class MosaicView {
       // Time the entrance from the end of its first frame, which can be slow (the GPU
       // commits texture memory on first use), so that frame's cost can't jump it ahead.
       if (this.startPending) { this.start = performance.now(); this.startPending = false; }
-      requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
   }
@@ -453,8 +464,14 @@ export class MosaicView {
     this.bounds = { x0: x0 - cx, y0: y0 - cy, x1: x1 - cx, y1: y1 - cy };
     this.disc = layout.disc ? { ...layout.disc, x: layout.disc.x - cx, y: layout.disc.y - cy } : null;
     this.gradient = layout.gradient ?? null;
+    // Labels in order of drawing priority (systems first, bigger first), and links,
+    // moved like the tiles so the shape is centred.
+    this.labels = (layout.labels ?? []).map((l) => ({ ...l, x: l.x - cx, y: l.y - cy }))
+      .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || (b.size ?? 0) - (a.size ?? 0));
+    this.links = (layout.links ?? []).map(([x1, y1, x2, y2, k]) => [x1 - cx, y1 - cy, x2 - cx, y2 - cy, k]);
+    this.linked = [];
     const stagger = layout.stagger ?? STAGGER;
-    const spiral = layout.enter === "spiral" && this.disc !== null;
+    const spiral = layout.enter === "spiral";
     // For a trail: where each slot comes from, a few percent earlier along the gradient.
     const source = new Int32Array(layout.rows.length);
     if (layout.enter === "trail") {
@@ -467,6 +484,7 @@ export class MosaicView {
     const oldPivot = this.pivot, oldTurn = this.drift;
     const pivot = this.disc ? { x: this.disc.x, y: this.disc.y } : { x: 0, y: 0 };
     const spin = new Float32Array(this.n);
+    let maxSize = 1;
 
     const nextFrom = new Float32Array(this.n * 3);
     const nextTo = new Float32Array(this.n * 3);
@@ -487,6 +505,7 @@ export class MosaicView {
       shape[k4 + 1] = shaped ? layout.h![i] : 1;
       shape[k4 + 2] = layout.rot?.[i] ?? 0;
       shape[k4 + 3] = layout.round ?? 0;
+      maxSize = Math.max(maxSize, shape[k4], shape[k4 + 1]);
       spin[row] = layout.spin?.[i] ?? 0;
       nextTo[k3] = x; nextTo[k3 + 1] = y; nextTo[k3 + 2] = 1;
       tint[k3] = layout.slotRgb[i * 3]; tint[k3 + 1] = layout.slotRgb[i * 3 + 1]; tint[k3 + 2] = layout.slotRgb[i * 3 + 2];
@@ -537,11 +556,13 @@ export class MosaicView {
     this.delay = nextDelay;
     this.shape = shape;
     this.spin = spin;
+    this.maxSize = maxSize;
     this.pivot = pivot;
     this.drift = 0;
     this.hashDrift = 0;
     this.stagger = stagger;
     this.placedRows = layout.rows;
+    this.placed = new Set(layout.rows);
     this.start = now;
     this.startPending = true; // not before the frame: setup work would eat the first frames
     const gl = this.gl;
@@ -597,6 +618,24 @@ export class MosaicView {
   flyToRow(row: number, s = 140) {
     const [x, y] = this.centre(row);
     this.flyTo({ x, y, s });
+  }
+
+  /** Fly to show these works together, clear of the side panels and `right` px more
+   *  (e.g. an open card), zoomed in no further than `maxScale`. */
+  frameRows(rows: number[], right = 0, maxScale = 60) {
+    rows = rows.filter((r) => this.placed.has(r)); // only works in this layout
+    if (!rows.length) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const row of rows) {
+      const [x, y] = this.centre(row);
+      const r = Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) / 2;
+      x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r);
+      x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r);
+    }
+    const left = this.leftInset();
+    const s = Math.max(this.fitScale(), Math.min(maxScale,
+      (this.w - left - this.insetRight - right - 80) / (x1 - x0), (this.h - 120) / (y1 - y0)));
+    this.flyTo({ x: (x0 + x1) / 2 - (left - this.insetRight - right) / (2 * s), y: (y0 + y1) / 2, s }, 900);
   }
 
   zoomBy(f: number, sx = this.w / 2, sy = this.h / 2) {
@@ -856,7 +895,7 @@ export class MosaicView {
   /** Set up the overlay context for a tile: centred, rotated, with its outline as the path. */
   private tilePath(row: number, inset = 0) {
     const ctx = this.overlay, s = this.cam.s, k = row * 4;
-    const w = this.shape[k] * s - inset, h = this.shape[k + 1] * s - inset;
+    const w = Math.max(0.5, this.shape[k] * s - inset), h = Math.max(0.5, this.shape[k + 1] * s - inset);
     const [x, y, rot] = this.centre(row);
     ctx.translate((x - this.cam.x) * s + this.w / 2, (y - this.cam.y) * s + this.h / 2);
     ctx.rotate(rot);
@@ -876,17 +915,19 @@ export class MosaicView {
     if (this.disc) {
       const d = this.disc;
       const dx = (d.x - this.cam.x) * s + this.w / 2, dy = (d.y - this.cam.y) * s + this.h / 2;
-      ctx.fillStyle = `rgb(${d.rgb.map((c) => Math.round(c * 255)).join(",")})`;
-      ctx.beginPath();
-      ctx.arc(dx, dy, d.r * s, 0, 2 * Math.PI);
-      ctx.fill();
+      if (d.rgb) {
+        ctx.fillStyle = `rgb(${d.rgb.map((c) => Math.round(c * 255)).join(",")})`;
+        ctx.beginPath();
+        ctx.arc(dx, dy, d.r * s, 0, 2 * Math.PI);
+        ctx.fill();
+      }
       // Loading clock: a hairline sweeping round inside the sun's rim as sheets arrive.
       if (clockAlpha > 0) {
         ctx.strokeStyle = `rgba(244, 236, 222, ${0.8 * clockAlpha})`;
         ctx.lineWidth = Math.max(2, d.r * s * 0.025);
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.arc(dx, dy, d.r * s * 0.9, -Math.PI / 2, -Math.PI / 2 + shown * 2 * Math.PI);
+        ctx.arc(dx, dy, Math.max(18, d.r * s * 0.9), -Math.PI / 2, -Math.PI / 2 + shown * 2 * Math.PI);
         ctx.stroke();
       }
     } else if (this.gradient && clockAlpha > 0) {
@@ -913,7 +954,7 @@ export class MosaicView {
       ctx.restore();
     }
     const dpr = window.devicePixelRatio || 1;
-    if (settled && s * dpr * 3 >= OVERLAY_FROM && this.layout) { // no tile is wider than 3 cells
+    if (settled && s * dpr * this.maxSize >= OVERLAY_FROM && this.layout) {
       const [fx0, fy0] = this.toField(-s * 2, -s * 2);
       const [fx1, fy1] = this.toField(this.w + s * 2, this.h + s * 2);
       const shaped = this.layout.w !== undefined;
@@ -933,15 +974,128 @@ export class MosaicView {
         ctx.restore();
       }
     }
+    if (settled && this.selected !== null && this.linked.length) this.drawLinked(this.selected);
     for (const [row, colour, width] of [[this.hovered, "#fff", 1.5], [this.selected, "#ef6a4c", 3]] as const) {
-      if (row === null || s < 6 || !settled) continue;
+      if (row === null || !settled) continue;
       ctx.save();
-      this.tilePath(row, 1);
+      const [w, h] = this.tilePath(row, 1);
+      if (Math.min(w, h) < 10) { // too small to outline: ring it instead
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, 2 * Math.PI);
+      } else if (s < 6 && row === this.hovered) { ctx.restore(); continue; }
       ctx.strokeStyle = colour;
       ctx.lineWidth = width;
       ctx.stroke();
       ctx.restore();
     }
+    this.drawLinks();
+    this.drawLabels();
+  }
+
+  /** Field position to screen. */
+  private screen(x: number, y: number): [number, number] {
+    return [(x - this.cam.x) * this.cam.s + this.w / 2, (y - this.cam.y) * this.cam.s + this.h / 2];
+  }
+
+  /** Constellation lines between linked points, with a ring at each end, drawn in
+   *  after the entrance and fading out as you zoom in among the stars. */
+  private drawLinks() {
+    const ctx = this.overlay;
+    if (!this.links.length) return;
+    const zoom = this.cam.s / this.fitScale();
+    const fade = Math.max(0, Math.min(1, (24 - zoom) / 16));
+    if (fade <= 0) return;
+    const appear = Math.min(1, Math.max(0, (performance.now() - this.start - this.stagger * 0.6) / 1200));
+    ctx.save();
+    ctx.lineWidth = 1;
+    const ends = new Set<string>();
+    for (const [x1, y1, x2, y2, k] of this.links) {
+      const [a, b] = this.screen(x1, y1), [c, d] = this.screen(x2, y2);
+      ctx.strokeStyle = `rgba(244, 236, 222, ${(0.22 + 0.35 * Math.max(0, (k - 0.8) / 0.15)) * fade * appear})`;
+      ctx.beginPath();
+      ctx.moveTo(a, b);
+      ctx.lineTo(a + (c - a) * appear, b + (d - b) * appear); // lines draw themselves in
+      ctx.stroke();
+      ends.add(`${x1},${y1}`).add(`${x2},${y2}`);
+    }
+    ctx.strokeStyle = `rgba(244, 236, 222, ${0.7 * fade * appear})`;
+    ctx.lineWidth = 1.5;
+    for (const e of ends) {
+      const [x, y] = e.split(",").map(Number);
+      const [sx, sy] = this.screen(x, y);
+      ctx.beginPath();
+      ctx.arc(sx, sy, Math.max(5, 1.9 * this.cam.s) + 3, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Lines from the selected work to the works it's linked to (its look-alikes). */
+  private drawLinked(from: number) {
+    const ctx = this.overlay, s = this.cam.s;
+    const [fx, fy] = this.screen(...(this.centre(from).slice(0, 2) as [number, number]));
+    ctx.save();
+    ctx.strokeStyle = "rgba(239, 106, 76, 0.75)";
+    ctx.lineWidth = 1.25;
+    for (const row of this.linked) {
+      const [x, y] = this.centre(row);
+      const [sx, sy] = this.screen(x, y);
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sx, sy, Math.max(6, (Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) * s) / 2 + 3), 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Names over the tiles: systems from afar, the regions within them closer in,
+   *  bigger first, never overlapping. */
+  private drawLabels() {
+    if (!this.labels.length) return;
+    const ctx = this.overlay;
+    const zoom = this.cam.s / this.fitScale();
+    const clamp = (v: number) => Math.max(0, Math.min(1, v));
+    const appear = clamp((performance.now() - this.start - this.stagger) / 800);
+    const placed: [number, number, number, number][] = [];
+    let systems = Math.round(14 * zoom); // system names shown: the biggest, more as you zoom in
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    for (const l of this.labels) {
+      const level = l.level ?? 0;
+      if (level === 0 && systems-- <= 0) continue;
+      const alpha = appear * (level === 0 ? clamp((10 - zoom) / 6) : Math.min(clamp((zoom - 2) / 2), clamp((40 - zoom) / 20)));
+      if (alpha <= 0.02) continue;
+      const [x, y] = this.screen(l.x, l.y);
+      if (x < -300 || y < -60 || x > this.w + 300 || y > this.h + 60) continue;
+      const size = level === 0 ? Math.round(Math.min(26, 13 + Math.sqrt(l.size ?? 400) / 8)) : 11;
+      const text = level === 0 ? l.text : l.text.toUpperCase();
+      ctx.font = level === 0 ? `400 ${size}px "Instrument Serif", Georgia, serif`
+                             : `600 ${size}px Inter, system-ui, sans-serif`;
+      ctx.letterSpacing = level === 0 ? "0px" : "1.2px";
+      const ty = level === 0 ? y - Math.max(14, 1.7 * this.cam.s + 12) : y; // a system's name sits above its brightest star
+      const half = ctx.measureText(text).width / 2;
+      const box: [number, number, number, number] = [x - half - 8, ty - size / 2 - 5, x + half + 8, ty + size / 2 + 5];
+      if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) continue;
+      placed.push(box);
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = level === 0 ? 5 : 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.65)";
+      ctx.strokeText(text, x, ty);
+      ctx.fillStyle = "#fff";
+      ctx.fillText(text, x, ty);
+    }
+    ctx.restore();
+  }
+
+  /** Join the selected work to these works with lines (e.g. its look-alikes in view). */
+  linkTo(rows: number[]) {
+    this.linked = rows.filter((r) => this.placed.has(r));
+    this.invalidate();
   }
 
   // ── input ─────────────────────────────────────────────────────────────────

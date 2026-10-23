@@ -1,8 +1,8 @@
 /* Shared by the Explore views (src/pages/explore/). Global rather than scoped because
    much of the content (tooltips, cards, similar works) is created by script. */
 .explore { position: relative; height: calc(100vh - 61px); height: calc(100dvh - 61px); overflow: hidden; }
-.field-canvas, .mosaic-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
-.field-canvas:active, .mosaic-canvas:active { cursor: grabbing; }
+.mosaic-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.mosaic-canvas:active { cursor: grabbing; }
 .panel {
   position: absolute; z-index: 2; padding: 14px 16px; border-radius: 14px;
   background: color-mix(in srgb, var(--surface) 86%, transparent); backdrop-filter: blur(12px);
@@ -63,4 +63,4 @@
 }
 
 .mosaic-canvas.top { z-index: 1; }
-.mosaic-canvas[hidden], .field-canvas[hidden] { display: none; }
+.mosaic-canvas[hidden] { display: none; }

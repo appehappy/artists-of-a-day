@@ -55,7 +55,7 @@ python3 scripts/build_db.py                 #          merge enrichment
 .venv/bin/python scripts/analyze_embeddings.py  #      image kinds + similar works
 python3 scripts/build_db.py                 #          merge again
 python3 scripts/export_site_data.py         # site JSON
-.venv/bin/python scripts/build_fields.py    # Constellation: layout + map tiles (~5 min)
+.venv/bin/python scripts/build_fields.py    # Constellation: the galaxy layout (~1 min)
 .venv/bin/python scripts/build_colourmaps.py  # Colour Field + Colour maps: sprite sheets, colours, maps
 python3 -m unittest                         # tests
 ```
@@ -102,10 +102,17 @@ sheets load (a clock round the sun's rim shows progress); images fade in as each
 arrives. After a few idle seconds the rings drift, alternate rings turning opposite
 ways and slower close up; any input stops them.
 
-**Constellation** is an archipelago of visual likeness, drawn like a slippy map from
-`site/public/fields/` (built by `build_fields.py`, not part of `refresh.py` yet):
-CLIP-embedding clusters become islands arranged by a UMAP, named by CLIP at two zoom
-levels (islands, then regions within them), with labels that never overlap.
+**Constellation** is a galaxy of visual likeness, every work a star (built by
+`build_fields.py` into `site/public/fields/constellation/`, not part of `refresh.py`
+yet). CLIP embeddings cluster the works into 48 star systems placed where a UMAP puts
+them; each is a bright core of its most typical works (the biggest stars) fading into a
+halo. Works nearly as alike to a neighbouring system are drawn into streams between the
+two, so related systems collide, and the whole is turned in a gentle swirl. Ringed
+anchor stars are joined by constellation lines to their most alike systems; system
+names show from afar (more as you zoom), regions within them closer in. Click a star
+and lines join it to its look-alikes; Surprise me and "More like this" fly to frame a
+work with its look-alikes. `build_fields.py --preview out.png` draws the galaxy as an
+image for tuning.
 
 **Colour maps** (`/explore/maps`) draws Fabio Crameri's Scientific Colour Maps with
 artworks: pick a shape (steps, band, bow-tie, ring), a map and how many
@@ -119,9 +126,9 @@ draws itself along the gradient like a brushstroke (each work trailing in from a
 earlier in the map), in flat colour until the images fade in, with the map itself
 filling in beneath as a loading bar. From far away tiles are
 tinted towards their slot's colour, fading out as you zoom in. Detail follows the
-zoom in every Explore view: as tiles outgrow their sprite or map tile, works near the
-centre swap to 128px crops of their thumbnails (cached on the GPU, or as bitmaps in the
-canvas views, up to ~1,200–1,500 at a time), and close up the full thumbnails take over. Combinations are kept in the URL (`?map=vik&shape=bowtie&n=6000`).
+zoom in every Explore view: as tiles outgrow their sprite, works near the centre swap
+to 128px crops of their thumbnails (cached on the GPU, up to ~1,500 at a time), and
+close up the full thumbnails take over. Combinations are kept in the URL (`?map=vik&shape=bowtie&n=6000`).
 Motion: tiles cascade in and filter changes animate; thumbnails morph into the viewer
 and back; "More like this" hops between works inside the viewer; pages rise in.
 All motion respects `prefers-reduced-motion`.

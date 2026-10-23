@@ -12,7 +12,7 @@ export function getStaticPaths() {
     } },
     { params: { field: "constellation" }, props: {
       title: "Constellation",
-      blurb: "An archipelago of visual likeness: each island gathers works that look alike, whoever made them. Zoom in for the regions within.",
+      blurb: "A galaxy of visual likeness: every work a star, gathered into systems of look-alikes that collide where they share a likeness. Click a star to see its constellation.",
       orbits: false,
     } },
   ];
@@ -24,14 +24,9 @@ const { title, blurb, orbits } = Astro.props;
 
 <Base title={title}>
   <section class="explore" data-field={field}>
-    {orbits ? (
-      <>
-        <canvas class="mosaic-canvas gl" aria-hidden="true"></canvas>
-        <canvas class="mosaic-canvas top" aria-label="Orbits of the archive's most colourful works"></canvas>
-      </>
-    ) : (
-      <canvas class="field-canvas" aria-label={`${title}: a zoomable mosaic of every artwork`}></canvas>
-    )}
+    <canvas class="mosaic-canvas gl" aria-hidden="true"></canvas>
+    <canvas class="mosaic-canvas top"
+            aria-label={orbits ? "Orbits of the archive's most colourful works" : "A galaxy of every artwork, by visual likeness"}></canvas>
 
     <div class="panel top-left">
       <ExploreSwitch current={field} />
@@ -46,7 +41,7 @@ const { title, blurb, orbits } = Astro.props;
       <button type="button" data-surprise>Surprise me</button>
     </div>
 
-    <div class="loading" data-loading>{orbits ? "Gathering colours…" : "Laying out 89,000 works…"}</div>
+    <div class="loading" data-loading>{orbits ? "Gathering colours…" : "Gathering 89,000 stars…"}</div>
     <div class="tip" hidden></div>
 
     <aside class="card" aria-live="polite" hidden>
@@ -64,15 +59,14 @@ const { title, blurb, orbits } = Astro.props;
 
 <script>
   import { loadArtworks, loadSite, onPage } from "../../lib/client";
-  import { FieldView, loadField } from "../../lib/field";
+  import { galaxyLayout, loadGalaxy } from "../../lib/galaxy";
   import { loadMosaicData, MosaicView } from "../../lib/mosaic";
   import { orbitLayout } from "../../lib/orbits";
   import { imgUrl, thumbUrl, type SimilarMap } from "../../lib/types";
 
-  type View = FieldView | MosaicView;
   const ORBIT_WORKS = 12000;
 
-  let view: View | null = null;
+  let view: MosaicView | null = null;
   document.addEventListener("astro:before-swap", () => { view?.destroy(); view = null; });
 
   onPage("[data-field]", async (root) => {
@@ -100,7 +94,10 @@ const { title, blurb, orbits } = Astro.props;
     const cardImg = card.querySelector<HTMLImageElement>(".card-img img")!;
     const similarCache = new Map<number, Promise<SimilarMap>>();
 
-    const select = async (row: number | null) => {
+    /** Show a work's card and its constellation; with `frame`, fly to show it with
+     *  its look-alikes. */
+    const select = async (row: number | null, frame = false) => {
+      view?.linkTo([]);
       if (row === null) { card.hidden = true; return; }
       const { post, artist, name: who, work } = describe(row);
       const [pi, file] = rows[row];
@@ -123,9 +120,11 @@ const { title, blurb, orbits } = Astro.props;
       }
       const similar = (await similarCache.get(pi)!)[file] ?? [];
       if (cardImg.dataset.row !== String(row)) return;
+      const alike = similar.map(([spi, sfile]) => rowByKey.get(`${spi}|${sfile}`)).filter((r): r is number => r !== undefined);
+      view?.linkTo(alike); // its constellation: lines to its look-alikes
+      if (frame) view?.frameRows([row, ...alike], card.offsetWidth + 24);
       const box = card.querySelector(".card-similar")!;
-      box.replaceChildren(...similar.map(([spi, sfile]) => rowByKey.get(`${spi}|${sfile}`))
-        .filter((r): r is number => r !== undefined)
+      box.replaceChildren(...alike
         .map((r) => {
           const b = document.createElement("button");
           b.type = "button";
@@ -137,8 +136,7 @@ const { title, blurb, orbits } = Astro.props;
           // Hop across the field to the similar work (if it's in this arrangement).
           b.addEventListener("click", () => {
             view!.selected = r;
-            view!.flyToRow(r, Math.max(view!.cam.s, 120));
-            select(r);
+            select(r, true);
           });
           return b;
         }));
@@ -168,16 +166,17 @@ const { title, blurb, orbits } = Astro.props;
     document.addEventListener("astro:before-swap", () => removeEventListener("resize", syncInset), { once: true });
 
     try {
+      const canvases = [root.querySelector<HTMLCanvasElement>(".gl")!, root.querySelector<HTMLCanvasElement>(".top")!] as const;
       if (field === "colour") {
         const d = await loadMosaicData(undefined, "signature.bin");
-        const v = new MosaicView(root.querySelector(".gl")!, root.querySelector(".top")!, d.base, d.atlas, d.uvs, handlers);
-        view = v;
-        v.setInsetLeft(inset());
-        v.setLayout(orbitLayout(d.lab, ORBIT_WORKS), { animateIn: true });
-      } else {
-        const f = await loadField(field);
-        view = new FieldView(root.querySelector(".field-canvas")!, f.base, f.layout, f.cells, f.overview, handlers);
+        view = new MosaicView(...canvases, d.base, d.atlas, d.uvs, handlers);
         view.setInsetLeft(inset());
+        view.setLayout(orbitLayout(d.lab, ORBIT_WORKS), { animateIn: true });
+      } else {
+        const [d, galaxy] = await Promise.all([loadMosaicData(), loadGalaxy()]);
+        view = new MosaicView(...canvases, d.base, d.atlas, d.uvs, handlers);
+        view.setInsetLeft(inset());
+        view.setLayout(galaxyLayout(galaxy, d.lab), { animateIn: true });
       }
     } catch {
       loading.textContent = field === "colour"
@@ -194,13 +193,12 @@ const { title, blurb, orbits } = Astro.props;
       const row = view!.randomRow();
       if (row === null) return;
       view!.selected = row;
-      view!.flyToRow(row, 180);
-      select(row);
+      select(row, true);
     });
     card.querySelector(".card-close")!.addEventListener("click", () => {
       card.hidden = true;
       view!.selected = null;
-      view!.invalidate();
+      view!.linkTo([]);
     });
   });
 </script>
