@@ -94,7 +94,11 @@ map from `site/public/fields/` (built by `build_fields.py`, not part of `refresh
 yet): **Colour Field** is a conic colour wheel: greys in a sphere at the centre,
 then a gap, then a ring of every other work in hue order (OKLCH, each hue's slice as
 wide as its share of the archive, muted inside to vivid at the rim). From afar it's
-tinted towards a blurred colour layer so it reads as a smooth gradient. With a
+tinted towards a blurred colour layer so it reads as a smooth gradient. Its
+**Orbits** arrangement (after Alma Thomas) shows ~1,800 of the most saturated works,
+every hue represented, as pills in concentric rings around a dark sun, green at the
+centre through blue, purple, red and orange to yellow at the edge, drawn by the WebGL
+renderer (data from `build_colourmaps.py`). With a
 "Vivid only" wheel of the most colourful quarter; **Constellation** is an archipelago of
 visual likeness: CLIP-embedding clusters become islands arranged by a UMAP, named by
 CLIP at two zoom levels (islands, then regions within them), with labels that never

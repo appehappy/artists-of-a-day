@@ -61,3 +61,11 @@
   .blurb { display: none; }
   .card { top: auto; height: 62%; }
 }
+
+/* Arrangement switch (Colour Field): Wheel · Vivid · Orbits */
+.modes { display: inline-flex; gap: 2px; padding: 3px; margin: 2px 0 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.modes button { border: 0; background: none; color: var(--muted); padding: 4px 12px; border-radius: 999px; font-size: 13px; transition: all 0.2s var(--ease); }
+.modes button:hover { color: var(--ink); }
+.modes button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.mosaic-canvas.top { z-index: 1; }
+.mosaic-canvas[hidden], .field-canvas[hidden] { display: none; }

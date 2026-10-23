@@ -1,5 +1,6 @@
 // WebGL2 mosaic: every artwork is an instanced tile drawn from a texture array of
-// sprite sheets (scripts/build_colourmaps.py). Layout changes animate on the GPU:
+// sprite sheets (scripts/build_colourmaps.py). Tiles can be grid squares or rotated,
+// rounded shapes such as pills (the Colour Field's Orbits). Layout changes animate on the GPU:
 // each tile flies from where it is to where it's going, staggered along the
 // gradient; works joining grow in, works leaving shrink out. From far away each tile
 // is tinted towards its slot's colour (the zoom tint); close up, a 2D overlay draws
@@ -17,13 +18,38 @@ export interface MosaicOptions {
 
 export interface Layout {
   rows: Int32Array; // artwork per slot
-  x: Int32Array;
-  y: Int32Array;
+  /** Grid layouts: top-left cell of a 1×1 tile. Shaped layouts (with w/h): the centre. */
+  x: Int32Array | Float32Array;
+  y: Int32Array | Float32Array;
   t: Float32Array; // stagger order
   slotRgb: Float32Array;
+  w?: Float32Array; // tile size in cells (default 1×1)
+  h?: Float32Array;
+  rot?: Float32Array; // radians, clockwise
+  round?: number; // corner radius as a fraction of the tile's shorter side (0.5 = pill)
+  /** A solid disc drawn under the tiles, e.g. the dark sun at the centre of Orbits. */
+  disc?: { x: number; y: number; r: number; rgb: [number, number, number] };
 }
 
 interface Cam { x: number; y: number; s: number } // centre in cells; CSS px per cell
+
+/** Sprite sheet layout, each tile's texture coordinates, and each work's OKLab colour
+ *  (scripts/build_colourmaps.py). Throws if the data hasn't been built. */
+export async function loadMosaicData(base = "/fields/maps") {
+  const ok = (r: Response) => { if (!r.ok) throw new Error(r.url); return r; };
+  const [atlas, lab]: [AtlasInfo, Float32Array] = await Promise.all([
+    fetch(`${base}/atlas.json`).then(ok).then((r) => r.json()),
+    fetch(`${base}/colour.bin`).then(ok).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b)),
+  ]);
+  const uvs = new Float32Array(atlas.count * 3);
+  for (let i = 0; i < atlas.count; i++) {
+    const j = i % atlas.perSheet;
+    uvs[i * 3] = ((j % atlas.perRow) * atlas.tile) / atlas.sheet;
+    uvs[i * 3 + 1] = (Math.floor(j / atlas.perRow) * atlas.tile) / atlas.sheet;
+    uvs[i * 3 + 2] = Math.floor(i / atlas.perSheet);
+  }
+  return { base, atlas, uvs, lab };
+}
 
 const DURATION = 1100; // ms per tile flight
 const STAGGER = 650; // ms from the start of the gradient to its end
@@ -38,6 +64,7 @@ layout(location=1) in vec3 a_to;
 layout(location=2) in float a_delay;
 layout(location=3) in vec3 a_tint;
 layout(location=4) in vec3 a_uv;     // u0, v0, sheet
+layout(location=5) in vec4 a_shape;  // w, h (cells), rotation, corner radius fraction
 uniform vec2 u_view;      // canvas size, CSS px
 uniform vec3 u_cam;       // centre x, y (cells), px per cell
 uniform float u_time;     // ms since the layout change
@@ -47,6 +74,9 @@ uniform float u_tileUv;   // tile size in uv units
 out vec3 v_uv;
 out vec3 v_tint;
 out float v_alpha;
+out vec2 v_local;   // px from the tile centre, unrotated
+out vec2 v_half;    // half the tile size, px
+out float v_radius; // corner radius, px
 float ease(float t) { return t < 0.5 ? 4.0 * t * t * t : 1.0 - pow(-2.0 * t + 2.0, 3.0) / 2.0; }
 void main() {
   vec2 corner = vec2(gl_VertexID & 1, gl_VertexID >> 1);
@@ -59,13 +89,19 @@ void main() {
   float alpha = mix(a_from.z, a_to.z, e);
   v_alpha = alpha;
   float size = 0.35 + 0.65 * alpha;   // works joining grow in, leaving shrink out
-  vec2 cellPx = vec2(u_cam.z);
-  vec2 inset = (1.0 - size) * 0.5 * cellPx + vec2(u_gap * 0.5);
-  vec2 px = (p - u_cam.xy) * u_cam.z + u_view * 0.5 + inset + corner * (cellPx * size - vec2(u_gap));
+  vec2 half_ = max(vec2(0.5), (a_shape.xy * u_cam.z * size - vec2(u_gap)) * 0.5);
+  vec2 local = (corner * 2.0 - 1.0) * half_;
+  float c = cos(a_shape.z), s = sin(a_shape.z);
+  vec2 px = (p - u_cam.xy) * u_cam.z + u_view * 0.5 + vec2(local.x * c - local.y * s, local.x * s + local.y * c);
   gl_Position = alpha < 0.01 ? vec4(2.0, 2.0, 0.0, 1.0)
                              : vec4(px / u_view * 2.0 - 1.0, 0.0, 1.0) * vec4(1.0, -1.0, 1.0, 1.0);
-  v_uv = vec3(a_uv.xy + corner * u_tileUv, a_uv.z);
+  // Cover-crop the square tile to the shape's aspect ratio.
+  vec2 crop = a_shape.xy / max(a_shape.x, a_shape.y);
+  v_uv = vec3(a_uv.xy + (0.5 + (corner - 0.5) * crop) * u_tileUv, a_uv.z);
   v_tint = a_tint;
+  v_local = local;
+  v_half = half_;
+  v_radius = a_shape.w * 2.0 * min(half_.x, half_.y);
 }`;
 
 const FRAG = `#version 300 es
@@ -76,10 +112,17 @@ uniform float u_tintAmt;
 in vec3 v_uv;
 in vec3 v_tint;
 in float v_alpha;
+in vec2 v_local;
+in vec2 v_half;
+in float v_radius;
 out vec4 colour;
 void main() {
+  // Rounded-rectangle mask with a one-pixel soft edge.
+  vec2 q = abs(v_local) - v_half + v_radius;
+  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - v_radius;
+  float a = v_alpha * clamp(0.5 - d, 0.0, 1.0);
   vec3 c = texture(u_atlas, v_uv).rgb;
-  colour = vec4(mix(c, v_tint, u_tintAmt) * v_alpha, v_alpha);
+  colour = vec4(mix(c, v_tint, u_tintAmt) * a, a);
 }`;
 
 class ImageCache {
@@ -108,7 +151,7 @@ export class MosaicView {
   private gl: WebGL2RenderingContext;
   private overlay: CanvasRenderingContext2D;
   private prog: WebGLProgram;
-  private buf: Record<"from" | "to" | "delay" | "tint", WebGLBuffer>;
+  private buf: Record<"from" | "to" | "delay" | "tint" | "shape", WebGLBuffer>;
   private u: Record<string, WebGLUniformLocation | null> = {};
   private n: number;
   // Per artwork: where its current flight starts and ends.
@@ -117,15 +160,20 @@ export class MosaicView {
   private delay: Float32Array;
   private start = 0;
   private layout: Layout | null = null;
-  private grid = new Map<number, number>(); // cell key -> row
+  // Per artwork in the current layout: size (cells), rotation and corner radius.
+  private shape: Float32Array;
+  private placedRows: Int32Array = new Int32Array(0);
+  private hash = new Map<number, number[]>(); // floor(centre) key -> rows, for hit testing
   private bounds = { x0: 0, y0: 0, x1: 1, y1: 1 };
-  /** Screen px covered by panels on the right, kept clear when fitting the shape. */
+  /** Screen px covered by panels on either side, kept clear when fitting the shape. */
   insetRight = 0;
+  insetLeft = 0;
   private w = 0;
   private h = 0;
   private dirty = true;
   private destroyed = false;
   private anim: { from: Cam; to: Cam; t0: number; ms: number } | null = null;
+  private disc: Layout["disc"] | null = null;
   private thumbs: ImageCache;
   private cleanup: (() => void)[] = [];
   hovered: number | null = null;
@@ -141,6 +189,7 @@ export class MosaicView {
     this.from = new Float32Array(this.n * 3);
     this.to = new Float32Array(this.n * 3);
     this.delay = new Float32Array(this.n);
+    this.shape = new Float32Array(this.n * 4);
     this.thumbs = new ImageCache(400, () => this.invalidate());
 
     this.prog = this.program();
@@ -161,6 +210,7 @@ export class MosaicView {
     this.buf = {
       from: attrib(0, 3, this.from), to: attrib(1, 3, this.to),
       delay: attrib(2, 1, this.delay), tint: attrib(3, 3, new Float32Array(this.n * 3)),
+      shape: attrib(5, 4, this.shape),
     };
     attrib(4, 3, uvs);
 
@@ -231,63 +281,85 @@ export class MosaicView {
 
   // ── layout ────────────────────────────────────────────────────────────────
 
-  /** Where each artwork is right now (mid-flight if an animation is running). */
-  private current(i: number): [number, number, number] {
-    const t = Math.min(1, Math.max(0, (performance.now() - this.start - this.delay[i]) / DURATION));
-    const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    const f = this.from, o = this.to, k = i * 3;
-    return [f[k] + (o[k] - f[k]) * e, f[k + 1] + (o[k + 1] - f[k + 1]) * e, f[k + 2] + (o[k + 2] - f[k + 2]) * e];
-  }
-
-  setLayout(layout: Layout) {
-    const animate = !reducedMotion() && this.layout !== null;
+  /** Show a layout, flying tiles from where they are. With animateIn, even a first
+   *  layout animates: tiles grow in from nearby, in order of `t`. */
+  setLayout(layout: Layout, { animateIn = false } = {}) {
+    const animate = !reducedMotion() && (this.layout !== null || animateIn);
     const now = performance.now();
+    const shaped = layout.w !== undefined;
+    const centreX = (i: number) => layout.x[i] + (shaped ? 0 : 0.5);
+    const centreY = (i: number) => layout.y[i] + (shaped ? 0 : 0.5);
     // Centre the new shape on the origin so shapes overlap as they change.
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (let i = 0; i < layout.rows.length; i++) {
-      x0 = Math.min(x0, layout.x[i]); y0 = Math.min(y0, layout.y[i]);
-      x1 = Math.max(x1, layout.x[i] + 1); y1 = Math.max(y1, layout.y[i] + 1);
+      const r = shaped ? Math.max(layout.w![i], layout.h![i]) / 2 : 0.5;
+      x0 = Math.min(x0, centreX(i) - r); y0 = Math.min(y0, centreY(i) - r);
+      x1 = Math.max(x1, centreX(i) + r); y1 = Math.max(y1, centreY(i) + r);
     }
-    const cx = Math.floor((x0 + x1) / 2), cy = Math.floor((y0 + y1) / 2); // whole cells
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     this.bounds = { x0: x0 - cx, y0: y0 - cy, x1: x1 - cx, y1: y1 - cy };
+    this.disc = layout.disc ? { ...layout.disc, x: layout.disc.x - cx, y: layout.disc.y - cy } : null;
 
     const nextFrom = new Float32Array(this.n * 3);
     const nextTo = new Float32Array(this.n * 3);
     const nextDelay = new Float32Array(this.n);
     const tint = new Float32Array(this.n * 3);
+    const shape = new Float32Array(this.n * 4);
     const placed = new Uint8Array(this.n);
-    this.grid.clear();
+    this.hash.clear();
     for (let i = 0; i < layout.rows.length; i++) {
       const row = layout.rows[i];
-      const x = layout.x[i] - cx, y = layout.y[i] - cy;
+      const x = centreX(i) - cx, y = centreY(i) - cy;
       placed[row] = 1;
-      this.grid.set(Math.round(x) * 100000 + Math.round(y), row);
-      nextTo.set([x, y, 1], row * 3);
-      tint.set(layout.slotRgb.subarray(i * 3, i * 3 + 3), row * 3);
+      const key = Math.floor(x) * 100000 + Math.floor(y);
+      const bucket = this.hash.get(key);
+      if (bucket) bucket.push(row); else this.hash.set(key, [row]);
+      const k4 = row * 4, k3 = row * 3;
+      shape[k4] = shaped ? layout.w![i] : 1;
+      shape[k4 + 1] = shaped ? layout.h![i] : 1;
+      shape[k4 + 2] = layout.rot?.[i] ?? 0;
+      shape[k4 + 3] = layout.round ?? 0;
+      nextTo[k3] = x; nextTo[k3 + 1] = y; nextTo[k3 + 2] = 1;
+      tint[k3] = layout.slotRgb[i * 3]; tint[k3 + 1] = layout.slotRgb[i * 3 + 1]; tint[k3 + 2] = layout.slotRgb[i * 3 + 2];
       nextDelay[row] = animate ? layout.t[i] * STAGGER + Math.random() * 120 : -DURATION;
     }
     for (let row = 0; row < this.n; row++) {
-      const [px, py, pa] = animate ? this.current(row) : [0, 0, 0];
+      const k3 = row * 3, k4 = row * 4;
+      let px = 0, py = 0, pa = 0;
+      if (animate) {
+        const t = Math.min(1, Math.max(0, (now - this.start - this.delay[row]) / DURATION));
+        const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        const f = this.from, o = this.to;
+        px = f[k3] + (o[k3] - f[k3]) * e;
+        py = f[k3 + 1] + (o[k3 + 1] - f[k3 + 1]) * e;
+        pa = f[k3 + 2] + (o[k3 + 2] - f[k3 + 2]) * e;
+      }
       if (placed[row]) {
-        if (pa > 0.01) nextFrom.set([px, py, pa], row * 3); // already showing: fly over
+        if (pa > 0.01) { nextFrom[k3] = px; nextFrom[k3 + 1] = py; nextFrom[k3 + 2] = pa; } // showing: fly over
         else {
           // joining: start just off its spot, scattered, and grow in
           const a = Math.random() * Math.PI * 2, r = 6 + Math.random() * 18;
-          nextFrom.set([nextTo[row * 3] + Math.cos(a) * r, nextTo[row * 3 + 1] + Math.sin(a) * r, 0], row * 3);
+          nextFrom[k3] = nextTo[k3] + Math.cos(a) * r;
+          nextFrom[k3 + 1] = nextTo[k3 + 1] + Math.sin(a) * r;
+          nextFrom[k3 + 2] = 0;
         }
       } else {
-        // leaving (or never shown): shrink out where it is
-        nextFrom.set([px, py, pa], row * 3);
-        nextTo.set([px, py, 0], row * 3);
+        // leaving (or never shown): shrink out where it is, keeping its shape
+        for (let j = 0; j < 4; j++) shape[k4 + j] = this.shape[k4 + j];
+        nextFrom[k3] = px; nextFrom[k3 + 1] = py; nextFrom[k3 + 2] = pa;
+        nextTo[k3] = px; nextTo[k3 + 1] = py; nextTo[k3 + 2] = 0;
         nextDelay[row] = animate ? Math.random() * 200 : -DURATION;
       }
     }
     this.from = nextFrom;
     this.to = nextTo;
     this.delay = nextDelay;
+    this.shape = shape;
+    this.placedRows = layout.rows;
     this.start = now;
     const gl = this.gl;
-    for (const [key, data] of [["from", nextFrom], ["to", nextTo], ["delay", nextDelay], ["tint", tint]] as const) {
+    for (const [key, data] of [["from", nextFrom], ["to", nextTo], ["delay", nextDelay], ["tint", tint],
+                               ["shape", shape]] as const) {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buf[key]);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
     }
@@ -301,13 +373,18 @@ export class MosaicView {
 
   private fitScale() {
     const { x0, y0, x1, y1 } = this.bounds;
-    return Math.min((this.w - this.insetRight) / (x1 - x0 + 16), this.h / (y1 - y0 + 16));
+    return Math.min((this.w - this.insetLeft - this.insetRight) / (x1 - x0 + 16), this.h / (y1 - y0 + 16));
   }
 
-  /** Fit the whole shape into the area left of any right-hand panel. */
+  /** Fit the whole shape into the area between any side panels. */
   fit(animate = true) {
     const s = this.fitScale();
-    this.flyTo({ x: this.insetRight / (2 * s), y: 0, s }, animate ? 900 : 0);
+    this.flyTo({ x: (this.insetRight - this.insetLeft) / (2 * s), y: 0, s }, animate ? 900 : 0);
+  }
+
+  setInsetLeft(px: number) {
+    this.insetLeft = px;
+    this.fit(false);
   }
 
   flyTo(to: Partial<Cam>, ms = 700) {
@@ -319,7 +396,7 @@ export class MosaicView {
 
   flyToRow(row: number, s = 140) {
     const k = row * 3;
-    this.flyTo({ x: this.to[k] + 0.5, y: this.to[k + 1] + 0.5, s });
+    this.flyTo({ x: this.to[k], y: this.to[k + 1], s });
   }
 
   zoomBy(f: number, sx = this.w / 2, sy = this.h / 2) {
@@ -348,9 +425,26 @@ export class MosaicView {
     return [this.cam.x + (sx - this.w / 2) / this.cam.s, this.cam.y + (sy - this.h / 2) / this.cam.s];
   }
 
+  /** Is field point (fx, fy) inside this artwork's (possibly rotated) tile? */
+  private contains(row: number, fx: number, fy: number) {
+    const k = row * 4;
+    const [w, h, rot] = [this.shape[k], this.shape[k + 1], this.shape[k + 2]];
+    const dx = fx - this.to[row * 3], dy = fy - this.to[row * 3 + 1];
+    const c = Math.cos(-rot), s = Math.sin(-rot);
+    return Math.abs(dx * c - dy * s) <= w / 2 && Math.abs(dx * s + dy * c) <= h / 2;
+  }
+
   rowAt(sx: number, sy: number): number | null {
     const [fx, fy] = this.toField(sx, sy);
-    return this.grid.get(Math.floor(fx) * 100000 + Math.floor(fy)) ?? null;
+    const bx = Math.floor(fx), by = Math.floor(fy);
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (const row of this.hash.get((bx + dx) * 100000 + (by + dy)) ?? []) {
+          if (this.contains(row, fx, fy)) return row;
+        }
+      }
+    }
+    return null;
   }
 
   randomRow(): number | null {
@@ -382,10 +476,22 @@ export class MosaicView {
     gl.uniform2f(this.u.u_view, this.w, this.h);
     gl.uniform3f(this.u.u_cam, this.cam.x, this.cam.y, this.cam.s);
     gl.uniform1f(this.u.u_time, performance.now() - this.start);
-    gl.uniform1f(this.u.u_gap, this.cam.s >= 12 ? Math.max(1, Math.min(2, this.cam.s * 0.008)) : 0);
+    const shaped = this.layout?.w !== undefined; // shaped layouts space their own tiles
+    gl.uniform1f(this.u.u_gap, !shaped && this.cam.s >= 12 ? Math.max(1, Math.min(2, this.cam.s * 0.008)) : 0);
     gl.uniform1f(this.u.u_tintAmt, tintAmount(this.cam.s));
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.n);
     this.drawOverlay();
+  }
+
+  /** Set up the overlay context for a tile: centred, rotated, with its outline as the path. */
+  private tilePath(row: number, inset = 0) {
+    const ctx = this.overlay, s = this.cam.s, k = row * 4;
+    const w = this.shape[k] * s - inset, h = this.shape[k + 1] * s - inset;
+    ctx.translate((this.to[row * 3] - this.cam.x) * s + this.w / 2, (this.to[row * 3 + 1] - this.cam.y) * s + this.h / 2);
+    ctx.rotate(this.shape[k + 2]);
+    ctx.beginPath();
+    ctx.roundRect(-w / 2, -h / 2, w, h, this.shape[k + 3] * Math.min(w, h));
+    return [w, h] as const;
   }
 
   private drawOverlay() {
@@ -393,30 +499,40 @@ export class MosaicView {
     ctx.clearRect(0, 0, this.w, this.h);
     const settled = performance.now() - this.start > STAGGER + DURATION;
     const s = this.cam.s;
+    if (this.disc) {
+      const d = this.disc;
+      ctx.fillStyle = `rgb(${d.rgb.map((c) => Math.round(c * 255)).join(",")})`;
+      ctx.beginPath();
+      ctx.arc((d.x - this.cam.x) * s + this.w / 2, (d.y - this.cam.y) * s + this.h / 2, d.r * s, 0, 2 * Math.PI);
+      ctx.fill();
+    }
     if (settled && s >= THUMBS_FROM && this.layout) {
-      const [fx0, fy0] = this.toField(0, 0);
-      const [fx1, fy1] = this.toField(this.w, this.h);
-      const gap = Math.max(1, Math.min(2, s * 0.008));
-      for (let x = Math.floor(fx0); x <= Math.floor(fx1); x++) {
-        for (let y = Math.floor(fy0); y <= Math.floor(fy1); y++) {
-          const row = this.grid.get(x * 100000 + y);
-          if (row === undefined) continue;
-          const img = this.thumbs.get(this.opts.thumbUrl(row));
-          if (!img) continue;
-          const sx = (x - this.cam.x) * s + this.w / 2, sy = (y - this.cam.y) * s + this.h / 2;
-          const side = Math.min(img.width, img.height);
-          ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side,
-                        sx + gap / 2, sy + gap / 2, s - gap, s - gap);
-        }
+      const [fx0, fy0] = this.toField(-s * 2, -s * 2);
+      const [fx1, fy1] = this.toField(this.w + s * 2, this.h + s * 2);
+      const shaped = this.layout.w !== undefined;
+      const gap = shaped ? 0 : Math.max(1, Math.min(2, s * 0.008));
+      for (const row of this.placedRows) {
+        const x = this.to[row * 3], y = this.to[row * 3 + 1];
+        if (x < fx0 || x > fx1 || y < fy0 || y > fy1) continue;
+        const img = this.thumbs.get(this.opts.thumbUrl(row));
+        if (!img) continue;
+        ctx.save();
+        const [w, h] = this.tilePath(row, gap);
+        ctx.clip();
+        // Cover-crop the thumbnail to the tile.
+        const scale = Math.max(w / img.width, h / img.height);
+        ctx.drawImage(img, -img.width * scale / 2, -img.height * scale / 2, img.width * scale, img.height * scale);
+        ctx.restore();
       }
     }
     for (const [row, colour, width] of [[this.hovered, "#fff", 1.5], [this.selected, "#ef6a4c", 3]] as const) {
       if (row === null || s < 6 || !settled) continue;
-      const k = row * 3;
-      const sx = (this.to[k] - this.cam.x) * s + this.w / 2, sy = (this.to[k + 1] - this.cam.y) * s + this.h / 2;
+      ctx.save();
+      this.tilePath(row, 1);
       ctx.strokeStyle = colour;
       ctx.lineWidth = width;
-      ctx.strokeRect(sx + 0.5, sy + 0.5, s - 1, s - 1);
+      ctx.stroke();
+      ctx.restore();
     }
   }
 

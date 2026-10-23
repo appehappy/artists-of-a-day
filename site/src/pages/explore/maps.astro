@@ -124,7 +124,7 @@ const icons: Record<string, string> = {
 <script>
   import { loadArtworks, loadSite, onPage } from "../../lib/client";
   import { makeShape, match, SHAPES, type ColourMap, type ShapeKey } from "../../lib/colourmaps";
-  import { MosaicView, type AtlasInfo } from "../../lib/mosaic";
+  import { loadMosaicData, MosaicView } from "../../lib/mosaic";
   import { imgUrl, thumbUrl } from "../../lib/types";
 
   let view: MosaicView | null = null;
@@ -132,31 +132,17 @@ const icons: Record<string, string> = {
 
   onPage("[data-maps]", async (root) => {
     const loading = root.querySelector<HTMLElement>("[data-loading]")!;
-    const base = "/fields/maps";
-    let site, rows, atlas: AtlasInfo, lab: Float32Array, maps: ColourMap[];
+    let site, rows, data, maps: ColourMap[];
     try {
-      const ok = (r: Response) => { if (!r.ok) throw new Error(r.url); return r; };
-      let mapsData;
-      [site, rows, atlas, lab, mapsData] = await Promise.all([
-        loadSite(), loadArtworks(),
-        fetch(`${base}/atlas.json`).then(ok).then((r) => r.json()),
-        fetch(`${base}/colour.bin`).then(ok).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b)),
-        fetch(`${base}/maps.json`).then(ok).then((r) => r.json()),
+      [site, rows, data, maps] = await Promise.all([
+        loadSite(), loadArtworks(), loadMosaicData(),
+        fetch("/fields/maps/maps.json").then((r) => { if (!r.ok) throw new Error(); return r.json(); }).then((d) => d.maps),
       ]);
-      maps = mapsData.maps;
     } catch {
       loading.textContent = "Colour map data isn't built yet. Run scripts/build_colourmaps.py, then reload.";
       return;
     }
-
-    // Where each artwork's tile sits in the sprite sheets.
-    const uvs = new Float32Array(atlas.count * 3);
-    for (let i = 0; i < atlas.count; i++) {
-      const j = i % atlas.perSheet;
-      uvs[i * 3] = ((j % atlas.perRow) * atlas.tile) / atlas.sheet;
-      uvs[i * 3 + 1] = (Math.floor(j / atlas.perRow) * atlas.tile) / atlas.sheet;
-      uvs[i * 3 + 2] = Math.floor(i / atlas.perSheet);
-    }
+    const { atlas, uvs, lab } = data;
 
     const bySlug = new Map(site.artists.map((a) => [a.slug, a]));
     const describe = (row: number) => {
@@ -189,7 +175,7 @@ const icons: Record<string, string> = {
     };
 
     try {
-      view = new MosaicView(root.querySelector(".gl")!, root.querySelector(".top")!, base, atlas, uvs, {
+      view = new MosaicView(root.querySelector(".gl")!, root.querySelector(".top")!, data.base, atlas, uvs, {
         thumbUrl: (row) => thumbUrl(site.posts[rows[row][0]], rows[row][1]),
         onHover: (row, x, y) => {
           if (row === null) { tip.hidden = true; return; }
