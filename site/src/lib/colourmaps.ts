@@ -93,10 +93,11 @@ function polarCells(radius: number, keep: (r: number, a: number) => boolean) {
 export function makeShape(shape: ShapeKey, n: number): Slots {
   switch (shape) {
     case "band": {
+      // A full rectangle: the count rounds to height × width, so no column is short.
       const h = Math.max(4, Math.round(Math.sqrt(n / 6)));
-      const w = Math.ceil(n / h);
+      const w = Math.max(1, Math.round(n / h));
       const cells = [];
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < w * h; i++) {
         const x = Math.floor(i / h), y = i % h;
         cells.push({ x, y, t: (x + 0.5) / w, v: (y + 0.5) / h });
       }
