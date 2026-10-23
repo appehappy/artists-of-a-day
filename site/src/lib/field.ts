@@ -31,6 +31,10 @@ interface Camera { x: number; y: number; s: number } // centre in cells; CSS px 
 
 const CHUNK_FROM = 5; // px per cell at which chunk images take over from the overview
 const THUMBS_FROM = 80; // px per cell at which individual thumbnails are drawn
+// In between, once chunk tiles are stretched past their resolution, each work is drawn
+// from a 128px crop of its thumbnail: as many as the cache holds, nearest the centre.
+const MID = 128;
+const MID_LIMIT = 1200;
 const MAX_SCALE = 420;
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -87,6 +91,44 @@ class ImageCache {
   }
 }
 
+/** 128px centre-square crops of thumbnails as bitmaps, least-recently-used. Only
+ *  `request` loads, a few at a time, so callers choose which works come first. */
+class TileCache {
+  private map = new Map<string, ImageBitmap | "loading" | "missing">();
+  private loading = 0;
+  constructor(private limit: number, private onLoad: () => void) {}
+
+  get(url: string, touch: boolean): ImageBitmap | null {
+    const v = this.map.get(url);
+    if (!(v instanceof ImageBitmap)) return null;
+    if (touch) { this.map.delete(url); this.map.set(url, v); }
+    return v;
+  }
+
+  request(url: string) {
+    if (this.map.has(url) || this.loading >= 12) return;
+    this.map.set(url, "loading");
+    this.loading++;
+    const img = new Image();
+    img.src = url;
+    img.decode()
+      .then(() => {
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        return createImageBitmap(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side,
+                                 { resizeWidth: MID, resizeHeight: MID, resizeQuality: "high" });
+      })
+      .then((bmp) => {
+        this.map.set(url, bmp);
+        for (const [k, v] of this.map) {
+          if (this.map.size <= this.limit) break;
+          if (v instanceof ImageBitmap) { v.close(); this.map.delete(k); }
+        }
+      })
+      .catch(() => this.map.set(url, "missing"))
+      .finally(() => { this.loading--; this.onLoad(); });
+  }
+}
+
 export class FieldView {
   readonly cam: Camera = { x: 0, y: 0, s: 1 };
   private ctx: CanvasRenderingContext2D;
@@ -96,6 +138,7 @@ export class FieldView {
   private anim: { from: Camera; to: Camera; mid: number; start: number; ms: number } | null = null;
   private chunks: ImageCache;
   private thumbs: ImageCache;
+  private tiles: TileCache;
   private rowCell: Int32Array;
   private chunkSet: Set<string>;
   private labelOrder: FieldLayout["labels"];
@@ -116,6 +159,7 @@ export class FieldView {
     this.ctx = canvas.getContext("2d")!;
     this.chunks = new ImageCache(160, () => this.invalidate());
     this.thumbs = new ImageCache(500, () => this.invalidate());
+    this.tiles = new TileCache(MID_LIMIT, () => this.invalidate());
     this.chunkSet = new Set(layout.chunks);
     this.labelOrder = [...layout.labels].sort((a, b) =>
       (a.level ?? 0) - (b.level ?? 0) || (b.size ?? 0) - (a.size ?? 0));
@@ -248,6 +292,32 @@ export class FieldView {
   }
 
   // ── drawing ───────────────────────────────────────────────────────────────
+  /** Draw the 128px crops in view; keep and load those nearest the centre. */
+  private drawMid(fx0: number, fy0: number, fx1: number, fy1: number) {
+    const { ctx, cam, layout: { width: W, height: H } } = this;
+    const [mx, my] = this.toField(this.w / 2, this.h / 2);
+    const seen: [number, number, number][] = []; // x, y, distance² from the centre
+    for (let y = Math.max(0, Math.floor(fy0)); y <= Math.min(H - 1, Math.floor(fy1)); y++) {
+      for (let x = Math.max(0, Math.floor(fx0)); x <= Math.min(W - 1, Math.floor(fx1)); x++) {
+        if (this.cells[y * W + x] >= 0) seen.push([x, y, (x + 0.5 - mx) ** 2 + (y + 0.5 - my) ** 2]);
+      }
+    }
+    // Farthest first, so the nearest are the most recently used; only the nearest
+    // MID_LIMIT are kept, so a wide view can't churn the cache.
+    seen.sort((a, b) => b[2] - a[2]);
+    const near = seen.length - MID_LIMIT;
+    seen.forEach(([x, y], i) => {
+      const bmp = this.tiles.get(this.opts.thumbUrl(this.cells[y * W + x]), i >= near);
+      if (!bmp) return;
+      const [sx, sy] = this.toScreen(x, y);
+      ctx.drawImage(bmp, sx, sy, cam.s, cam.s);
+    });
+    for (let i = seen.length - 1; i >= Math.max(0, near); i--) {
+      const [x, y] = seen[i];
+      this.tiles.request(this.opts.thumbUrl(this.cells[y * W + x]));
+    }
+  }
+
   private resize() {
     const dpr = window.devicePixelRatio || 1;
     const r = this.canvas.getBoundingClientRect();
@@ -283,6 +353,8 @@ export class FieldView {
       }
     }
 
+    if (cam.s * (window.devicePixelRatio || 1) >= tile * 1.25 && cam.s < THUMBS_FROM) this.drawMid(fx0, fy0, fx1, fy1);
+
     // Zoom tint: from afar, blend towards the blurred colour layer.
     const tint = this.smooth ? tintAmount(cam.s) : 0;
     if (tint > 0) {
@@ -300,11 +372,16 @@ export class FieldView {
           const row = this.cells[y * W + x];
           if (row < 0) continue;
           const [sx, sy] = this.toScreen(x, y);
-          const img = this.thumbs.get(this.opts.thumbUrl(row));
+          const url = this.opts.thumbUrl(row);
+          const img = this.thumbs.get(url);
           // Gaps between works appear as you zoom in, like a salon wall.
           ctx.fillRect(sx, sy, cam.s, gap);
           ctx.fillRect(sx, sy, gap, cam.s);
-          if (!img) continue;
+          if (!img) { // the 128px crop until the thumbnail arrives
+            const mid = this.tiles.get(url, false);
+            if (mid) ctx.drawImage(mid, sx + gap, sy + gap, cam.s - gap, cam.s - gap);
+            continue;
+          }
           const side = Math.min(img.width, img.height);
           ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side,
                         sx + gap, sy + gap, cam.s - gap, cam.s - gap);

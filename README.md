@@ -110,8 +110,10 @@ works. In the browser, each stretch of the gradient takes the closest-matching w
 from the whole archive (sized to how many slots the shape has there), lined up by
 fine gradient position and lightness (~350 ms). A WebGL2 renderer draws every work
 from sprite sheets and flies them between layouts on the GPU; from far away tiles are
-tinted towards their slot's colour, fading out as you zoom in, where real thumbnails
-take over. Combinations are kept in the URL (`?map=vik&shape=bowtie&n=6000`).
+tinted towards their slot's colour, fading out as you zoom in. Detail follows the
+zoom in every Explore view: as tiles outgrow their sprite or map tile, works near the
+centre swap to 128px crops of their thumbnails (cached on the GPU, or as bitmaps in the
+canvas views, up to ~1,200–1,500 at a time), and close up the full thumbnails take over. Combinations are kept in the URL (`?map=vik&shape=bowtie&n=6000`).
 Motion: tiles cascade in and filter changes animate; thumbnails morph into the viewer
 and back; "More like this" hops between works inside the viewer; pages rise in.
 All motion respects `prefers-reduced-motion`.

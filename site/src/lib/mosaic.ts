@@ -3,8 +3,9 @@
 // rounded shapes such as pills (the Colour Field's Orbits). Layout changes animate on the GPU:
 // each tile flies from where it is to where it's going, staggered along the
 // gradient; works joining grow in, works leaving shrink out. From far away each tile
-// is tinted towards its slot's colour (the zoom tint); close up, a 2D overlay draws
-// the real thumbnails.
+// is tinted towards its slot's colour (the zoom tint); as tiles grow on screen they
+// swap to sharper copies of the real thumbnails, and close up a 2D overlay draws the
+// thumbnails themselves.
 
 import { tintAmount } from "./tint";
 
@@ -53,8 +54,22 @@ export async function loadMosaicData(base = "/fields/maps") {
 
 const DURATION = 1100; // ms per tile flight
 const STAGGER = 650; // ms from the start of the gradient to its end
-const THUMBS_FROM = 56; // px per cell at which real thumbnails take over
+// Three levels of detail: 24px sprite tiles far out; 128px tiles from a cache filled
+// with real thumbnails as tiles grow on screen; full thumbnails drawn over the top
+// when even 128px isn't enough.
+const SPRITE_MAX = 30; // device px a sprite tile can show sharply (24px source)
+const SLOT = 128; // px per high-res tile
+const SLOT_SHEET = 2048;
+const SLOTS_PER_ROW = SLOT_SHEET / SLOT;
+const SLOT_LAYERS = 6; // 6 × 256 = 1,536 high-res tiles
+const MAX_LOADING = 16;
+const OVERLAY_FROM = 150; // device px per tile above which the full thumbnail is drawn
 const MAX_SCALE = 360;
+/** Pixel position and layer of a high-res slot. */
+const slotPos = (slot: number) => {
+  const j = slot % (SLOTS_PER_ROW * SLOTS_PER_ROW);
+  return [(j % SLOTS_PER_ROW) * SLOT, Math.floor(j / SLOTS_PER_ROW) * SLOT, Math.floor(slot / (SLOTS_PER_ROW * SLOTS_PER_ROW))];
+};
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 
@@ -65,13 +80,16 @@ layout(location=2) in float a_delay;
 layout(location=3) in vec3 a_tint;
 layout(location=4) in vec3 a_uv;     // u0, v0, sheet
 layout(location=5) in vec4 a_shape;  // w, h (cells), rotation, corner radius fraction
+layout(location=6) in vec3 a_hi;     // u0, v0, layer of a high-res tile, or layer -1
 uniform vec2 u_view;      // canvas size, CSS px
 uniform vec3 u_cam;       // centre x, y (cells), px per cell
 uniform float u_time;     // ms since the layout change
 uniform float u_duration;
 uniform float u_gap;      // px between tiles
 uniform float u_tileUv;   // tile size in uv units
+uniform float u_slotUv;   // high-res tile size in uv units
 out vec3 v_uv;
+out vec3 v_hi;
 out vec3 v_tint;
 out float v_alpha;
 out vec2 v_local;   // px from the tile centre, unrotated
@@ -98,6 +116,7 @@ void main() {
   // Cover-crop the square tile to the shape's aspect ratio.
   vec2 crop = a_shape.xy / max(a_shape.x, a_shape.y);
   v_uv = vec3(a_uv.xy + (0.5 + (corner - 0.5) * crop) * u_tileUv, a_uv.z);
+  v_hi = vec3(a_hi.xy + (0.5 + (corner - 0.5) * crop) * u_slotUv, a_hi.z);
   v_tint = a_tint;
   v_local = local;
   v_half = half_;
@@ -108,8 +127,10 @@ const FRAG = `#version 300 es
 precision highp float;
 precision highp sampler2DArray;
 uniform sampler2DArray u_atlas;
+uniform sampler2DArray u_hi;
 uniform float u_tintAmt;
 in vec3 v_uv;
+in vec3 v_hi;
 in vec3 v_tint;
 in float v_alpha;
 in vec2 v_local;
@@ -121,7 +142,7 @@ void main() {
   vec2 q = abs(v_local) - v_half + v_radius;
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - v_radius;
   float a = v_alpha * clamp(0.5 - d, 0.0, 1.0);
-  vec3 c = texture(u_atlas, v_uv).rgb;
+  vec3 c = v_hi.z >= 0.0 ? texture(u_hi, v_hi).rgb : texture(u_atlas, v_uv).rgb;
   colour = vec4(mix(c, v_tint, u_tintAmt) * a, a);
 }`;
 
@@ -151,7 +172,17 @@ export class MosaicView {
   private gl: WebGL2RenderingContext;
   private overlay: CanvasRenderingContext2D;
   private prog: WebGLProgram;
-  private buf: Record<"from" | "to" | "delay" | "tint" | "shape", WebGLBuffer>;
+  private buf: Record<"from" | "to" | "delay" | "tint" | "shape" | "hi", WebGLBuffer>;
+  // High-res tile cache: which slot holds which artwork, and when it was last on screen.
+  private hiTex: WebGLTexture;
+  private slotOfRow: Int32Array;
+  private rowOfSlot = new Int32Array(SLOTS_PER_ROW * SLOTS_PER_ROW * SLOT_LAYERS).fill(-1);
+  private slotUsed = new Float64Array(SLOTS_PER_ROW * SLOTS_PER_ROW * SLOT_LAYERS);
+  private loadingRows = new Set<number>();
+  private slotCanvas = Object.assign(document.createElement("canvas"), { width: SLOT, height: SLOT });
+  private pendingHi: [row: number, slot: number][] = []; // uploaded, waiting for mipmaps
+  private lastMip = 0;
+  private lastUpgrade = 0;
   private u: Record<string, WebGLUniformLocation | null> = {};
   private n: number;
   // Per artwork: where its current flight starts and ends.
@@ -190,10 +221,11 @@ export class MosaicView {
     this.to = new Float32Array(this.n * 3);
     this.delay = new Float32Array(this.n);
     this.shape = new Float32Array(this.n * 4);
+    this.slotOfRow = new Int32Array(this.n).fill(-1);
     this.thumbs = new ImageCache(400, () => this.invalidate());
 
     this.prog = this.program();
-    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_tintAmt", "u_atlas"]) {
+    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi"]) {
       this.u[name] = gl.getUniformLocation(this.prog, name);
     }
     const vao = gl.createVertexArray();
@@ -211,6 +243,7 @@ export class MosaicView {
       from: attrib(0, 3, this.from), to: attrib(1, 3, this.to),
       delay: attrib(2, 1, this.delay), tint: attrib(3, 3, new Float32Array(this.n * 3)),
       shape: attrib(5, 4, this.shape),
+      hi: attrib(6, 3, new Float32Array(this.n * 3).map((_, i) => (i % 3 === 2 ? -1 : 0))),
     };
     attrib(4, 3, uvs);
 
@@ -232,8 +265,20 @@ export class MosaicView {
       };
       img.src = `${base}/atlas-${String(s).padStart(2, "0")}.webp`;
     }
+    this.hiTex = gl.createTexture()!;
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.hiTex);
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 5, gl.RGBA8, SLOT_SHEET, SLOT_SHEET, SLOT_LAYERS);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, 4); // 128px → 8px
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+
     gl.useProgram(this.prog);
     gl.uniform1f(this.u.u_tileUv, atlas.tile / atlas.sheet);
+    gl.uniform1f(this.u.u_slotUv, SLOT / SLOT_SHEET);
+    gl.uniform1i(this.u.u_hi, 1);
     gl.uniform1f(this.u.u_duration, DURATION);
     gl.uniform1i(this.u.u_atlas, 0);
     gl.enable(gl.BLEND);
@@ -247,7 +292,21 @@ export class MosaicView {
     const loop = () => {
       if (this.destroyed) return;
       this.stepCamera();
-      const animating = performance.now() - this.start < STAGGER + DURATION + 50;
+      const now = performance.now();
+      const animating = now - this.start < STAGGER + DURATION + 50;
+      if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
+      if (this.pendingHi.length && now - this.lastMip > 250) {
+        // Rebuild the smaller sizes, then switch the new tiles over (not before, or
+        // they'd show stale mip levels).
+        const gl = this.gl;
+        gl.activeTexture(gl.TEXTURE1);
+        gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+        gl.activeTexture(gl.TEXTURE0);
+        for (const [row, slot] of this.pendingHi) if (this.slotOfRow[row] === slot) this.setHi(row, slot);
+        this.pendingHi = [];
+        this.lastMip = now;
+        this.dirty = true;
+      }
       if (this.dirty || animating) { this.draw(); this.dirty = false; }
       requestAnimationFrame(loop);
     };
@@ -452,6 +511,77 @@ export class MosaicView {
     return this.layout.rows[Math.floor(Math.random() * this.layout.rows.length)];
   }
 
+  // ── high-res tiles ────────────────────────────────────────────────────────
+
+  /** Give tiles on screen that are too big for their sprite a 128px copy of their
+   *  thumbnail, nearest the centre first. Slots of works off screen are recycled. */
+  private upgrade() {
+    if (!this.layout) return;
+    const dpr = window.devicePixelRatio || 1;
+    const s = this.cam.s;
+    if (s * dpr * 3 < SPRITE_MAX) return; // every tile still fits its sprite
+    const now = performance.now();
+    const [fx0, fy0] = this.toField(-s * 2, -s * 2);
+    const [fx1, fy1] = this.toField(this.w + s * 2, this.h + s * 2);
+    const want: [number, number][] = [];
+    for (const row of this.placedRows) {
+      const x = this.to[row * 3], y = this.to[row * 3 + 1];
+      if (x < fx0 || x > fx1 || y < fy0 || y > fy1) continue;
+      const slot = this.slotOfRow[row];
+      if (slot >= 0) { this.slotUsed[slot] = now; continue; }
+      if (this.loadingRows.has(row)) continue;
+      if (Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) * s * dpr < SPRITE_MAX) continue;
+      want.push([row, (x - this.cam.x) ** 2 + (y - this.cam.y) ** 2]);
+    }
+    want.sort((a, b) => a[1] - b[1]);
+    for (const [row] of want.slice(0, MAX_LOADING - this.loadingRows.size)) this.loadHi(row);
+  }
+
+  /** A free slot, or the one off screen longest (not seen for a couple of seconds). */
+  private freeSlot(): number {
+    let best = -1, oldest = performance.now() - 2000;
+    for (let i = 0; i < this.rowOfSlot.length; i++) {
+      if (this.rowOfSlot[i] < 0) return i;
+      if (this.slotUsed[i] < oldest) { oldest = this.slotUsed[i]; best = i; }
+    }
+    return best;
+  }
+
+  private loadHi(row: number) {
+    this.loadingRows.add(row);
+    const img = new Image();
+    img.src = this.opts.thumbUrl(row);
+    img.decode().then(() => {
+      if (this.destroyed) return;
+      const slot = this.freeSlot();
+      if (slot < 0) return; // every slot is on screen; try again later
+      const gl = this.gl;
+      const old = this.rowOfSlot[slot];
+      if (old >= 0) { this.slotOfRow[old] = -1; this.setHi(old, -1); }
+      // Centre-square crop, like the sprites.
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      const ctx = this.slotCanvas.getContext("2d")!;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, SLOT, SLOT);
+      const [x, y, layer] = slotPos(slot);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, x, y, layer, SLOT, SLOT, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.slotCanvas);
+      gl.activeTexture(gl.TEXTURE0);
+      this.rowOfSlot[slot] = row;
+      this.slotOfRow[row] = slot;
+      this.slotUsed[slot] = performance.now();
+      this.pendingHi.push([row, slot]);
+    }).catch(() => {}).finally(() => this.loadingRows.delete(row));
+  }
+
+  /** Point a work at its high-res slot, or back at its sprite (slot -1). */
+  private setHi(row: number, slot: number) {
+    const gl = this.gl;
+    const [x, y, layer] = slot >= 0 ? slotPos(slot) : [0, 0, -1];
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buf.hi);
+    gl.bufferSubData(gl.ARRAY_BUFFER, row * 12, new Float32Array([x / SLOT_SHEET, y / SLOT_SHEET, layer]));
+  }
+
   // ── drawing ───────────────────────────────────────────────────────────────
 
   private resize() {
@@ -506,7 +636,8 @@ export class MosaicView {
       ctx.arc((d.x - this.cam.x) * s + this.w / 2, (d.y - this.cam.y) * s + this.h / 2, d.r * s, 0, 2 * Math.PI);
       ctx.fill();
     }
-    if (settled && s >= THUMBS_FROM && this.layout) {
+    const dpr = window.devicePixelRatio || 1;
+    if (settled && s * dpr * 3 >= OVERLAY_FROM && this.layout) { // no tile is wider than 3 cells
       const [fx0, fy0] = this.toField(-s * 2, -s * 2);
       const [fx1, fy1] = this.toField(this.w + s * 2, this.h + s * 2);
       const shaped = this.layout.w !== undefined;
@@ -514,6 +645,7 @@ export class MosaicView {
       for (const row of this.placedRows) {
         const x = this.to[row * 3], y = this.to[row * 3 + 1];
         if (x < fx0 || x > fx1 || y < fy0 || y > fy1) continue;
+        if (Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) * s * dpr < OVERLAY_FROM) continue;
         const img = this.thumbs.get(this.opts.thumbUrl(row));
         if (!img) continue;
         ctx.save();
