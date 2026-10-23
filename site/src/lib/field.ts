@@ -143,7 +143,7 @@ export class FieldView {
   // ── camera ────────────────────────────────────────────────────────────────
   private fitScale() {
     const { width, height } = this.layout;
-    return Math.min(this.w / (width + 14), this.h / (height + 14)); // margin for edge labels
+    return Math.min(this.w / (width + 24), this.h / (height + 24)); // margin for edge labels
   }
 
   fit(animate = true) {

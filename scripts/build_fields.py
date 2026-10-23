@@ -161,53 +161,71 @@ def oklch_summary(tiles):
 
 
 def wheel_layout(rows, colour):
-    """A polar-area 'flower'. Greys form a solid core, lightest at the centre, laid
-    out on a sunflower spiral. Around it, each hue is a petal at its true angle (red
-    at the top, clockwise), as long as that hue is common, filled from muted works at
-    the base to vivid ones at the tip."""
+    """A polar-area 'flower', filled exactly so it has no holes. Grid cells are taken
+    in order of distance from the centre: the innermost go to the greys (lightest at
+    the middle); every further cell goes to the hue wedge it points into, until that
+    wedge has a cell for each of its works. So each hue is a solid petal at its true
+    angle (red at the top, clockwise), as long as that hue is common, and within it
+    works run from muted at the base to vivid at the tip."""
     light, chroma, hue = colour[rows, 0], colour[rows, 1], colour[rows, 2]
     n = len(rows)
-    area = 1.0  # cells per work: packed solid, so petals have no holes
     neutral = chroma < NEUTRAL_CHROMA
-    radius = np.zeros(n)
-    theta = np.zeros(n)
-
-    core = np.where(neutral)[0]
-    core = core[np.argsort(-light[core])]  # lightest first, at the centre
-    k = np.arange(len(core))
-    radius[core] = np.sqrt((k + 0.5) * area / math.pi)
-    theta[core] = k * math.pi * (3 - math.sqrt(5))  # golden angle
-    r_core = math.sqrt(len(core) * area / math.pi)
-
-    bins = 72
+    bins = 180
     width = 2 * math.pi / bins
+    core = np.where(neutral)[0]
     rim = np.where(~neutral)[0]
-    b = (hue[rim] / 360 * bins).astype(int) % bins
-    counts = np.bincount(b, minlength=bins).astype(float)
-    # Smooth petal lengths across neighbouring hues so the outline isn't jagged.
-    kernel = np.array([1, 2, 3, 2, 1], float) / 9
-    smooth = np.convolve(np.concatenate([counts[-2:], counts, counts[:2]]), kernel, "valid")
-    for bi in range(bins):
-        members = rim[b == bi]
-        if not len(members):
-            continue
-        members = members[np.argsort(chroma[members])]  # muted at the base, vivid at the tip
-        f = (np.arange(len(members)) + 0.5) / len(members)
-        radius[members] = np.sqrt(r_core ** 2 + 2 * area * smooth[bi] * f / width)
-        theta[members] = np.radians(hue[members] - 25)
+    # Petal lengths follow a smoothed hue histogram, so the outline is a smooth curve.
+    # Works are dealt to wedges in hue order to fill those quotas, so each moves at
+    # most a degree or two from its true hue.
+    turn = (hue[rim] - 25) % 360  # 0 = red, at the top
+    raw = np.bincount((turn / 360 * bins).astype(int) % bins, minlength=bins).astype(float)
+    k = np.exp(-0.5 * (np.arange(-12, 13) / 4.0) ** 2)
+    smooth = np.convolve(np.concatenate([raw[-12:], raw, raw[:12]]), k / k.sum(), "valid")
+    quota = smooth * len(rim) / smooth.sum()
+    counts = np.floor(quota).astype(int)
+    counts[np.argsort(-(quota - counts))[:len(rim) - counts.sum()]] += 1  # largest remainders
+    wedge = np.empty(len(rim), int)
+    wedge[np.argsort(turn, kind="stable")] = np.repeat(np.arange(bins), counts)
 
-    pad = 40
-    size = int(2 * radius.max() + 2 * pad)
-    targets = np.stack([size / 2 + radius * np.sin(theta), size / 2 - radius * np.cos(theta)], 1)
-    pos = snap_in_order(np.rint(targets).astype(np.int32), size, size, np.argsort(radius), radius=80)
+    # A grid big enough for the longest petal, cells sorted by distance from the centre.
+    r_core = math.sqrt(len(core) / math.pi)
+    reach = math.sqrt(r_core ** 2 + 2 * counts.max() / width) * 1.15 + 4
+    size = int(2 * reach) + 2
+    yy, xx = np.mgrid[0:size, 0:size]
+    dx, dy = xx.ravel() + 0.5 - size / 2, yy.ravel() + 0.5 - size / 2
+    dist = np.hypot(dx, dy)
+    angle = np.arctan2(dx, -dy) % (2 * np.pi)  # 0 = straight up, clockwise
+    order = np.argsort(dist, kind="stable")
+    cell_xy = np.stack([xx.ravel(), yy.ravel()], 1)
+
+    pos = np.full((n, 2), -1, np.int32)
+    core_cells = order[:len(core)]
+    pos[core[np.argsort(-light[core])]] = cell_xy[core_cells]  # lightest at the centre
+
+    # Remaining cells, ring by ring, to the wedge they point into while it has room.
+    need = counts.copy()
+    taken = {b: [] for b in range(bins)}
+    cell_wedge = (angle / width).astype(int) % bins
+    for c in order[len(core):]:
+        b = cell_wedge[c]
+        if need[b] > 0:
+            taken[b].append(c)
+            need[b] -= 1
+            if not need.any():
+                break
+    for b in range(bins):
+        members = rim[wedge == b]
+        if len(members):
+            members = members[np.argsort(chroma[members])]  # muted at the base, vivid at the tip
+            pos[members] = cell_xy[taken[b]]
     pos, W, H, offset = crop(pos, margin=6)
 
     cx, cy = size / 2 - offset[0], size / 2 - offset[1]
     labels = []
     for text, h in HUE_NAMES:
         t = math.radians(h - 25)
-        reach = max(r_core + 6, furthest(pos, cx, cy, t) + 4)
-        labels.append({"text": text, "x": cx + reach * math.sin(t), "y": cy - reach * math.cos(t),
+        far = max(r_core + 6, furthest(pos + 0.5, cx, cy, t) + 4)
+        labels.append({"text": text, "x": cx + far * math.sin(t), "y": cy - far * math.cos(t),
                        "size": 4000, "level": 0})
     if len(core):
         labels.append({"text": "Greys, black & white", "x": cx, "y": cy, "size": 1500, "level": 1})
