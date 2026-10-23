@@ -111,9 +111,8 @@ two, so related systems collide, and the whole is turned in a gentle swirl. Ring
 anchor stars are joined by constellation lines to their most alike systems; system
 names show from afar (more as you zoom), regions within them closer in. Click a star
 and lines join it to its look-alikes; Surprise me and "More like this" fly to frame a
-work with its look-alikes. It's quietly alive: distant stars glint now and then, points
-of light travel the constellation lines, and when left idle the galaxy turns, about
-once in half an hour. `build_fields.py --preview out.png` draws the galaxy as an image
+work with its look-alikes. It's quietly alive: distant stars glint now and then, and
+when left idle the galaxy turns, about once in half an hour. `build_fields.py --preview out.png` draws the galaxy as an image
 for tuning.
 
 **Colour maps** (`/explore/maps`) draws Fabio Crameri's Scientific Colour Maps with

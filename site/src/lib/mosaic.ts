@@ -39,8 +39,7 @@ export interface Layout {
   disc?: { x: number; y: number; r: number; rgb: [number, number, number] | null };
   /** Names drawn over the tiles: level 0 from afar, level 1 closer in. */
   labels?: { text: string; x: number; y: number; size?: number; level?: number }[];
-  /** Ambient life (Constellation): distant tiles glint now and then, and points of
-   *  light travel along the links. */
+  /** Ambient life (Constellation): distant tiles glint now and then. */
   twinkle?: boolean;
   /** Radians per second the whole layout (names and links too) turns when idle. */
   rotate?: number;
@@ -110,9 +109,6 @@ const SLOT_LAYERS = 6; // 6 × 256 = 1,536 high-res tiles
 const MAX_LOADING = 16;
 const OVERLAY_FROM = 150; // device px per tile above which the full thumbnail is drawn
 const MAX_SCALE = 360;
-/** A repeatable pseudo-random number in [0, 1) for a seed. */
-const hash = (seed: number) => { const v = Math.sin(seed * 12.9898) * 43758.5453; return v - Math.floor(v); };
-
 /** (x, y) turned by `a` radians (clockwise on screen) about `p`. */
 const turnAbout = (x: number, y: number, p: { x: number; y: number }, a: number): [number, number] => {
   const c = Math.cos(a), s = Math.sin(a), dx = x - p.x, dy = y - p.y;
@@ -433,7 +429,7 @@ export class MosaicView {
       const animating = loading || now - this.start < this.stagger + DURATION + 50;
       this.stepDrift(now);
       if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
-      // Ambient life (twinkling, signals) needs frames, but ~30 a second is plenty.
+      // Ambient life (twinkling) needs frames, but ~30 a second is plenty.
       const ambient = this.twinkle && !reducedMotion() && now - this.lastAmbient > 33;
       if (ambient) this.lastAmbient = now;
       if (this.dirty || animating || ambient || this.startPending) { this.draw(); this.dirty = false; }
@@ -1040,9 +1036,7 @@ export class MosaicView {
     ctx.save();
     ctx.lineWidth = 1;
     const ends = new Map<string, [number, number]>();
-    const seconds = (performance.now() - this.born) / 1000;
-    const signals: [number, number, number][] = [];
-    this.links.forEach(([x1, y1, x2, y2, k], i) => {
+    for (const [x1, y1, x2, y2, k] of this.links) {
       const [a, b] = this.screen(...this.turned(x1, y1)), [c, d] = this.screen(...this.turned(x2, y2));
       ctx.strokeStyle = `rgba(244, 236, 222, ${(0.22 + 0.35 * Math.max(0, (k - 0.8) / 0.15)) * fade * appear})`;
       ctx.beginPath();
@@ -1050,32 +1044,13 @@ export class MosaicView {
       ctx.lineTo(a + (c - a) * appear, b + (d - b) * appear); // lines draw themselves in
       ctx.stroke();
       ends.set(`${x1},${y1}`, [a, b]).set(`${x2},${y2}`, [c, d]);
-      // A signal: now and then a point of light travels the line (each line on its
-      // own 10–22s rhythm, alternate lines in opposite directions).
-      if (!this.twinkle || reducedMotion() || appear < 1) return;
-      const period = 10 + 12 * hash(i * 2.1), travel = 2.4;
-      const t = ((seconds + hash(i * 7.3) * period) % period) / travel;
-      if (t >= 1) return;
-      const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-      const f = i % 2 ? e : 1 - e;
-      signals.push([a + (c - a) * f, b + (d - b) * f, Math.sin(Math.PI * t) * fade]);
-    });
+    }
     ctx.strokeStyle = `rgba(244, 236, 222, ${0.7 * fade * appear})`;
     ctx.lineWidth = 1.5;
     for (const [sx, sy] of ends.values()) {
       ctx.beginPath();
       ctx.arc(sx, sy, Math.max(5, 1.9 * this.cam.s) + 3, 0, 2 * Math.PI);
       ctx.stroke();
-    }
-    for (const [x, y, alpha] of signals) {
-      ctx.fillStyle = `rgba(255, 244, 228, ${0.18 * alpha})`;
-      ctx.beginPath();
-      ctx.arc(x, y, 6, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.fillStyle = `rgba(255, 248, 236, ${0.9 * alpha})`;
-      ctx.beginPath();
-      ctx.arc(x, y, 1.8, 0, 2 * Math.PI);
-      ctx.fill();
     }
     ctx.restore();
   }
