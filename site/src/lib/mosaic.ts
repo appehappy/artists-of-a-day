@@ -39,6 +39,11 @@ export interface Layout {
   disc?: { x: number; y: number; r: number; rgb: [number, number, number] | null };
   /** Names drawn over the tiles: level 0 from afar, level 1 closer in. */
   labels?: { text: string; x: number; y: number; size?: number; level?: number }[];
+  /** Ambient life (Constellation): distant tiles glint now and then, and points of
+   *  light travel along the links. */
+  twinkle?: boolean;
+  /** Radians per second the whole layout (names and links too) turns when idle. */
+  rotate?: number;
   /** Lines between points, like a star chart's: x1, y1, x2, y2, strength (0–1). */
   links?: [number, number, number, number, number][];
   /** Radians per second each tile turns about the disc when idle. */
@@ -105,6 +110,9 @@ const SLOT_LAYERS = 6; // 6 × 256 = 1,536 high-res tiles
 const MAX_LOADING = 16;
 const OVERLAY_FROM = 150; // device px per tile above which the full thumbnail is drawn
 const MAX_SCALE = 360;
+/** A repeatable pseudo-random number in [0, 1) for a seed. */
+const hash = (seed: number) => { const v = Math.sin(seed * 12.9898) * 43758.5453; return v - Math.floor(v); };
+
 /** (x, y) turned by `a` radians (clockwise on screen) about `p`. */
 const turnAbout = (x: number, y: number, p: { x: number; y: number }, a: number): [number, number] => {
   const c = Math.cos(a), s = Math.sin(a), dx = x - p.x, dy = y - p.y;
@@ -138,7 +146,10 @@ uniform float u_slotUv;   // high-res tile size in uv units
 uniform float u_drift;    // seconds of drift so far
 uniform vec2 u_pivot;     // centre of the drift, cells
 uniform float u_sheetFade[16]; // 0 until a sheet's images arrive, then up to 1
+uniform float u_clock;    // seconds, for twinkling
+uniform float u_twinkle;  // 0 or 1
 out float v_fade;
+out float v_glint;
 out vec3 v_uv;
 out vec3 v_hi;
 out vec3 v_tint;
@@ -178,6 +189,13 @@ void main() {
   v_half = half_;
   // Tiles only a pixel or two across drop the rounding, so they stay bright.
   v_radius = a_shape.w * 2.0 * min(half_.x, half_.y) * smoothstep(1.0, 3.0, min(half_.x, half_.y));
+  // Twinkle: each tile on its own slow rhythm (every 10–25s) glints for a moment,
+  // only while it's a speck (never an artwork you're looking at).
+  float id = float(gl_InstanceID);
+  float phase = fract(sin(id * 12.9898) * 43758.5453);
+  float rate = 0.04 + 0.06 * fract(sin(id * 78.233) * 12345.678);
+  float wave = 0.5 + 0.5 * sin(6.28318 * (u_clock * rate + phase));
+  v_glint = u_twinkle * (1.0 - smoothstep(1.5, 5.0, min(half_.x, half_.y))) * pow(wave, 60.0);
 }`;
 
 const FRAG = `#version 300 es
@@ -190,6 +208,7 @@ in vec3 v_uv;
 in vec3 v_hi;
 in vec3 v_tint;
 in float v_fade;
+in float v_glint;
 in float v_alpha;
 in vec2 v_local;
 in vec2 v_half;
@@ -201,7 +220,8 @@ void main() {
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - v_radius;
   float a = v_alpha * clamp(0.5 - d, 0.0, 1.0);
   vec3 c = v_hi.z >= 0.0 ? texture(u_hi, v_hi).rgb : texture(u_atlas, v_uv).rgb;
-  colour = vec4(mix(c, v_tint, max(u_tintAmt, 1.0 - v_fade)) * a, a);
+  c = mix(mix(c, v_tint, max(u_tintAmt, 1.0 - v_fade)), vec3(1.0), 0.6 * v_glint);
+  colour = vec4(c * a, a);
 }`;
 
 class ImageCache {
@@ -255,6 +275,10 @@ export class MosaicView {
   private links: NonNullable<Layout["links"]> = [];
   private linked: number[] = []; // works joined to the selected one by lines
   private maxSize = 1; // the widest tile, cells
+  private twinkle = false;
+  private rotate = 0; // rad/s the whole layout turns when idle (names and links follow)
+  private lastAmbient = 0;
+  private readonly born = performance.now();
   // High-res tile cache: which slot holds which artwork, and when it was last on screen.
   private hiTex: WebGLTexture;
   private slotOfRow: Int32Array;
@@ -313,7 +337,7 @@ export class MosaicView {
     this.thumbs = new ImageCache(400, () => this.invalidate());
 
     this.prog = this.program();
-    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade"]) {
+    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade", "u_clock", "u_twinkle"]) {
       this.u[name] = gl.getUniformLocation(this.prog, name);
     }
     const vao = gl.createVertexArray();
@@ -409,7 +433,10 @@ export class MosaicView {
       const animating = loading || now - this.start < this.stagger + DURATION + 50;
       this.stepDrift(now);
       if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
-      if (this.dirty || animating || this.startPending) { this.draw(); this.dirty = false; }
+      // Ambient life (twinkling, signals) needs frames, but ~30 a second is plenty.
+      const ambient = this.twinkle && !reducedMotion() && now - this.lastAmbient > 33;
+      if (ambient) this.lastAmbient = now;
+      if (this.dirty || animating || ambient || this.startPending) { this.draw(); this.dirty = false; }
       // Time the entrance from the end of its first frame, which can be slow (the GPU
       // commits texture memory on first use), so that frame's cost can't jump it ahead.
       if (this.startPending) { this.start = performance.now(); this.startPending = false; }
@@ -466,6 +493,8 @@ export class MosaicView {
     this.gradient = layout.gradient ?? null;
     // Labels in order of drawing priority (systems first, bigger first), and links,
     // moved like the tiles so the shape is centred.
+    this.twinkle = layout.twinkle ?? false;
+    this.rotate = layout.rotate ?? 0;
     this.labels = (layout.labels ?? []).map((l) => ({ ...l, x: l.x - cx, y: l.y - cy }))
       .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || (b.size ?? 0) - (a.size ?? 0));
     this.links = (layout.links ?? []).map(([x1, y1, x2, y2, k]) => [x1 - cx, y1 - cy, x2 - cx, y2 - cy, k]);
@@ -506,7 +535,7 @@ export class MosaicView {
       shape[k4 + 2] = layout.rot?.[i] ?? 0;
       shape[k4 + 3] = layout.round ?? 0;
       maxSize = Math.max(maxSize, shape[k4], shape[k4 + 1]);
-      spin[row] = layout.spin?.[i] ?? 0;
+      spin[row] = layout.spin?.[i] ?? layout.rotate ?? 0;
       nextTo[k3] = x; nextTo[k3 + 1] = y; nextTo[k3 + 2] = 1;
       tint[k3] = layout.slotRgb[i * 3]; tint[k3 + 1] = layout.slotRgb[i * 3 + 1]; tint[k3 + 2] = layout.slotRgb[i * 3 + 2];
       nextDelay[row] = animate ? layout.t[i] * stagger + Math.random() * 120 : -DURATION;
@@ -888,6 +917,8 @@ export class MosaicView {
     const fade = new Float32Array(16);
     this.sheetAt.forEach((t, s) => { fade[s] = Math.min(1, Math.max(0, (now - t) / FADE)); });
     gl.uniform1fv(this.u.u_sheetFade, fade);
+    gl.uniform1f(this.u.u_clock, (now - this.born) / 1000);
+    gl.uniform1f(this.u.u_twinkle, this.twinkle && !reducedMotion() ? 1 : 0);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.n);
     this.drawOverlay();
   }
@@ -1008,26 +1039,50 @@ export class MosaicView {
     const appear = Math.min(1, Math.max(0, (performance.now() - this.start - this.stagger * 0.6) / 1200));
     ctx.save();
     ctx.lineWidth = 1;
-    const ends = new Set<string>();
-    for (const [x1, y1, x2, y2, k] of this.links) {
-      const [a, b] = this.screen(x1, y1), [c, d] = this.screen(x2, y2);
+    const ends = new Map<string, [number, number]>();
+    const seconds = (performance.now() - this.born) / 1000;
+    const signals: [number, number, number][] = [];
+    this.links.forEach(([x1, y1, x2, y2, k], i) => {
+      const [a, b] = this.screen(...this.turned(x1, y1)), [c, d] = this.screen(...this.turned(x2, y2));
       ctx.strokeStyle = `rgba(244, 236, 222, ${(0.22 + 0.35 * Math.max(0, (k - 0.8) / 0.15)) * fade * appear})`;
       ctx.beginPath();
       ctx.moveTo(a, b);
       ctx.lineTo(a + (c - a) * appear, b + (d - b) * appear); // lines draw themselves in
       ctx.stroke();
-      ends.add(`${x1},${y1}`).add(`${x2},${y2}`);
-    }
+      ends.set(`${x1},${y1}`, [a, b]).set(`${x2},${y2}`, [c, d]);
+      // A signal: now and then a point of light travels the line (each line on its
+      // own 10–22s rhythm, alternate lines in opposite directions).
+      if (!this.twinkle || reducedMotion() || appear < 1) return;
+      const period = 10 + 12 * hash(i * 2.1), travel = 2.4;
+      const t = ((seconds + hash(i * 7.3) * period) % period) / travel;
+      if (t >= 1) return;
+      const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      const f = i % 2 ? e : 1 - e;
+      signals.push([a + (c - a) * f, b + (d - b) * f, Math.sin(Math.PI * t) * fade]);
+    });
     ctx.strokeStyle = `rgba(244, 236, 222, ${0.7 * fade * appear})`;
     ctx.lineWidth = 1.5;
-    for (const e of ends) {
-      const [x, y] = e.split(",").map(Number);
-      const [sx, sy] = this.screen(x, y);
+    for (const [sx, sy] of ends.values()) {
       ctx.beginPath();
       ctx.arc(sx, sy, Math.max(5, 1.9 * this.cam.s) + 3, 0, 2 * Math.PI);
       ctx.stroke();
     }
+    for (const [x, y, alpha] of signals) {
+      ctx.fillStyle = `rgba(255, 244, 228, ${0.18 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = `rgba(255, 248, 236, ${0.9 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 1.8, 0, 2 * Math.PI);
+      ctx.fill();
+    }
     ctx.restore();
+  }
+
+  /** A field point as the whole layout has turned while idle (names and links). */
+  private turned(x: number, y: number): [number, number] {
+    return this.rotate ? turnAbout(x, y, this.pivot, this.rotate * this.drift) : [x, y];
   }
 
   /** Lines from the selected work to the works it's linked to (its look-alikes). */
@@ -1068,7 +1123,7 @@ export class MosaicView {
       const level = l.level ?? 0;
       const alpha = appear * (level === 0 ? clamp((10 - zoom) / 6) : Math.min(clamp((zoom - 2) / 2), clamp((40 - zoom) / 20)));
       if (alpha <= 0.02) continue;
-      const [x, y] = this.screen(l.x, l.y);
+      const [x, y] = this.screen(...this.turned(l.x, l.y));
       if (x < -300 || y < -60 || x > this.w + 300 || y > this.h + 60) continue;
       const size = level === 0 ? Math.round(Math.min(22, 12 + Math.sqrt(l.size ?? 400) / 10)) : 11;
       const text = level === 0 ? l.text : l.text.toUpperCase();
