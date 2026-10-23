@@ -161,82 +161,59 @@ def oklch_summary(tiles):
 
 
 def wheel_layout(rows, colour):
-    """A polar-area 'flower', filled exactly so it has no holes. Grid cells are taken
-    in order of distance from the centre: the innermost go to the greys (lightest at
-    the middle); every further cell goes to the hue wedge it points into, until that
-    wedge has a cell for each of its works. So each hue is a solid petal at its true
-    angle (red at the top, clockwise), as long as that hue is common, and within it
-    works run from muted at the base to vivid at the tip."""
+    """A conic colour wheel: a perfect disc, filled exactly with no holes. The
+    innermost cells go to the greys (lightest at the centre). The ring around them
+    holds every other work in hue order, clockwise from red at the top; each hue's
+    slice is as wide as its share of the archive. Within a slice, works run from
+    muted near the core to vivid at the rim."""
     light, chroma, hue = colour[rows, 0], colour[rows, 1], colour[rows, 2]
     n = len(rows)
     neutral = chroma < NEUTRAL_CHROMA
-    bins = 180
-    width = 2 * math.pi / bins
     core = np.where(neutral)[0]
     rim = np.where(~neutral)[0]
-    # Petal lengths follow a smoothed hue histogram, so the outline is a smooth curve.
-    # Works are dealt to wedges in hue order to fill those quotas, so each moves at
-    # most a degree or two from its true hue.
-    turn = (hue[rim] - 25) % 360  # 0 = red, at the top
-    raw = np.bincount((turn / 360 * bins).astype(int) % bins, minlength=bins).astype(float)
-    k = np.exp(-0.5 * (np.arange(-12, 13) / 4.0) ** 2)
-    smooth = np.convolve(np.concatenate([raw[-12:], raw, raw[:12]]), k / k.sum(), "valid")
-    quota = smooth * len(rim) / smooth.sum()
-    counts = np.floor(quota).astype(int)
-    counts[np.argsort(-(quota - counts))[:len(rim) - counts.sum()]] += 1  # largest remainders
-    wedge = np.empty(len(rim), int)
-    wedge[np.argsort(turn, kind="stable")] = np.repeat(np.arange(bins), counts)
 
-    # A grid big enough for the longest petal, cells sorted by distance from the centre.
-    r_core = math.sqrt(len(core) / math.pi)
-    reach = math.sqrt(r_core ** 2 + 2 * counts.max() / width) * 1.15 + 4
-    size = int(2 * reach) + 2
+    # The n cells nearest the centre form a disc.
+    R = math.sqrt(n / math.pi) + 2
+    size = int(2 * R) + 4
     yy, xx = np.mgrid[0:size, 0:size]
     dx, dy = xx.ravel() + 0.5 - size / 2, yy.ravel() + 0.5 - size / 2
     dist = np.hypot(dx, dy)
     angle = np.arctan2(dx, -dy) % (2 * np.pi)  # 0 = straight up, clockwise
-    order = np.argsort(dist, kind="stable")
+    order = np.argsort(dist, kind="stable")[:n]
     cell_xy = np.stack([xx.ravel(), yy.ravel()], 1)
 
     pos = np.full((n, 2), -1, np.int32)
     core_cells = order[:len(core)]
     pos[core[np.argsort(-light[core])]] = cell_xy[core_cells]  # lightest at the centre
 
-    # Remaining cells, ring by ring, to the wedge they point into while it has room.
-    need = counts.copy()
-    taken = {b: [] for b in range(bins)}
-    cell_wedge = (angle / width).astype(int) % bins
-    for c in order[len(core):]:
-        b = cell_wedge[c]
-        if need[b] > 0:
-            taken[b].append(c)
-            need[b] -= 1
-            if not need.any():
-                break
-    for b in range(bins):
-        members = rim[wedge == b]
-        if len(members):
-            members = members[np.argsort(chroma[members])]  # muted at the base, vivid at the tip
-            pos[members] = cell_xy[taken[b]]
+    # The ring: cells in clockwise order, works in hue order, dealt out a spoke at a
+    # time (one spoke ≈ the ring's thickness in cells), muted inside, vivid outside.
+    ring = order[len(core):]
+    ring = ring[np.lexsort((dist[ring], angle[ring]))]
+    turn = (hue[rim] - 25) % 360  # 0 = red, at the top
+    works = rim[np.argsort(turn, kind="stable")]
+    r_core = math.sqrt(len(core) / math.pi)
+    spoke = max(1, int(round(R - r_core)))
+    for i in range(0, len(ring), spoke):
+        cells = ring[i:i + spoke]
+        cells = cells[np.argsort(dist[cells], kind="stable")]
+        group = works[i:i + spoke]
+        pos[group[np.argsort(chroma[group], kind="stable")]] = cell_xy[cells]
     pos, W, H, offset = crop(pos, margin=6)
 
+    # Hue names evenly on a circle just outside the rim, at the angle where that
+    # hue's works sit.
     cx, cy = size / 2 - offset[0], size / 2 - offset[1]
+    sorted_turn = np.sort(turn)
     labels = []
     for text, h in HUE_NAMES:
-        t = math.radians(h - 25)
-        far = max(r_core + 6, furthest(pos + 0.5, cx, cy, t) + 4)
-        labels.append({"text": text, "x": cx + far * math.sin(t), "y": cy - far * math.cos(t),
+        frac = np.searchsorted(sorted_turn, (h - 25) % 360) / max(1, len(sorted_turn))
+        t = frac * 2 * math.pi
+        labels.append({"text": text, "x": cx + (R + 7) * math.sin(t), "y": cy - (R + 7) * math.cos(t),
                        "size": 4000, "level": 0})
     if len(core):
         labels.append({"text": "Greys, black & white", "x": cx, "y": cy, "size": 1500, "level": 1})
     return W, H, pos, labels
-
-
-def furthest(pos, cx, cy, theta, width=0.06):
-    ang = np.arctan2(pos[:, 0] - cx, -(pos[:, 1] - cy))
-    diff = np.abs((ang - theta + np.pi) % (2 * np.pi) - np.pi)
-    sel = pos[diff < width]
-    return float(np.hypot(sel[:, 0] - cx, sel[:, 1] - cy).max()) if len(sel) else 0.0
 
 
 # ── placement helpers ───────────────────────────────────────────────────────────
