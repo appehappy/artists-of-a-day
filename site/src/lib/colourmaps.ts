@@ -60,10 +60,10 @@ export const cssGradient = (map: ColourMap) =>
 // ── shapes ──────────────────────────────────────────────────────────────────
 
 export const SHAPES = [
-  { key: "band", label: "Band", suits: "Sequential" },
-  { key: "ring", label: "Ring", suits: "Cyclic" },
-  { key: "bowtie", label: "Bow-tie", suits: "Diverging" },
   { key: "steps", label: "Steps", suits: "Multi-sequential" },
+  { key: "band", label: "Band", suits: "Sequential" },
+  { key: "bowtie", label: "Bow-tie", suits: "Diverging" },
+  { key: "ring", label: "Ring", suits: "Cyclic" },
 ] as const;
 export type ShapeKey = (typeof SHAPES)[number]["key"];
 
