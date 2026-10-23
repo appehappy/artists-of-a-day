@@ -2,10 +2,7 @@
 //   far out   one overview image of the whole field (8px per cell)
 //   closer    32-cell chunk images at 32px per cell, loaded as they come into view
 //   close up  each visible artwork's own thumbnail
-// Built by scripts/build_fields.py into /fields/<name>/. Fields with a smooth layer
-// (the colour wheels) are tinted towards it when tiles are tiny.
-
-import { tintAmount } from "./tint";
+// Built by scripts/build_fields.py into /fields/<name>/.
 
 export interface FieldLayout {
   name: string;
@@ -18,7 +15,6 @@ export interface FieldLayout {
   chunks: string[]; // "x_y" of the chunk images that exist (empty areas have none)
   labelStyle: "cloud";
   labels: { text: string; x: number; y: number; size?: number; level?: number }[];
-  smooth?: boolean; // has smooth.png: one pixel per cell, blurred colour
 }
 
 export interface FieldOptions {
@@ -48,16 +44,13 @@ export async function loadField(name: string) {
     fetch(`${base}/layout.json`).then(ok).then((r) => r.json() as Promise<FieldLayout>),
     fetch(`${base}/cells.bin`).then(ok).then((r) => r.arrayBuffer()),
   ]);
-  const load = async (file: string) => {
-    const img = new Image();
-    img.src = `${base}/${file}`;
-    await img.decode();
-    return img;
-  };
-  const [overview, smooth] = await Promise.all([
-    load("overview.webp"), layout.smooth ? load("smooth.png") : Promise.resolve(null),
-  ]);
-  return { base, layout, cells: new Int32Array(cellsBuf), overview, smooth };
+  const overview = new Image();
+  await new Promise((resolve, reject) => { // not decode(): it waits while the tab is hidden
+    overview.onload = resolve;
+    overview.onerror = reject;
+    overview.src = `${base}/overview.webp`;
+  });
+  return { base, layout, cells: new Int32Array(cellsBuf), overview };
 }
 
 /** Least-recently-used image cache. */
@@ -153,7 +146,6 @@ export class FieldView {
     readonly layout: FieldLayout,
     private cells: Int32Array,
     private overview: HTMLImageElement,
-    private smooth: HTMLImageElement | null,
     private opts: FieldOptions,
   ) {
     this.ctx = canvas.getContext("2d")!;
@@ -236,7 +228,7 @@ export class FieldView {
     return true;
   }
 
-  /** A random artwork that's in this field (the vivid wheel holds only some). */
+  /** A random artwork that's in this field. */
   randomRow(): number {
     for (;;) {
       const row = this.cells[Math.floor(Math.random() * this.cells.length)];
@@ -354,15 +346,6 @@ export class FieldView {
     }
 
     if (cam.s * (window.devicePixelRatio || 1) >= tile * 1.25 && cam.s < THUMBS_FROM) this.drawMid(fx0, fy0, fx1, fy1);
-
-    // Zoom tint: from afar, blend towards the blurred colour layer.
-    const tint = this.smooth ? tintAmount(cam.s) : 0;
-    if (tint > 0) {
-      ctx.globalAlpha = tint;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(this.smooth!, ox, oy, W * cam.s, H * cam.s);
-      ctx.globalAlpha = 1;
-    }
 
     if (cam.s >= THUMBS_FROM) {
       const gap = Math.max(1, Math.min(2, cam.s * 0.008)); // a hairline between works

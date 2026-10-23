@@ -2,8 +2,11 @@
 // sprite sheets (scripts/build_colourmaps.py). Tiles can be grid squares or rotated,
 // rounded shapes such as pills (the Colour Field's Orbits). Layout changes animate on the GPU:
 // each tile flies from where it is to where it's going, staggered along the
-// gradient; works joining grow in, works leaving shrink out. From far away each tile
-// is tinted towards its slot's colour (the zoom tint); as tiles grow on screen they
+// gradient; works joining grow in, works leaving shrink out. Until its sprite sheet
+// arrives each tile is drawn in its slot's colour, so a layout shows at once and its
+// images fade in. From far away each tile is tinted towards that colour (the zoom
+// tint); layouts with a sun (Orbits) can let their rings drift when idle, and show
+// loading progress as a clock around the sun. As tiles grow on screen they
 // swap to sharper copies of the real thumbnails, and close up a 2D overlay draws the
 // thumbnails themselves.
 
@@ -30,17 +33,23 @@ export interface Layout {
   round?: number; // corner radius as a fraction of the tile's shorter side (0.5 = pill)
   /** A solid disc drawn under the tiles, e.g. the dark sun at the centre of Orbits. */
   disc?: { x: number; y: number; r: number; rgb: [number, number, number] };
+  /** Radians per second each tile turns about the disc when idle. */
+  spin?: Float32Array;
+  stagger?: number; // ms from the first tile's flight to the last's (default STAGGER)
+  /** How works joining fly in: from nearby (default) or spiralling out from the disc. */
+  enter?: "scatter" | "spiral";
 }
 
 interface Cam { x: number; y: number; s: number } // centre in cells; CSS px per cell
 
-/** Sprite sheet layout, each tile's texture coordinates, and each work's OKLab colour
- *  (scripts/build_colourmaps.py). Throws if the data hasn't been built. */
-export async function loadMosaicData(base = "/fields/maps") {
+/** Sprite sheet layout, each tile's texture coordinates, and each work's colour as
+ *  OKLab (scripts/build_colourmaps.py): `colour.bin` (mean) or `signature.bin`
+ *  (strongest hue, with its share). Throws if the data hasn't been built. */
+export async function loadMosaicData(base = "/fields/maps", colours = "colour.bin") {
   const ok = (r: Response) => { if (!r.ok) throw new Error(r.url); return r; };
   const [atlas, lab]: [AtlasInfo, Float32Array] = await Promise.all([
     fetch(`${base}/atlas.json`).then(ok).then((r) => r.json()),
-    fetch(`${base}/colour.bin`).then(ok).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b)),
+    fetch(`${base}/${colours}`).then(ok).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b)),
   ]);
   const uvs = new Float32Array(atlas.count * 3);
   for (let i = 0; i < atlas.count; i++) {
@@ -53,7 +62,9 @@ export async function loadMosaicData(base = "/fields/maps") {
 }
 
 const DURATION = 1100; // ms per tile flight
-const STAGGER = 650; // ms from the start of the gradient to its end
+const STAGGER = 650; // ms from the start of the gradient to its end (by default)
+const FADE = 700; // ms for a sprite sheet's images to fade in over the colours
+const IDLE = 3000; // ms without input before rings start to drift
 // Three levels of detail: 24px sprite tiles far out; 128px tiles from a cache filled
 // with real thumbnails as tiles grow on screen; full thumbnails drawn over the top
 // when even 128px isn't enough.
@@ -65,6 +76,12 @@ const SLOT_LAYERS = 6; // 6 × 256 = 1,536 high-res tiles
 const MAX_LOADING = 16;
 const OVERLAY_FROM = 150; // device px per tile above which the full thumbnail is drawn
 const MAX_SCALE = 360;
+/** (x, y) turned by `a` radians (clockwise on screen) about `p`. */
+const turnAbout = (x: number, y: number, p: { x: number; y: number }, a: number): [number, number] => {
+  const c = Math.cos(a), s = Math.sin(a), dx = x - p.x, dy = y - p.y;
+  return [p.x + dx * c - dy * s, p.y + dx * s + dy * c];
+};
+
 /** Pixel position and layer of a high-res slot. */
 const slotPos = (slot: number) => {
   const j = slot % (SLOTS_PER_ROW * SLOTS_PER_ROW);
@@ -81,6 +98,7 @@ layout(location=3) in vec3 a_tint;
 layout(location=4) in vec3 a_uv;     // u0, v0, sheet
 layout(location=5) in vec4 a_shape;  // w, h (cells), rotation, corner radius fraction
 layout(location=6) in vec3 a_hi;     // u0, v0, layer of a high-res tile, or layer -1
+layout(location=7) in float a_spin;  // radians per second of drift about the pivot
 uniform vec2 u_view;      // canvas size, CSS px
 uniform vec3 u_cam;       // centre x, y (cells), px per cell
 uniform float u_time;     // ms since the layout change
@@ -88,6 +106,10 @@ uniform float u_duration;
 uniform float u_gap;      // px between tiles
 uniform float u_tileUv;   // tile size in uv units
 uniform float u_slotUv;   // high-res tile size in uv units
+uniform float u_drift;    // seconds of drift so far
+uniform vec2 u_pivot;     // centre of the drift, cells
+uniform float u_sheetFade[16]; // 0 until a sheet's images arrive, then up to 1
+out float v_fade;
 out vec3 v_uv;
 out vec3 v_hi;
 out vec3 v_tint;
@@ -104,12 +126,16 @@ void main() {
   vec2 d = a_to.xy - a_from.xy;
   float side = fract(sin(dot(a_to.xy, vec2(12.9898, 78.233))) * 43758.5453) > 0.5 ? 1.0 : -1.0;
   p += vec2(-d.y, d.x) * 0.18 * side * sin(3.14159 * e);
+  float turn = a_spin * u_drift;
+  float tc = cos(turn), ts = sin(turn);
+  vec2 q0 = p - u_pivot;
+  p = u_pivot + vec2(q0.x * tc - q0.y * ts, q0.x * ts + q0.y * tc);
   float alpha = mix(a_from.z, a_to.z, e);
   v_alpha = alpha;
   float size = 0.35 + 0.65 * alpha;   // works joining grow in, leaving shrink out
   vec2 half_ = max(vec2(0.5), (a_shape.xy * u_cam.z * size - vec2(u_gap)) * 0.5);
   vec2 local = (corner * 2.0 - 1.0) * half_;
-  float c = cos(a_shape.z), s = sin(a_shape.z);
+  float c = cos(a_shape.z + turn), s = sin(a_shape.z + turn);
   vec2 px = (p - u_cam.xy) * u_cam.z + u_view * 0.5 + vec2(local.x * c - local.y * s, local.x * s + local.y * c);
   gl_Position = alpha < 0.01 ? vec4(2.0, 2.0, 0.0, 1.0)
                              : vec4(px / u_view * 2.0 - 1.0, 0.0, 1.0) * vec4(1.0, -1.0, 1.0, 1.0);
@@ -118,6 +144,7 @@ void main() {
   v_uv = vec3(a_uv.xy + (0.5 + (corner - 0.5) * crop) * u_tileUv, a_uv.z);
   v_hi = vec3(a_hi.xy + (0.5 + (corner - 0.5) * crop) * u_slotUv, a_hi.z);
   v_tint = a_tint;
+  v_fade = a_hi.z >= 0.0 ? 1.0 : u_sheetFade[int(a_uv.z)];
   v_local = local;
   v_half = half_;
   v_radius = a_shape.w * 2.0 * min(half_.x, half_.y);
@@ -132,6 +159,7 @@ uniform float u_tintAmt;
 in vec3 v_uv;
 in vec3 v_hi;
 in vec3 v_tint;
+in float v_fade;
 in float v_alpha;
 in vec2 v_local;
 in vec2 v_half;
@@ -143,7 +171,7 @@ void main() {
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - v_radius;
   float a = v_alpha * clamp(0.5 - d, 0.0, 1.0);
   vec3 c = v_hi.z >= 0.0 ? texture(u_hi, v_hi).rgb : texture(u_atlas, v_uv).rgb;
-  colour = vec4(mix(c, v_tint, u_tintAmt) * a, a);
+  colour = vec4(mix(c, v_tint, max(u_tintAmt, 1.0 - v_fade)) * a, a);
 }`;
 
 class ImageCache {
@@ -172,7 +200,19 @@ export class MosaicView {
   private gl: WebGL2RenderingContext;
   private overlay: CanvasRenderingContext2D;
   private prog: WebGLProgram;
-  private buf: Record<"from" | "to" | "delay" | "tint" | "shape" | "hi", WebGLBuffer>;
+  private buf: Record<"from" | "to" | "delay" | "tint" | "shape" | "hi" | "spin", WebGLBuffer>;
+  // Loading: when each sprite sheet arrived, and the clock around the sun.
+  private sheetAt: number[];
+  private clock = { shown: 0, gone: 0 };
+  // Idle drift: per artwork, radians per second about the pivot; seconds so far.
+  private spin: Float32Array;
+  private drift = 0;
+  private driftRate = 0;
+  private pivot = { x: 0, y: 0 };
+  private lastInput = 0;
+  private lastFrame = 0;
+  private hashDrift = 0; // the drift the hit-test hash was built at
+  private stagger = STAGGER;
   // High-res tile cache: which slot holds which artwork, and when it was last on screen.
   private hiTex: WebGLTexture;
   private slotOfRow: Int32Array;
@@ -222,10 +262,13 @@ export class MosaicView {
     this.delay = new Float32Array(this.n);
     this.shape = new Float32Array(this.n * 4);
     this.slotOfRow = new Int32Array(this.n).fill(-1);
+    this.spin = new Float32Array(this.n);
+    this.lastInput = performance.now();
+    this.sheetAt = new Array(atlas.sheets).fill(Infinity);
     this.thumbs = new ImageCache(400, () => this.invalidate());
 
     this.prog = this.program();
-    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi"]) {
+    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade"]) {
       this.u[name] = gl.getUniformLocation(this.prog, name);
     }
     const vao = gl.createVertexArray();
@@ -244,6 +287,7 @@ export class MosaicView {
       delay: attrib(2, 1, this.delay), tint: attrib(3, 3, new Float32Array(this.n * 3)),
       shape: attrib(5, 4, this.shape),
       hi: attrib(6, 3, new Float32Array(this.n * 3).map((_, i) => (i % 3 === 2 ? -1 : 0))),
+      spin: attrib(7, 1, this.spin),
     };
     attrib(4, 3, uvs);
 
@@ -254,13 +298,15 @@ export class MosaicView {
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, 3); // 24px → 3px tiles
-    let loaded = 0;
     for (let s = 0; s < atlas.sheets; s++) {
       const img = new Image();
       img.onload = () => {
+        if (this.destroyed) return;
+        gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
         gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, s, atlas.sheet, atlas.sheet, 1, gl.RGBA, gl.UNSIGNED_BYTE, img);
-        if (++loaded === atlas.sheets) gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+        gl.generateMipmap(gl.TEXTURE_2D_ARRAY); // per sheet, so each can fade in at any zoom
+        this.sheetAt[s] = performance.now();
         this.invalidate();
       };
       img.src = `${base}/atlas-${String(s).padStart(2, "0")}.webp`;
@@ -293,7 +339,9 @@ export class MosaicView {
       if (this.destroyed) return;
       this.stepCamera();
       const now = performance.now();
-      const animating = now - this.start < STAGGER + DURATION + 50;
+      const loading = this.loadingVisible(now);
+      const animating = loading || now - this.start < this.stagger + DURATION + 50;
+      this.stepDrift(now);
       if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
       if (this.pendingHi.length && now - this.lastMip > 250) {
         // Rebuild the smaller sizes, then switch the new tiles over (not before, or
@@ -358,6 +406,11 @@ export class MosaicView {
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     this.bounds = { x0: x0 - cx, y0: y0 - cy, x1: x1 - cx, y1: y1 - cy };
     this.disc = layout.disc ? { ...layout.disc, x: layout.disc.x - cx, y: layout.disc.y - cy } : null;
+    const stagger = layout.stagger ?? STAGGER;
+    const spiral = layout.enter === "spiral" && this.disc !== null;
+    const oldPivot = this.pivot, oldTurn = this.drift;
+    const pivot = this.disc ? { x: this.disc.x, y: this.disc.y } : { x: 0, y: 0 };
+    const spin = new Float32Array(this.n);
 
     const nextFrom = new Float32Array(this.n * 3);
     const nextTo = new Float32Array(this.n * 3);
@@ -378,9 +431,10 @@ export class MosaicView {
       shape[k4 + 1] = shaped ? layout.h![i] : 1;
       shape[k4 + 2] = layout.rot?.[i] ?? 0;
       shape[k4 + 3] = layout.round ?? 0;
+      spin[row] = layout.spin?.[i] ?? 0;
       nextTo[k3] = x; nextTo[k3 + 1] = y; nextTo[k3 + 2] = 1;
       tint[k3] = layout.slotRgb[i * 3]; tint[k3 + 1] = layout.slotRgb[i * 3 + 1]; tint[k3 + 2] = layout.slotRgb[i * 3 + 2];
-      nextDelay[row] = animate ? layout.t[i] * STAGGER + Math.random() * 120 : -DURATION;
+      nextDelay[row] = animate ? layout.t[i] * stagger + Math.random() * 120 : -DURATION;
     }
     for (let row = 0; row < this.n; row++) {
       const k3 = row * 3, k4 = row * 4;
@@ -392,14 +446,22 @@ export class MosaicView {
         px = f[k3] + (o[k3] - f[k3]) * e;
         py = f[k3 + 1] + (o[k3 + 1] - f[k3 + 1]) * e;
         pa = f[k3 + 2] + (o[k3 + 2] - f[k3 + 2]) * e;
+        if (this.spin[row] !== 0) [px, py] = turnAbout(px, py, oldPivot, this.spin[row] * oldTurn); // where it has drifted
       }
       if (placed[row]) {
         if (pa > 0.01) { nextFrom[k3] = px; nextFrom[k3 + 1] = py; nextFrom[k3 + 2] = pa; } // showing: fly over
         else {
-          // joining: start just off its spot, scattered, and grow in
-          const a = Math.random() * Math.PI * 2, r = 6 + Math.random() * 18;
-          nextFrom[k3] = nextTo[k3] + Math.cos(a) * r;
-          nextFrom[k3 + 1] = nextTo[k3 + 1] + Math.sin(a) * r;
+          if (spiral) {
+            // joining: spiral out from the sun, a little behind where it's going
+            const [sx, sy] = turnAbout(nextTo[k3], nextTo[k3 + 1], pivot, -0.7);
+            nextFrom[k3] = pivot.x + (sx - pivot.x) * 0.3;
+            nextFrom[k3 + 1] = pivot.y + (sy - pivot.y) * 0.3;
+          } else {
+            // joining: start just off its spot, scattered, and grow in
+            const a = Math.random() * Math.PI * 2, r = 6 + Math.random() * 18;
+            nextFrom[k3] = nextTo[k3] + Math.cos(a) * r;
+            nextFrom[k3 + 1] = nextTo[k3 + 1] + Math.sin(a) * r;
+          }
           nextFrom[k3 + 2] = 0;
         }
       } else {
@@ -414,11 +476,16 @@ export class MosaicView {
     this.to = nextTo;
     this.delay = nextDelay;
     this.shape = shape;
+    this.spin = spin;
+    this.pivot = pivot;
+    this.drift = 0;
+    this.hashDrift = 0;
+    this.stagger = stagger;
     this.placedRows = layout.rows;
     this.start = now;
     const gl = this.gl;
     for (const [key, data] of [["from", nextFrom], ["to", nextTo], ["delay", nextDelay], ["tint", tint],
-                               ["shape", shape]] as const) {
+                               ["shape", shape], ["spin", spin]] as const) {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.buf[key]);
       gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
     }
@@ -454,8 +521,8 @@ export class MosaicView {
   }
 
   flyToRow(row: number, s = 140) {
-    const k = row * 3;
-    this.flyTo({ x: this.to[k], y: this.to[k + 1], s });
+    const [x, y] = this.centre(row);
+    this.flyTo({ x, y, s });
   }
 
   zoomBy(f: number, sx = this.w / 2, sy = this.h / 2) {
@@ -484,16 +551,27 @@ export class MosaicView {
     return [this.cam.x + (sx - this.w / 2) / this.cam.s, this.cam.y + (sy - this.h / 2) / this.cam.s];
   }
 
+  /** Where an artwork's tile has settled, including any drift: centre and rotation. */
+  private centre(row: number): [number, number, number] {
+    const x = this.to[row * 3], y = this.to[row * 3 + 1], rot = this.shape[row * 4 + 2];
+    const turn = this.spin[row] * this.drift;
+    if (turn === 0) return [x, y, rot];
+    const [tx, ty] = turnAbout(x, y, this.pivot, turn);
+    return [tx, ty, rot + turn];
+  }
+
   /** Is field point (fx, fy) inside this artwork's (possibly rotated) tile? */
   private contains(row: number, fx: number, fy: number) {
     const k = row * 4;
-    const [w, h, rot] = [this.shape[k], this.shape[k + 1], this.shape[k + 2]];
-    const dx = fx - this.to[row * 3], dy = fy - this.to[row * 3 + 1];
+    const [cx, cy, rot] = this.centre(row);
+    const [w, h] = [this.shape[k], this.shape[k + 1]];
+    const dx = fx - cx, dy = fy - cy;
     const c = Math.cos(-rot), s = Math.sin(-rot);
     return Math.abs(dx * c - dy * s) <= w / 2 && Math.abs(dx * s + dy * c) <= h / 2;
   }
 
   rowAt(sx: number, sy: number): number | null {
+    if (this.drift !== this.hashDrift) this.rehash();
     const [fx, fy] = this.toField(sx, sy);
     const bx = Math.floor(fx), by = Math.floor(fy);
     for (let dx = -2; dx <= 2; dx++) {
@@ -504,6 +582,18 @@ export class MosaicView {
       }
     }
     return null;
+  }
+
+  /** Rebuild the hit-test hash where tiles have drifted to. */
+  private rehash() {
+    this.hash.clear();
+    for (const row of this.placedRows) {
+      const [x, y] = this.centre(row);
+      const key = Math.floor(x) * 100000 + Math.floor(y);
+      const bucket = this.hash.get(key);
+      if (bucket) bucket.push(row); else this.hash.set(key, [row]);
+    }
+    this.hashDrift = this.drift;
   }
 
   randomRow(): number | null {
@@ -525,7 +615,7 @@ export class MosaicView {
     const [fx1, fy1] = this.toField(this.w + s * 2, this.h + s * 2);
     const want: [number, number][] = [];
     for (const row of this.placedRows) {
-      const x = this.to[row * 3], y = this.to[row * 3 + 1];
+      const [x, y] = this.centre(row);
       if (x < fx0 || x > fx1 || y < fy0 || y > fy1) continue;
       const slot = this.slotOfRow[row];
       if (slot >= 0) { this.slotUsed[slot] = now; continue; }
@@ -582,6 +672,31 @@ export class MosaicView {
     gl.bufferSubData(gl.ARRAY_BUFFER, row * 12, new Float32Array([x / SLOT_SHEET, y / SLOT_SHEET, layer]));
   }
 
+  // ── loading and drift ─────────────────────────────────────────────────────
+
+  /** Advance the loading clock; true while it or a sheet fade still needs frames. */
+  private loadingVisible(now: number) {
+    const arrived = this.sheetAt.filter((t) => t <= now).length / this.sheetAt.length;
+    const c = this.clock;
+    c.shown += (arrived - c.shown) * 0.12;
+    if (arrived === 1 && c.shown > 0.995 && !c.gone) { c.shown = 1; c.gone = now; }
+    const fading = this.sheetAt.some((t) => now - t < FADE);
+    return fading || !c.gone || now - c.gone < 600;
+  }
+
+  /** Ease the rings' drift in after a few idle seconds, and out at the first touch. */
+  private stepDrift(now: number) {
+    const dt = Math.min(100, now - (this.lastFrame || now));
+    this.lastFrame = now;
+    const idle = this.disc && !this.anim && !reducedMotion() && now - this.lastInput > IDLE
+      && now - this.start > this.stagger + DURATION;
+    const target = idle ? Math.min(1, 6 / this.cam.s) : 0; // gentler close up, where it'd race past
+    this.driftRate += (target - this.driftRate) * Math.min(1, dt / (target > this.driftRate ? 1500 : 250));
+    if (this.driftRate < 0.002 && !target) { this.driftRate = 0; return; }
+    this.drift += (this.driftRate * dt) / 1000;
+    this.dirty = true;
+  }
+
   // ── drawing ───────────────────────────────────────────────────────────────
 
   private resize() {
@@ -609,6 +724,12 @@ export class MosaicView {
     const shaped = this.layout?.w !== undefined; // shaped layouts space their own tiles
     gl.uniform1f(this.u.u_gap, !shaped && this.cam.s >= 12 ? Math.max(1, Math.min(2, this.cam.s * 0.008)) : 0);
     gl.uniform1f(this.u.u_tintAmt, tintAmount(this.cam.s));
+    gl.uniform1f(this.u.u_drift, this.drift);
+    gl.uniform2f(this.u.u_pivot, this.pivot.x, this.pivot.y);
+    const now = performance.now();
+    const fade = new Float32Array(16);
+    this.sheetAt.forEach((t, s) => { fade[s] = Math.min(1, Math.max(0, (now - t) / FADE)); });
+    gl.uniform1fv(this.u.u_sheetFade, fade);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.n);
     this.drawOverlay();
   }
@@ -617,8 +738,9 @@ export class MosaicView {
   private tilePath(row: number, inset = 0) {
     const ctx = this.overlay, s = this.cam.s, k = row * 4;
     const w = this.shape[k] * s - inset, h = this.shape[k + 1] * s - inset;
-    ctx.translate((this.to[row * 3] - this.cam.x) * s + this.w / 2, (this.to[row * 3 + 1] - this.cam.y) * s + this.h / 2);
-    ctx.rotate(this.shape[k + 2]);
+    const [x, y, rot] = this.centre(row);
+    ctx.translate((x - this.cam.x) * s + this.w / 2, (y - this.cam.y) * s + this.h / 2);
+    ctx.rotate(rot);
     ctx.beginPath();
     ctx.roundRect(-w / 2, -h / 2, w, h, this.shape[k + 3] * Math.min(w, h));
     return [w, h] as const;
@@ -627,14 +749,27 @@ export class MosaicView {
   private drawOverlay() {
     const ctx = this.overlay;
     ctx.clearRect(0, 0, this.w, this.h);
-    const settled = performance.now() - this.start > STAGGER + DURATION;
+    const now = performance.now();
+    const settled = now - this.start > this.stagger + DURATION;
     const s = this.cam.s;
     if (this.disc) {
       const d = this.disc;
+      const dx = (d.x - this.cam.x) * s + this.w / 2, dy = (d.y - this.cam.y) * s + this.h / 2;
       ctx.fillStyle = `rgb(${d.rgb.map((c) => Math.round(c * 255)).join(",")})`;
       ctx.beginPath();
-      ctx.arc((d.x - this.cam.x) * s + this.w / 2, (d.y - this.cam.y) * s + this.h / 2, d.r * s, 0, 2 * Math.PI);
+      ctx.arc(dx, dy, d.r * s, 0, 2 * Math.PI);
       ctx.fill();
+      // Loading clock: a hairline sweeping round inside the sun's rim as sheets arrive.
+      const { shown, gone } = this.clock;
+      const alpha = 1 - Math.min(1, gone ? (now - gone) / 600 : 0);
+      if (shown > 0 && alpha > 0) {
+        ctx.strokeStyle = `rgba(244, 236, 222, ${0.8 * alpha})`;
+        ctx.lineWidth = Math.max(2, d.r * s * 0.025);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.arc(dx, dy, d.r * s * 0.9, -Math.PI / 2, -Math.PI / 2 + shown * 2 * Math.PI);
+        ctx.stroke();
+      }
     }
     const dpr = window.devicePixelRatio || 1;
     if (settled && s * dpr * 3 >= OVERLAY_FROM && this.layout) { // no tile is wider than 3 cells
@@ -643,7 +778,7 @@ export class MosaicView {
       const shaped = this.layout.w !== undefined;
       const gap = shaped ? 0 : Math.max(1, Math.min(2, s * 0.008));
       for (const row of this.placedRows) {
-        const x = this.to[row * 3], y = this.to[row * 3 + 1];
+        const [x, y] = this.centre(row);
         if (x < fx0 || x > fx1 || y < fy0 || y > fy1) continue;
         if (Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) * s * dpr < OVERLAY_FROM) continue;
         const img = this.thumbs.get(this.opts.thumbUrl(row));
@@ -683,6 +818,8 @@ export class MosaicView {
       c.addEventListener(type, fn as EventListener, o);
       this.cleanup.push(() => c.removeEventListener(type, fn as EventListener));
     };
+    const touch = () => { this.lastInput = performance.now(); };
+    for (const type of ["pointerdown", "pointermove", "wheel", "dblclick"] as const) on(type, touch);
     on("pointerdown", (e) => {
       c.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });

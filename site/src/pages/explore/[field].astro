@@ -7,45 +7,35 @@ export function getStaticPaths() {
   return [
     { params: { field: "colour" }, props: {
       title: "Colour Field",
-      blurb: "A colour wheel of every artwork: hue around the circle, more vivid towards the edge, greys at the centre.",
-      modes: {
-        wheel: "A colour wheel of every artwork: hue around the circle, more vivid towards the edge, greys at the centre.",
-        vivid: "The most colourful quarter of the archive as a colour wheel.",
-        orbits: "After Alma Thomas: the archive's most saturated works in rings of colour around a dark sun.",
-      },
+      blurb: "After Alma Thomas: the archive's 12,000 most colourful works in rings around a dark sun, green at the centre to yellow at the edge.",
+      orbits: true,
     } },
     { params: { field: "constellation" }, props: {
       title: "Constellation",
       blurb: "An archipelago of visual likeness: each island gathers works that look alike, whoever made them. Zoom in for the regions within.",
-      modes: null,
+      orbits: false,
     } },
   ];
 }
 
 const { field } = Astro.params;
-const { title, blurb, modes } = Astro.props;
+const { title, blurb, orbits } = Astro.props;
 ---
 
 <Base title={title}>
   <section class="explore" data-field={field}>
-    <canvas class="field-canvas" aria-label={`${title}: a zoomable mosaic of every artwork`}></canvas>
-    {modes && (
+    {orbits ? (
       <>
-        <canvas class="mosaic-canvas gl" aria-hidden="true" hidden></canvas>
-        <canvas class="mosaic-canvas top" aria-label="Orbits of saturated artworks" hidden></canvas>
+        <canvas class="mosaic-canvas gl" aria-hidden="true"></canvas>
+        <canvas class="mosaic-canvas top" aria-label="Orbits of the archive's most colourful works"></canvas>
       </>
+    ) : (
+      <canvas class="field-canvas" aria-label={`${title}: a zoomable mosaic of every artwork`}></canvas>
     )}
 
     <div class="panel top-left">
       <ExploreSwitch current={field} />
-      <p class="blurb" data-blurb>{blurb}</p>
-      {modes && (
-        <div class="modes" role="group" aria-label="Arrangement" data-modes={JSON.stringify(modes)}>
-          <button type="button" data-mode="wheel" aria-pressed="true">Wheel</button>
-          <button type="button" data-mode="vivid" aria-pressed="false">Vivid</button>
-          <button type="button" data-mode="orbits" aria-pressed="false">Orbits</button>
-        </div>
-      )}
+      <p class="blurb">{blurb}</p>
       <p class="hint">Drag to move · pinch or ⌘-scroll to zoom · click a work</p>
     </div>
 
@@ -56,7 +46,7 @@ const { title, blurb, modes } = Astro.props;
       <button type="button" data-surprise>Surprise me</button>
     </div>
 
-    <div class="loading" data-loading>Laying out 89,000 works…</div>
+    <div class="loading" data-loading>{orbits ? "Gathering colours…" : "Laying out 89,000 works…"}</div>
     <div class="tip" hidden></div>
 
     <aside class="card" aria-live="polite" hidden>
@@ -80,19 +70,13 @@ const { title, blurb, modes } = Astro.props;
   import { imgUrl, thumbUrl, type SimilarMap } from "../../lib/types";
 
   type View = FieldView | MosaicView;
-  type Mode = "wheel" | "vivid" | "orbits";
-  const ORBIT_WORKS = 1800;
+  const ORBIT_WORKS = 12000;
 
   let view: View | null = null;
   document.addEventListener("astro:before-swap", () => { view?.destroy(); view = null; });
 
   onPage("[data-field]", async (root) => {
     const field = root.dataset.field!;
-    const modesEl = root.querySelector<HTMLElement>("[data-modes]");
-    const blurbs: Record<Mode, string> | null = modesEl ? JSON.parse(modesEl.dataset.modes!) : null;
-    const params = new URLSearchParams(location.search);
-    let mode: Mode = !modesEl ? "wheel"
-      : params.get("mode") === "orbits" ? "orbits" : params.has("vivid") || params.get("mode") === "vivid" ? "vivid" : "wheel";
     const loading = root.querySelector<HTMLElement>("[data-loading]")!;
     let site, rows;
     try {
@@ -183,67 +167,25 @@ const { title, blurb, modes } = Astro.props;
     addEventListener("resize", syncInset);
     document.addEventListener("astro:before-swap", () => removeEventListener("resize", syncInset), { once: true });
 
-    const fieldCanvas = root.querySelector<HTMLCanvasElement>(".field-canvas")!;
-    const glCanvas = root.querySelector<HTMLCanvasElement>(".gl");
-    const topCanvas = root.querySelector<HTMLCanvasElement>(".top");
-    const canvasesFor = (m: Mode) => (m === "orbits" ? [glCanvas!, topCanvas!] : [fieldCanvas]);
-    let mosaicData: ReturnType<typeof loadMosaicData> | null = null;
-
-    /** Build the view for a mode on its canvas(es). */
-    const build = async (m: Mode): Promise<View> => {
-      if (m === "orbits") {
-        mosaicData ??= loadMosaicData();
-        const d = await mosaicData;
-        const v = new MosaicView(glCanvas!, topCanvas!, d.base, d.atlas, d.uvs, handlers);
-        v.setInsetLeft(inset());
-        v.setLayout(orbitLayout(d.lab, { count: ORBIT_WORKS }), { animateIn: true });
-        return v;
-      }
-      const f = await loadField(m === "vivid" ? "colour-vivid" : field);
-      const v = new FieldView(fieldCanvas, f.base, f.layout, f.cells, f.overview, f.smooth, handlers);
-      v.setInsetLeft(inset());
-      return v;
-    };
-
-    const showMode = (m: Mode) => {
-      for (const c of [fieldCanvas, glCanvas, topCanvas]) if (c) c.hidden = !canvasesFor(m).includes(c);
-      root.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((b) =>
-        b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
-      if (blurbs) root.querySelector("[data-blurb]")!.textContent = blurbs[m];
-    };
-
     try {
-      showMode(mode);
-      view = await build(mode);
+      if (field === "colour") {
+        const d = await loadMosaicData(undefined, "signature.bin");
+        const v = new MosaicView(root.querySelector(".gl")!, root.querySelector(".top")!, d.base, d.atlas, d.uvs, handlers);
+        view = v;
+        v.setInsetLeft(inset());
+        v.setLayout(orbitLayout(d.lab, ORBIT_WORKS), { animateIn: true });
+      } else {
+        const f = await loadField(field);
+        view = new FieldView(root.querySelector(".field-canvas")!, f.base, f.layout, f.cells, f.overview, handlers);
+        view.setInsetLeft(inset());
+      }
     } catch {
-      loading.textContent = mode === "orbits"
-        ? "Orbits needs scripts/build_colourmaps.py and WebGL2."
+      loading.textContent = field === "colour"
+        ? "The Colour Field needs scripts/build_colourmaps.py and WebGL2."
         : "This view's data isn't built yet. Run scripts/build_fields.py, then reload.";
       return;
     }
     loading.classList.add("done");
-
-    // Switch arrangements with a crossfade.
-    root.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((btn) => btn.addEventListener("click", async () => {
-      const next = btn.dataset.mode as Mode;
-      if (next === mode) return;
-      const prev = mode;
-      mode = next;
-      history.replaceState(history.state, "", next === "wheel" ? location.pathname : `?mode=${next}`);
-      const motion = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const fades = motion ? canvasesFor(prev).map((c) => c.animate([{ opacity: 1 }, { opacity: 0 }],
-                                                                  { duration: 200, fill: "forwards" })) : [];
-      await Promise.all(fades.map((f) => f.finished));
-      view?.destroy();
-      card.hidden = true;
-      showMode(next);
-      view = await build(next);
-      fades.forEach((f) => f.cancel()); // drop the held opacity: 0
-      if (motion && next !== "orbits") { // orbits make their own entrance
-        fieldCanvas.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }],
-                            { duration: 450, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
-      }
-    }));
 
     root.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) =>
       b.addEventListener("click", () => view!.flyTo({ s: view!.cam.s * Number(b.dataset.zoom) }, 350)));

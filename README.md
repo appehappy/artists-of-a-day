@@ -55,8 +55,8 @@ python3 scripts/build_db.py                 #          merge enrichment
 .venv/bin/python scripts/analyze_embeddings.py  #      image kinds + similar works
 python3 scripts/build_db.py                 #          merge again
 python3 scripts/export_site_data.py         # site JSON
-.venv/bin/python scripts/build_fields.py    # Explore views: layouts + map tiles (~5 min)
-.venv/bin/python scripts/build_colourmaps.py  # Colour maps explorer: sprite sheets, colours, maps
+.venv/bin/python scripts/build_fields.py    # Constellation: layout + map tiles (~5 min)
+.venv/bin/python scripts/build_colourmaps.py  # Colour Field + Colour maps: sprite sheets, colours, maps
 python3 -m unittest                         # tests
 ```
 
@@ -89,20 +89,23 @@ An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterabl
 discipline, era, region, colour and living artists), artist pages with similar works
 in the viewer, theme post pages, On this day, Shuffle and artist search.
 
-Explore (prototypes) shows every artwork as one zoomable mosaic, drawn like a slippy
-map from `site/public/fields/` (built by `build_fields.py`, not part of `refresh.py`
-yet): **Colour Field** is a conic colour wheel: greys in a sphere at the centre,
-then a gap, then a ring of every other work in hue order (OKLCH, each hue's slice as
-wide as its share of the archive, muted inside to vivid at the rim). From afar it's
-tinted towards a blurred colour layer so it reads as a smooth gradient. Its
-**Orbits** arrangement (after Alma Thomas) shows ~1,800 of the most saturated works,
-every hue represented, as pills in concentric rings around a dark sun, green at the
-centre through blue, purple, red and orange to yellow at the edge, drawn by the WebGL
-renderer (data from `build_colourmaps.py`). With a
-"Vivid only" wheel of the most colourful quarter; **Constellation** is an archipelago of
-visual likeness: CLIP-embedding clusters become islands arranged by a UMAP, named by
-CLIP at two zoom levels (islands, then regions within them), with labels that never
-overlap. `build_fields.py --only colour|constellation` rebuilds one view.
+Explore (prototypes) has three views:
+
+**Colour Field** (after Alma Thomas) shows the archive's 12,000 most colourful works as
+pills in concentric rings around a dark sun, green at the centre through blue, purple,
+red and orange to yellow at the edge. Works are placed by their signature colour: their
+tile's strongest hue among coloured pixels (from `build_colourmaps.py`), so a
+red-and-white poster counts as red, and every hue gets rings in proportion to the square
+root of how common it is. Every pill is the same size and evenly spaced along its ring.
+The rings appear at once in flat colour and spiral out from the sun while the sprite
+sheets load (a clock round the sun's rim shows progress); images fade in as each sheet
+arrives. After a few idle seconds the rings drift, alternate rings turning opposite
+ways and slower close up; any input stops them.
+
+**Constellation** is an archipelago of visual likeness, drawn like a slippy map from
+`site/public/fields/` (built by `build_fields.py`, not part of `refresh.py` yet):
+CLIP-embedding clusters become islands arranged by a UMAP, named by CLIP at two zoom
+levels (islands, then regions within them), with labels that never overlap.
 
 **Colour maps** (`/explore/maps`) draws Fabio Crameri's Scientific Colour Maps with
 artworks: pick a shape (band, ring, bow-tie, steps), a map and how many

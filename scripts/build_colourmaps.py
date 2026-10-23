@@ -6,6 +6,10 @@ Writes site/public/fields/maps/:
   atlas.json     tile size, tiles per row and per sheet, sheet count
   colour.bin     Float32 OKLab (L, a, b) per artwork: its tile's centre-weighted
                  mean colour, i.e. how it reads from a distance
+  signature.bin  Float32 (L, a, b, share) per artwork: the mean OKLab of its tile's
+                 dominant hue among coloured pixels, and the share of the tile it
+                 covers (Orbits places works by this: a red-and-white poster is red,
+                 where its mean colour would be pink-grey)
   maps.json      Scientific Colour Maps (Crameri, MIT licence), 64 stops each,
                  grouped by type
 
@@ -66,6 +70,36 @@ def mean_colours(tiles):
     return out
 
 
+HUE_BINS = 24
+
+
+def signature_colours(tiles):
+    """Per tile: the strongest hue (±1 bin, weighted by chroma) among pixels with
+    some colour, its pixels' mean OKLab, and the share of the tile they cover."""
+    out = np.zeros((len(tiles), 4), np.float32)
+    px = TILE * TILE
+    for s in range(0, len(tiles), 4096):
+        lab = oklab(tiles[s:s + 4096].reshape(-1, px, 3).astype(np.float32) / 255)
+        n = len(lab)
+        chroma = np.hypot(lab[..., 1], lab[..., 2])
+        coloured = chroma > 0.03
+        hue = (np.arctan2(lab[..., 2], lab[..., 1]) / (2 * np.pi) * HUE_BINS).astype(int) % HUE_BINS
+        idx = (np.arange(n)[:, None] * HUE_BINS + hue)[coloured]
+
+        def per_bin(w):  # sum of w over each tile's hue bins, then over ±1 bin
+            m = np.bincount(idx, w, n * HUE_BINS).reshape(n, HUE_BINS)
+            return m + np.roll(m, 1, 1) + np.roll(m, -1, 1)
+
+        best = per_bin(chroma[coloured]).argmax(1)
+        pick = lambda m: m[np.arange(n), best]  # noqa: E731
+        count = pick(per_bin(np.ones(len(idx))))
+        safe = np.maximum(count, 1)
+        for c in range(3):
+            out[s:s + n, c] = pick(per_bin(lab[..., c][coloured])) / safe
+        out[s:s + n, 3] = count / px
+    return out
+
+
 def main():
     from cmcrameri import cm
     rows = json.loads((SITE_DATA / "artworks.json").read_text())["rows"]
@@ -90,6 +124,10 @@ def main():
         "sheets": sheets, "count": len(tiles)}))
 
     mean_colours(tiles).astype("<f4").tofile(OUT / "colour.bin")
+    sig = signature_colours(tiles)
+    sig.astype("<f4").tofile(OUT / "signature.bin")
+    vivid = (np.hypot(sig[:, 1], sig[:, 2]) >= 0.1) & (sig[:, 3] >= 0.15)
+    print(f"{int(vivid.sum())} works with a signature colour of chroma ≥ 0.1 over ≥ 15% of the tile")
 
     maps = []
     for kind, names in MAPS.items():
