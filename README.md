@@ -99,7 +99,7 @@ CLIP at two zoom levels (islands, then regions within them), with labels that ne
 overlap. `build_fields.py --only colour|constellation` rebuilds one view.
 
 **Colour maps** (`/explore/maps`) draws Fabio Crameri's Scientific Colour Maps with
-artworks: pick a shape (band, ring, bow-tie, spiral, disc, steps), a map and how many
+artworks: pick a shape (band, ring, bow-tie, steps), a map and how many
 works. In the browser, each stretch of the gradient takes the closest-matching works
 from the whole archive (sized to how many slots the shape has there), lined up by
 fine gradient position and lightness (~350 ms). A WebGL2 renderer draws every work

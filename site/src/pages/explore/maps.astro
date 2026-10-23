@@ -19,8 +19,6 @@ const icons: Record<string, string> = {
   band: '<rect x="2" y="8" width="20" height="8" rx="1.5"/>',
   ring: '<circle cx="12" cy="12" r="7.5" fill="none" stroke-width="4"/>',
   bowtie: '<path d="M2 5 L12 10 L22 5 V19 L12 14 L2 19 Z"/>',
-  spiral: '<path fill="none" stroke-width="2.4" stroke-linecap="round" d="M12 12 a1.5 1.5 0 1 1 1.5 1.5 a4 4 0 1 1 -4 -4.5 a7 7 0 1 1 7.5 8"/>',
-  disc: '<circle cx="12" cy="12" r="9"/>',
   steps: '<rect x="1.5" y="7" width="5" height="10" rx="1"/><rect x="9.5" y="7" width="5" height="10" rx="1"/><rect x="17.5" y="7" width="5" height="10" rx="1"/>',
 };
 ---
@@ -94,7 +92,7 @@ const icons: Record<string, string> = {
     display: flex; flex-direction: column; gap: 8px;
   }
   .picker h4 { margin: 8px 0 0; font: 500 11px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .shapes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .shapes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
   .shapes button {
     display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 10px;
     border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12px;

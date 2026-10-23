@@ -63,8 +63,6 @@ export const SHAPES = [
   { key: "band", label: "Band", suits: "Sequential" },
   { key: "ring", label: "Ring", suits: "Cyclic" },
   { key: "bowtie", label: "Bow-tie", suits: "Diverging" },
-  { key: "spiral", label: "Spiral", suits: "Sequential" },
-  { key: "disc", label: "Disc", suits: "Sequential" },
   { key: "steps", label: "Steps", suits: "Multi-sequential" },
 ] as const;
 export type ShapeKey = (typeof SHAPES)[number]["key"];
@@ -128,29 +126,6 @@ export function makeShape(shape: ShapeKey, n: number): Slots {
         for (let y = top; y < top + h; y++) cells.push({ x, y, t: (x + 0.5) / W, v: (y - top + 0.5) / h });
       }
       return slots(cells, (H * (1 + waist)) / 2);
-    }
-    case "spiral": {
-      // Archimedean spiral band r = aθ, from the centre outward, arms 15% apart.
-      const turns = 2.6, thetaMax = turns * 2 * Math.PI;
-      const a = Math.sqrt((2 * n) / (0.85 * 2 * Math.PI * thetaMax ** 2));
-      const w = 0.85 * 2 * Math.PI * a;
-      const cells = polarCells(a * thetaMax + w, () => true)
-        .map((c) => {
-          const k = Math.round((c.r / a - c.a) / (2 * Math.PI));
-          const theta = c.a + 2 * Math.PI * k;
-          return { ...c, theta, off: c.r - a * theta };
-        })
-        .filter((c) => Math.abs(c.off) <= w / 2 && c.theta >= 0.6 && c.theta <= thetaMax)
-        .sort((p, q) => p.theta - q.theta).slice(0, n);
-      const t0 = cells[0].theta, t1 = cells[cells.length - 1].theta;
-      return slots(cells.map((c) => ({ x: c.x, y: c.y, t: (c.theta - t0) / (t1 - t0), v: c.off / w + 0.5 })), w);
-    }
-    case "disc": {
-      // Concentric: the gradient runs from the centre out to the rim.
-      const R = Math.sqrt(n / Math.PI) + 2;
-      const cells = polarCells(R, (r) => r <= R).sort((p, q) => p.r - q.r).slice(0, n);
-      // No light-to-dark shift across a ring of the disc: it would make one side lighter.
-      return slots(cells.map((c, i) => ({ x: c.x, y: c.y, t: i / (n - 1), v: 0.5 })), 1);
     }
     case "steps": {
       // Nine separate blocks: a discrete palette, each block a slice of the gradient.
@@ -233,7 +208,7 @@ export function match(lab: Float32Array, map: ColourMap, s: Slots): Match {
   }
 
   // Each bin needs as many works as the shape has slots at that point of the
-  // gradient (a bow-tie's wide ends and a spiral's long outer turns need more).
+  // gradient (a bow-tie's wide ends need more than its waist).
   // Bins with the fewest close works choose first, each taking the closest
   // still-unused works to its colour from the whole archive.
   const quota = new Int32Array(BINS);
