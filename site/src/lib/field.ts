@@ -265,7 +265,7 @@ export class FieldView {
     }
 
     if (cam.s >= THUMBS_FROM) {
-      const gap = Math.min(10, cam.s * 0.04);
+      const gap = Math.max(1, Math.min(2, cam.s * 0.008)); // a hairline between works
       ctx.fillStyle = this.colours.bg;
       for (let y = Math.max(0, Math.floor(fy0)); y <= Math.min(H - 1, Math.floor(fy1)); y++) {
         for (let x = Math.max(0, Math.floor(fx0)); x <= Math.min(W - 1, Math.floor(fx1)); x++) {

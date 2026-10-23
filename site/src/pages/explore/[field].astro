@@ -96,7 +96,8 @@ const views = [
     position: absolute; z-index: 3; pointer-events: none; max-width: 260px;
     background: var(--ink); color: var(--bg); padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.35;
   }
-  .tip b { display: block; font: 15px/1.2 var(--serif); font-weight: 400; }
+  /* :global because the tooltip's contents are created by script */
+  .tip :global(b) { display: block; margin-bottom: 2px; font: 15px/1.2 var(--serif); font-weight: 400; }
 
   .card {
     position: absolute; z-index: 3; top: 16px; right: 16px; bottom: 16px; width: min(360px, calc(100% - 32px));
