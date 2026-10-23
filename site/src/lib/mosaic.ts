@@ -1052,7 +1052,7 @@ export class MosaicView {
   }
 
   /** Names over the tiles: systems from afar, the regions within them closer in,
-   *  bigger first, never overlapping. */
+   *  bigger first, wherever there's room (never overlapping). */
   private drawLabels() {
     if (!this.labels.length) return;
     const ctx = this.overlay;
@@ -1060,26 +1060,26 @@ export class MosaicView {
     const clamp = (v: number) => Math.max(0, Math.min(1, v));
     const appear = clamp((performance.now() - this.start - this.stagger) / 800);
     const placed: [number, number, number, number][] = [];
-    let systems = Math.round(14 * zoom); // system names shown: the biggest, more as you zoom in
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
     for (const l of this.labels) {
       const level = l.level ?? 0;
-      if (level === 0 && systems-- <= 0) continue;
       const alpha = appear * (level === 0 ? clamp((10 - zoom) / 6) : Math.min(clamp((zoom - 2) / 2), clamp((40 - zoom) / 20)));
       if (alpha <= 0.02) continue;
       const [x, y] = this.screen(l.x, l.y);
       if (x < -300 || y < -60 || x > this.w + 300 || y > this.h + 60) continue;
-      const size = level === 0 ? Math.round(Math.min(26, 13 + Math.sqrt(l.size ?? 400) / 8)) : 11;
+      const size = level === 0 ? Math.round(Math.min(22, 12 + Math.sqrt(l.size ?? 400) / 10)) : 11;
       const text = level === 0 ? l.text : l.text.toUpperCase();
       ctx.font = level === 0 ? `400 ${size}px "Instrument Serif", Georgia, serif`
                              : `600 ${size}px Inter, system-ui, sans-serif`;
       ctx.letterSpacing = level === 0 ? "0px" : "1.2px";
       const ty = level === 0 ? y - Math.max(14, 1.7 * this.cam.s + 12) : y; // a system's name sits above its brightest star
       const half = ctx.measureText(text).width / 2;
-      const box: [number, number, number, number] = [x - half - 8, ty - size / 2 - 5, x + half + 8, ty + size / 2 + 5];
+      // Names keep a little air around them, so where they'd crowd, the bigger one shows.
+      const [padX, padY] = level === 0 ? [12, 6] : [8, 5];
+      const box: [number, number, number, number] = [x - half - padX, ty - size / 2 - padY, x + half + padX, ty + size / 2 + padY];
       if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) continue;
       placed.push(box);
       ctx.globalAlpha = alpha;
