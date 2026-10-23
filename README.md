@@ -90,8 +90,12 @@ in the viewer, theme post pages, On this day, Shuffle and artist search.
 
 Explore (prototypes) shows every artwork as one zoomable mosaic, drawn like a slippy
 map from `site/public/fields/` (built by `build_fields.py`, not part of `refresh.py`
-yet): **Colour Field** arranges works by main hue and lightness; **Constellation**
-places them by visual likeness (UMAP of the CLIP embeddings) with CLIP-named regions.
+yet): **Colour Field** is a colour wheel (OKLCH hue around the circle, vividness
+outwards, greys at the core; each hue's petal as long as that hue is common), with a
+"Vivid only" wheel of the most colourful quarter; **Constellation** is an archipelago of
+visual likeness: CLIP-embedding clusters become islands arranged by a UMAP, named by
+CLIP at two zoom levels (islands, then regions within them), with labels that never
+overlap. `build_fields.py --only colour|constellation` rebuilds one view.
 Motion: tiles cascade in and filter changes animate; thumbnails morph into the viewer
 and back; "More like this" hops between works inside the viewer; pages rise in.
 All motion respects `prefers-reduced-motion`.

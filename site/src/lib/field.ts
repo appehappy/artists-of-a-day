@@ -13,8 +13,8 @@ export interface FieldLayout {
   overview: number; // px per cell in the overview image
   chunk: number; // cells per chunk side
   chunks: string[]; // "x_y" of the chunk images that exist (empty areas have none)
-  labelStyle: "top" | "cloud";
-  labels: { text: string; x: number; y: number; size?: number }[];
+  labelStyle: "cloud";
+  labels: { text: string; x: number; y: number; size?: number; level?: number }[];
 }
 
 export interface FieldOptions {
@@ -88,6 +88,7 @@ export class FieldView {
   private thumbs: ImageCache;
   private rowCell: Int32Array;
   private chunkSet: Set<string>;
+  private labelOrder: FieldLayout["labels"];
   hovered: number | null = null;
   selected: number | null = null;
   private colours: { bg: string; ink: string; muted: string; accent: string };
@@ -105,6 +106,8 @@ export class FieldView {
     this.chunks = new ImageCache(160, () => this.invalidate());
     this.thumbs = new ImageCache(500, () => this.invalidate());
     this.chunkSet = new Set(layout.chunks);
+    this.labelOrder = [...layout.labels].sort((a, b) =>
+      (a.level ?? 0) - (b.level ?? 0) || (b.size ?? 0) - (a.size ?? 0));
     this.rowCell = new Int32Array(layout.count).fill(-1);
     cells.forEach((row, i) => { if (row >= 0) this.rowCell[row] = i; });
     const css = getComputedStyle(document.documentElement);
@@ -115,7 +118,12 @@ export class FieldView {
     this.resize();
     this.fit(false);
     this.bindInput();
-    const ro = new ResizeObserver(() => { this.resize(); this.invalidate(); });
+    // Until the visitor moves the map, keep the whole field fitted to the canvas.
+    const ro = new ResizeObserver(() => {
+      this.resize();
+      if (!this.userMoved) this.fit(false);
+      this.invalidate();
+    });
     ro.observe(canvas);
     this.cleanup.push(() => ro.disconnect());
     const loop = () => {
@@ -128,25 +136,26 @@ export class FieldView {
   }
 
   private destroyed = false;
+  private userMoved = false;
   destroy() { this.destroyed = true; this.cleanup.forEach((f) => f()); }
   invalidate() { this.dirty = true; }
 
   // ── camera ────────────────────────────────────────────────────────────────
   private fitScale() {
-    const { width, height, labelStyle } = this.layout;
-    const top = labelStyle === "top" ? 2 : 0; // room for the hue labels above the field
-    return Math.min(this.w / (width + 2), this.h / (height + 2 + top));
+    const { width, height } = this.layout;
+    return Math.min(this.w / (width + 14), this.h / (height + 14)); // margin for edge labels
   }
 
   fit(animate = true) {
-    const { width, height, labelStyle } = this.layout;
-    const to = { x: width / 2, y: height / 2 - (labelStyle === "top" ? 1 : 0), s: this.fitScale() };
+    const { width, height } = this.layout;
+    const to = { x: width / 2, y: height / 2, s: this.fitScale() };
     animate ? this.flyTo(to) : Object.assign(this.cam, to);
     this.invalidate();
   }
 
   /** Smoothly move the camera, zooming out mid-flight for long hops. */
   flyTo(to: Partial<Camera>, ms?: number) {
+    this.userMoved = true;
     const target = { ...this.cam, ...to };
     target.s = Math.min(MAX_SCALE, Math.max(this.fitScale() * 0.8, target.s));
     if (reducedMotion()) { Object.assign(this.cam, target); this.invalidate(); return; }
@@ -162,6 +171,14 @@ export class FieldView {
     if (cell < 0) return false;
     this.flyTo({ x: (cell % this.layout.width) + 0.5, y: Math.floor(cell / this.layout.width) + 0.5, s });
     return true;
+  }
+
+  /** A random artwork that's in this field (the vivid wheel holds only some). */
+  randomRow(): number {
+    for (;;) {
+      const row = this.cells[Math.floor(Math.random() * this.cells.length)];
+      if (row >= 0) return row;
+    }
   }
 
   zoomBy(factor: number, sx = this.w / 2, sy = this.h / 2) {
@@ -277,40 +294,42 @@ export class FieldView {
     this.drawLabels();
   }
 
+  /** Labels by zoom: island names (level 0) when zoomed out, the regions within
+   *  islands (level 1) as you zoom in. Drawn in priority order, skipping any label
+   *  that would overlap one already drawn. */
   private drawLabels() {
-    const { ctx, cam, layout } = this;
-    if (layout.labelStyle === "top") {
-      if (cam.s > 40) return;
-      ctx.font = `500 12px Inter, system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "bottom";
-      ctx.fillStyle = this.colours.muted;
-      const [, y] = this.toScreen(0, 0);
-      for (const l of layout.labels) {
-        const [x] = this.toScreen(l.x, 0);
-        ctx.fillText(l.text.toUpperCase(), x, y - 8);
-      }
-      return;
-    }
-    // Cluster names fade out as you zoom in on the works themselves.
-    const fade = Math.max(0, Math.min(1, (14 - cam.s) / 8));
-    if (fade <= 0) return;
+    const { ctx, cam } = this;
+    const clamp = (v: number) => Math.max(0, Math.min(1, v));
+    const placed: [number, number, number, number][] = [];
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    for (const l of layout.labels) {
+    for (const l of this.labelOrder) {
+      const level = l.level ?? 0;
+      const alpha = level === 0
+        ? clamp((18 - cam.s) / 10)
+        : Math.min(clamp((cam.s - 2.5) / 2.5), clamp((45 - cam.s) / 20));
+      if (alpha <= 0.02) continue;
       const [x, y] = this.toScreen(l.x, l.y);
-      if (x < -200 || y < -50 || x > this.w + 200 || y > this.h + 50) continue;
-      const size = Math.round(Math.min(26, 12 + Math.sqrt(l.size ?? 400) / 7));
-      ctx.font = `400 ${size}px "Instrument Serif", Georgia, serif`;
-      ctx.globalAlpha = fade;
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = "rgba(0,0,0,0.55)";
-      ctx.strokeText(l.text, x, y);
+      if (x < -300 || y < -60 || x > this.w + 300 || y > this.h + 60) continue;
+      const size = level === 0 ? Math.round(Math.min(30, 15 + Math.sqrt(l.size ?? 400) / 8)) : 12;
+      const text = level === 0 ? l.text : l.text.toUpperCase();
+      ctx.font = level === 0 ? `400 ${size}px "Instrument Serif", Georgia, serif`
+                             : `600 ${size}px Inter, system-ui, sans-serif`;
+      ctx.letterSpacing = level === 0 ? "0px" : "1.2px";
+      const half = ctx.measureText(text).width / 2;
+      const box: [number, number, number, number] = [x - half - 8, y - size / 2 - 5, x + half + 8, y + size / 2 + 5];
+      if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) continue;
+      placed.push(box);
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = level === 0 ? 5 : 4;
+      ctx.strokeStyle = "rgba(0,0,0,0.6)";
+      ctx.strokeText(text, x, y);
       ctx.fillStyle = "#fff";
-      ctx.fillText(l.text, x, y);
-      ctx.globalAlpha = 1;
+      ctx.fillText(text, x, y);
     }
+    ctx.globalAlpha = 1;
+    ctx.letterSpacing = "0px";
   }
 
   // ── input ─────────────────────────────────────────────────────────────────
@@ -331,6 +350,7 @@ export class FieldView {
     };
 
     on("pointerdown", (e) => {
+      this.userMoved = true;
       c.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 2) {
@@ -402,6 +422,7 @@ export class FieldView {
     });
     on("wheel", (e) => {
       e.preventDefault();
+      this.userMoved = true;
       const [sx, sy] = local(e);
       if (e.ctrlKey || e.metaKey) {
         this.zoomBy(Math.exp(-e.deltaY * 0.012), sx, sy); // trackpad pinch arrives as ctrl+wheel
