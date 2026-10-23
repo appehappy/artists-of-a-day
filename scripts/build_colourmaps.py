@@ -3,6 +3,9 @@
 Writes site/public/fields/maps/:
   atlas-NN.webp  every artwork as a 24px tile, 85×85 per 2048px sheet, in
                  artworks.json row order (sheet = row // 7225)
+  atlas-NN-L.webp  the same sheet at 1/2, 1/4 and 1/8 size (L = 1, 2, 3): its mipmap
+                 levels, so the browser can decode them off the main thread instead
+                 of generating them on the GPU mid-animation
   atlas.json     tile size, tiles per row and per sheet, sheet count
   colour.bin     Float32 OKLab (L, a, b) per artwork: its tile's centre-weighted
                  mean colour, i.e. how it reads from a distance
@@ -34,6 +37,7 @@ SHEET = 2048
 PER_ROW = SHEET // SMALL
 PER_SHEET = PER_ROW * PER_ROW
 STOPS = 64
+MIP_LEVELS = 4  # sheet sizes: 2048, 1024, 512, 256
 
 # Crameri's Scientific Colour Maps, by type (as in the official overview).
 MAPS = {
@@ -119,9 +123,12 @@ def main():
             tile = Image.fromarray(tiles[i]).resize((SMALL, SMALL), Image.BOX)
             sheet.paste(tile, ((j % PER_ROW) * SMALL, (j // PER_ROW) * SMALL))
         sheet.save(OUT / f"atlas-{s:02d}.webp", "WEBP", quality=80, method=4)
+        for level in range(1, MIP_LEVELS):  # 24px tiles → 12, 6, 3: box filters stay within tiles
+            sheet = sheet.resize((sheet.width // 2, sheet.height // 2), Image.BOX)
+            sheet.save(OUT / f"atlas-{s:02d}-{level}.webp", "WEBP", quality=85, method=4)
     (OUT / "atlas.json").write_text(json.dumps({
         "tile": SMALL, "sheet": SHEET, "perRow": PER_ROW, "perSheet": PER_SHEET,
-        "sheets": sheets, "count": len(tiles)}))
+        "sheets": sheets, "count": len(tiles), "levels": MIP_LEVELS}))
 
     mean_colours(tiles).astype("<f4").tofile(OUT / "colour.bin")
     sig = signature_colours(tiles)

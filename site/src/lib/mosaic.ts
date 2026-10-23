@@ -12,7 +12,10 @@
 
 import { tintAmount } from "./tint";
 
-export interface AtlasInfo { tile: number; sheet: number; perRow: number; perSheet: number; sheets: number; count: number }
+export interface AtlasInfo {
+  tile: number; sheet: number; perRow: number; perSheet: number; sheets: number; count: number;
+  levels?: number; // mipmap levels shipped as files (atlas-NN-L.webp); otherwise generated
+}
 
 export interface MosaicOptions {
   thumbUrl: (row: number) => string;
@@ -67,6 +70,23 @@ export async function loadMosaicData(base = "/fields/maps", colours = "colour.bi
 
 const DURATION = 1100; // ms per tile flight
 const STAGGER = 650; // ms from the start of the gradient to its end (by default)
+const UPLOAD_PIXELS = 2048 * 128; // sprite sheet pixels per upload call (under ~1ms)
+const UPLOAD_BUDGET = 4; // ms of uploads per frame
+const DECODERS = 3; // workers decoding sprite sheets
+// Worker: fetch an image and return its raw RGBA pixels (transferred, not copied).
+const DECODER = `onmessage = async (e) => {
+  const { url, ...job } = e.data;
+  try {
+    const bmp = await createImageBitmap(await (await fetch(url)).blob());
+    const ctx = new OffscreenCanvas(bmp.width, bmp.height).getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(bmp, 0, 0);
+    const data = ctx.getImageData(0, 0, bmp.width, bmp.height).data;
+    postMessage({ ...job, width: bmp.width, height: bmp.height, data }, [data.buffer]);
+  } catch {
+    postMessage(job);
+  }
+};`;
+const HI_LEVELS = 5; // 128px → 8px
 const FADE = 700; // ms for a sprite sheet's images to fade in over the colours
 const IDLE = 3000; // ms without input before rings start to drift
 // Three levels of detail: 24px sprite tiles far out; 128px tiles from a cache filled
@@ -217,6 +237,13 @@ export class MosaicView {
   private lastFrame = 0;
   private hashDrift = 0; // the drift the hit-test hash was built at
   private stagger = STAGGER;
+  private atlasTex!: WebGLTexture;
+  // Decoded sheet images (each mip level separately), not yet on the GPU.
+  private uploads: { sheet: number; level: number; width: number; height: number; data: Uint8Array; row: number }[] = [];
+  private sheetLeft: number[] = []; // levels of each sheet still to upload
+  private mipsShipped = false;
+  private hiReady = false;
+  private startPending = false; // the entrance clock starts on the first frame drawn
   private gradient: string[] | null = null;
   // High-res tile cache: which slot holds which artwork, and when it was last on screen.
   private hiTex: WebGLTexture;
@@ -224,9 +251,8 @@ export class MosaicView {
   private rowOfSlot = new Int32Array(SLOTS_PER_ROW * SLOTS_PER_ROW * SLOT_LAYERS).fill(-1);
   private slotUsed = new Float64Array(SLOTS_PER_ROW * SLOTS_PER_ROW * SLOT_LAYERS);
   private loadingRows = new Set<number>();
-  private slotCanvas = Object.assign(document.createElement("canvas"), { width: SLOT, height: SLOT });
-  private pendingHi: [row: number, slot: number][] = []; // uploaded, waiting for mipmaps
-  private lastMip = 0;
+  private slotCanvases = Array.from({ length: HI_LEVELS }, (_, level) =>
+    Object.assign(document.createElement("canvas"), { width: SLOT >> level, height: SLOT >> level }));
   private lastUpgrade = 0;
   private u: Record<string, WebGLUniformLocation | null> = {};
   private n: number;
@@ -306,26 +332,44 @@ export class MosaicView {
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, 3); // 24px → 3px tiles
-    for (let s = 0; s < atlas.sheets; s++) {
-      const img = new Image();
-      img.onload = () => {
-        if (this.destroyed) return;
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
-        gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, s, atlas.sheet, atlas.sheet, 1, gl.RGBA, gl.UNSIGNED_BYTE, img);
-        gl.generateMipmap(gl.TEXTURE_2D_ARRAY); // per sheet, so each can fade in at any zoom
-        this.sheetAt[s] = performance.now();
-        this.invalidate();
-      };
-      img.src = `${base}/atlas-${String(s).padStart(2, "0")}.webp`;
+    // Sheets and their smaller sizes (shipped as files) are decoded to raw pixels in
+    // workers, then copied to the GPU a few milliseconds' worth per frame, so the
+    // entrance never stalls. (Uploading an <img> decodes it on the main thread, ~170ms
+    // a sheet; even an ImageBitmap costs 10–60ms per upload; regenerating mipmaps for
+    // the whole array costs up to ~90ms.)
+    this.atlasTex = tex!;
+    const levels = atlas.levels ?? 1;
+    this.mipsShipped = levels > 1;
+    this.sheetLeft = new Array(atlas.sheets).fill(levels);
+    const files: { sheet: number; level: number; url: string }[] = [];
+    for (let s = 0; s < atlas.sheets; s++) { // sheet by sheet, so they complete (and fade in) in turn
+      for (let level = 0; level < levels; level++) {
+        files.push({ sheet: s, level,
+                     url: new URL(`${base}/atlas-${String(s).padStart(2, "0")}${level ? `-${level}` : ""}.webp`, location.href).href });
+      }
     }
+    const workerUrl = URL.createObjectURL(new Blob([DECODER], { type: "text/javascript" }));
+    for (let w = 0; w < DECODERS; w++) {
+      const worker = new Worker(workerUrl);
+      const next = () => {
+        const file = files.shift();
+        if (file && !this.destroyed) worker.postMessage(file); else worker.terminate();
+      };
+      worker.onmessage = (e: MessageEvent<{ sheet: number; level: number; width: number; height: number; data?: Uint8ClampedArray }>) => {
+        const { data, ...job } = e.data;
+        if (data) this.uploads.push({ ...job, data: new Uint8Array(data.buffer), row: 0 });
+        next();
+      };
+      next();
+      this.cleanup.push(() => worker.terminate());
+    }
+    URL.revokeObjectURL(workerUrl);
+    // The high-res tile cache is only allocated when first needed (zooming in); until
+    // then a 1×1 placeholder keeps the sampler complete.
     this.hiTex = gl.createTexture()!;
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.hiTex);
-    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 5, gl.RGBA8, SLOT_SHEET, SLOT_SHEET, SLOT_LAYERS);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, 4); // 128px → 8px
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 1);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
 
@@ -347,23 +391,16 @@ export class MosaicView {
       if (this.destroyed) return;
       this.stepCamera();
       const now = performance.now();
+      if (this.startPending) this.start = now;
+      this.uploadStrip(now);
       const loading = this.loadingVisible(now);
       const animating = loading || now - this.start < this.stagger + DURATION + 50;
       this.stepDrift(now);
       if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
-      if (this.pendingHi.length && now - this.lastMip > 250) {
-        // Rebuild the smaller sizes, then switch the new tiles over (not before, or
-        // they'd show stale mip levels).
-        const gl = this.gl;
-        gl.activeTexture(gl.TEXTURE1);
-        gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
-        gl.activeTexture(gl.TEXTURE0);
-        for (const [row, slot] of this.pendingHi) if (this.slotOfRow[row] === slot) this.setHi(row, slot);
-        this.pendingHi = [];
-        this.lastMip = now;
-        this.dirty = true;
-      }
-      if (this.dirty || animating) { this.draw(); this.dirty = false; }
+      if (this.dirty || animating || this.startPending) { this.draw(); this.dirty = false; }
+      // Time the entrance from the end of its first frame, which can be slow (the GPU
+      // commits texture memory on first use), so that frame's cost can't jump it ahead.
+      if (this.startPending) { this.start = performance.now(); this.startPending = false; }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
@@ -372,6 +409,7 @@ export class MosaicView {
   destroy() {
     this.destroyed = true;
     this.cleanup.forEach((f) => f());
+    this.uploads = [];
     this.gl.getExtension("WEBGL_lose_context")?.loseContext();
   }
 
@@ -505,6 +543,7 @@ export class MosaicView {
     this.stagger = stagger;
     this.placedRows = layout.rows;
     this.start = now;
+    this.startPending = true; // not before the frame: setup work would eat the first frames
     const gl = this.gl;
     for (const [key, data] of [["from", nextFrom], ["to", nextTo], ["delay", nextDelay], ["tint", tint],
                                ["shape", shape], ["spin", spin]] as const) {
@@ -683,19 +722,28 @@ export class MosaicView {
       const gl = this.gl;
       const old = this.rowOfSlot[slot];
       if (old >= 0) { this.slotOfRow[old] = -1; this.setHi(old, -1); }
-      // Centre-square crop, like the sprites.
+      if (!this.hiReady) this.allocateHi();
+      // Centre-square crop, like the sprites, and each smaller size from the last
+      // (only this slot's, rather than regenerating mipmaps for the whole array).
       const side = Math.min(img.naturalWidth, img.naturalHeight);
-      const ctx = this.slotCanvas.getContext("2d")!;
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, SLOT, SLOT);
       const [x, y, layer] = slotPos(slot);
       gl.activeTexture(gl.TEXTURE1);
-      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, x, y, layer, SLOT, SLOT, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.slotCanvas);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.hiTex);
+      let src: CanvasImageSource = img, sx = (img.naturalWidth - side) / 2, sy = (img.naturalHeight - side) / 2, sw = side;
+      this.slotCanvases.forEach((canvas, level) => {
+        const size = SLOT >> level;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true })!; // CPU-backed: quick to upload
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(src, sx, sy, sw, sw, 0, 0, size, size);
+        gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, level, x >> level, y >> level, layer, size, size, 1, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+        src = canvas; sx = 0; sy = 0; sw = size;
+      });
       gl.activeTexture(gl.TEXTURE0);
       this.rowOfSlot[slot] = row;
       this.slotOfRow[row] = slot;
       this.slotUsed[slot] = performance.now();
-      this.pendingHi.push([row, slot]);
+      this.setHi(row, slot);
+      this.invalidate();
     }).catch(() => {}).finally(() => this.loadingRows.delete(row));
   }
 
@@ -708,6 +756,42 @@ export class MosaicView {
   }
 
   // ── loading and drift ─────────────────────────────────────────────────────
+
+  /** Copy decoded sheet pixels to the GPU, a strip at a time, for up to a few
+   *  milliseconds; when all of a sheet's sizes are in, start its images fading in. */
+  private uploadStrip(now: number) {
+    const gl = this.gl;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.atlasTex);
+    while (this.uploads.length && performance.now() - now < UPLOAD_BUDGET) {
+      const job = this.uploads[0];
+      const rows = Math.min(Math.floor(UPLOAD_PIXELS / job.width), job.height - job.row);
+      gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, job.level, 0, job.row, job.sheet, job.width, rows, 1, gl.RGBA,
+                       gl.UNSIGNED_BYTE, job.data.subarray(job.row * job.width * 4, (job.row + rows) * job.width * 4));
+      job.row += rows;
+      if (job.row < job.height) continue;
+      this.uploads.shift();
+      if (--this.sheetLeft[job.sheet] > 0) continue;
+      if (!this.mipsShipped) gl.generateMipmap(gl.TEXTURE_2D_ARRAY); // older data: no level files
+      this.sheetAt[job.sheet] = now;
+      this.invalidate();
+    }
+  }
+
+  /** Allocate the high-res tile cache, the first time a tile needs it. */
+  private allocateHi() {
+    const gl = this.gl;
+    gl.deleteTexture(this.hiTex);
+    this.hiTex = gl.createTexture()!;
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.hiTex);
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, HI_LEVELS, gl.RGBA8, SLOT_SHEET, SLOT_SHEET, SLOT_LAYERS);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LEVEL, HI_LEVELS - 1);
+    gl.activeTexture(gl.TEXTURE0);
+    this.hiReady = true;
+  }
 
   /** Advance the loading clock; true while it or a sheet fade still needs frames. */
   private loadingVisible(now: number) {

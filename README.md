@@ -112,7 +112,9 @@ artworks: pick a shape (steps, band, bow-tie, ring), a map and how many
 works. In the browser, each stretch of the gradient takes the closest-matching works
 from the whole archive (sized to how many slots the shape has there), lined up by
 fine gradient position and lightness (~350 ms). A WebGL2 renderer draws every work
-from sprite sheets and flies them between layouts on the GPU. On arrival the shape
+from sprite sheets and flies them between layouts on the GPU. Sheets (and their smaller
+mipmap sizes, built as files) are decoded in workers and copied to the GPU a few
+milliseconds per frame, so entrances don't stutter while they load. On arrival the shape
 draws itself along the gradient like a brushstroke (each work trailing in from a little
 earlier in the map), in flat colour until the images fade in, with the map itself
 filling in beneath as a loading bar. From far away tiles are
