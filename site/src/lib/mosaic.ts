@@ -241,9 +241,12 @@ export class MosaicView {
   private placedRows: Int32Array = new Int32Array(0);
   private hash = new Map<number, number[]>(); // floor(centre) key -> rows, for hit testing
   private bounds = { x0: 0, y0: 0, x1: 1, y1: 1 };
-  /** Screen px covered by panels on either side, kept clear when fitting the shape. */
+  /** Screen px covered by panels on either side, kept clear when fitting the shape.
+   *  The left panel only reaches `insetLeftBottom` px down, so a shape that passes
+   *  beneath it (a wide band) can use the full width. */
   insetRight = 0;
   insetLeft = 0;
+  private insetLeftBottom = Infinity;
   private w = 0;
   private h = 0;
   private dirty = true;
@@ -516,19 +519,32 @@ export class MosaicView {
 
   // ── camera ────────────────────────────────────────────────────────────────
 
-  private fitScale() {
+  private scaleFor(left: number) {
     const { x0, y0, x1, y1 } = this.bounds;
-    return Math.min((this.w - this.insetLeft - this.insetRight) / (x1 - x0 + 16), this.h / (y1 - y0 + 16));
+    return Math.min((this.w - left - this.insetRight) / (x1 - x0 + 16), this.h / (y1 - y0 + 16));
   }
+
+  /** The left inset to fit around: none if the shape, fitted without it, passes
+   *  beneath the left panel. */
+  private leftInset() {
+    if (!this.insetLeft) return 0;
+    const top = this.h / 2 + this.bounds.y0 * this.scaleFor(0); // shapes are centred on y = 0
+    return top >= this.insetLeftBottom + 12 ? 0 : this.insetLeft;
+  }
+
+  private fitScale() { return this.scaleFor(this.leftInset()); }
 
   /** Fit the whole shape into the area between any side panels. */
   fit(animate = true) {
-    const s = this.fitScale();
-    this.flyTo({ x: (this.insetRight - this.insetLeft) / (2 * s), y: 0, s }, animate ? 900 : 0);
+    const left = this.leftInset();
+    const s = this.scaleFor(left);
+    this.flyTo({ x: (this.insetRight - left) / (2 * s), y: 0, s }, animate ? 900 : 0);
   }
 
-  setInsetLeft(px: number) {
+  /** Keep a panel `px` wide (reaching `bottom` px down the canvas) clear on the left. */
+  setInsetLeft(px: number, bottom = Infinity) {
     this.insetLeft = px;
+    this.insetLeftBottom = bottom;
     this.fit(false);
   }
 

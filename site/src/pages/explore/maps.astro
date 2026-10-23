@@ -195,10 +195,14 @@ const icons: Record<string, string> = {
       return;
     }
 
-    // Keep the shape clear of the picker on wide screens.
+    // Keep the shape clear of the info panel and the picker on wide screens.
+    const info = root.querySelector<HTMLElement>(".top-left")!;
     const picker = root.querySelector<HTMLElement>(".picker")!;
     const syncInset = () => {
-      view!.insetRight = innerWidth > 720 ? picker.offsetWidth + 32 : 0;
+      const wide = innerWidth > 720;
+      view!.insetRight = wide ? picker.offsetWidth + 32 : 0;
+      const bottom = info.getBoundingClientRect().bottom - root.querySelector(".gl")!.getBoundingClientRect().top;
+      view!.setInsetLeft(wide ? info.offsetWidth + 24 : 0, bottom); // refits
     };
     syncInset();
     addEventListener("resize", syncInset);
