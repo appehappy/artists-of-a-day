@@ -152,7 +152,13 @@ const { title, blurb } = Astro.props;
       },
       onSelect: select,
     });
+    // Keep the fitted field clear of the info panel on wide screens.
+    const panel = root.querySelector<HTMLElement>(".top-left")!;
+    const syncInset = () => view?.setInsetLeft(innerWidth > 720 ? panel.offsetWidth + 24 : 0);
     view = mount(field);
+    syncInset();
+    addEventListener("resize", syncInset);
+    document.addEventListener("astro:before-swap", () => removeEventListener("resize", syncInset), { once: true });
     loading.classList.add("done");
 
     // Swap between the full wheel and the vivid one with a crossfade.
@@ -167,6 +173,7 @@ const { title, blurb } = Astro.props;
       view?.destroy();
       card.hidden = true;
       view = mount(next);
+      syncInset();
       fadeOut?.cancel(); // drop its held opacity: 0 before fading the new wheel in
       if (motion) canvas.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }],
                                  { duration: 450, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });

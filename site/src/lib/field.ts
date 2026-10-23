@@ -137,18 +137,26 @@ export class FieldView {
 
   private destroyed = false;
   private userMoved = false;
+  private insetLeft = 0;
   destroy() { this.destroyed = true; this.cleanup.forEach((f) => f()); }
   invalidate() { this.dirty = true; }
 
   // ── camera ────────────────────────────────────────────────────────────────
+  /** Screen px on the left covered by a panel; the fitted field stays clear of it. */
+  setInsetLeft(px: number) {
+    this.insetLeft = px;
+    if (!this.userMoved) this.fit(false);
+  }
+
   private fitScale() {
     const { width, height } = this.layout;
-    return Math.min(this.w / (width + 24), this.h / (height + 24)); // margin for edge labels
+    return Math.min((this.w - this.insetLeft) / (width + 24), this.h / (height + 24)); // margin for edge labels
   }
 
   fit(animate = true) {
     const { width, height } = this.layout;
-    const to = { x: width / 2, y: height / 2, s: this.fitScale() };
+    const s = this.fitScale();
+    const to = { x: width / 2 - this.insetLeft / (2 * s), y: height / 2, s };
     animate ? this.flyTo(to) : Object.assign(this.cam, to);
     this.invalidate();
   }
