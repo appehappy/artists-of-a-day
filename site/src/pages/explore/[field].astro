@@ -137,7 +137,7 @@ const { title, blurb } = Astro.props;
     };
 
     const canvas = root.querySelector("canvas")!;
-    const mount = (f: Awaited<ReturnType<typeof loadField>>) => new FieldView(canvas, f.base, f.layout, f.cells, f.overview, {
+    const mount = (f: Awaited<ReturnType<typeof loadField>>) => new FieldView(canvas, f.base, f.layout, f.cells, f.overview, f.smooth, {
       thumbUrl: thumb,
       onHover: (row, x, y) => {
         if (row === null) { tip.hidden = true; return; }

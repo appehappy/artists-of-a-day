@@ -46,8 +46,6 @@ ISLANDS = 48            # clusters in the constellation
 ISLAND_GAP = 5          # cells of water between islands
 VIVID_SHARE = 0.25      # the most colourful quarter goes in the vivid wheel
 NEUTRAL_CHROMA = 0.02   # OKLCH chroma below which a work counts as grey (~30% of works)
-HUE_NAMES = [("Red", 25), ("Orange", 55), ("Yellow", 100), ("Green", 145), ("Teal", 195),
-             ("Blue", 255), ("Purple", 300), ("Pink", 345)]
 
 CLUSTER_PROMPTS = [
     "portrait paintings", "landscape paintings", "abstract paintings", "still life paintings",
@@ -161,59 +159,59 @@ def oklch_summary(tiles):
 
 
 def wheel_layout(rows, colour):
-    """A conic colour wheel: a perfect disc, filled exactly with no holes. The
-    innermost cells go to the greys (lightest at the centre). The ring around them
-    holds every other work in hue order, clockwise from red at the top; each hue's
-    slice is as wide as its share of the archive. Within a slice, works run from
-    muted near the core to vivid at the rim."""
+    """A conic colour wheel, filled exactly with no holes: the greys form a disc at
+    the centre (lightest in the middle); after a gap of empty space, a ring holds
+    every other work in hue order, clockwise from red at the top, each hue's slice as
+    wide as its share of the archive. Within a slice, works run from muted at the
+    inner edge to vivid at the rim. Returns (W, H, pos, labels); there are no labels."""
     light, chroma, hue = colour[rows, 0], colour[rows, 1], colour[rows, 2]
     n = len(rows)
     neutral = chroma < NEUTRAL_CHROMA
     core = np.where(neutral)[0]
     rim = np.where(~neutral)[0]
 
-    # The n cells nearest the centre form a disc.
-    R = math.sqrt(n / math.pi) + 2
+    r_core = math.sqrt(len(core) / math.pi)
+    gap = max(6, round(r_core * 0.12)) if len(core) else 0
+    R = math.sqrt((r_core + gap) ** 2 + len(rim) / math.pi) + 3
     size = int(2 * R) + 4
     yy, xx = np.mgrid[0:size, 0:size]
     dx, dy = xx.ravel() + 0.5 - size / 2, yy.ravel() + 0.5 - size / 2
     dist = np.hypot(dx, dy)
     angle = np.arctan2(dx, -dy) % (2 * np.pi)  # 0 = straight up, clockwise
-    order = np.argsort(dist, kind="stable")[:n]
+    by_dist = np.argsort(dist, kind="stable")
     cell_xy = np.stack([xx.ravel(), yy.ravel()], 1)
 
     pos = np.full((n, 2), -1, np.int32)
-    core_cells = order[:len(core)]
+    core_cells = by_dist[:len(core)]
     pos[core[np.argsort(-light[core])]] = cell_xy[core_cells]  # lightest at the centre
 
-    # The ring: cells in clockwise order, works in hue order, dealt out a spoke at a
-    # time (one spoke ≈ the ring's thickness in cells), muted inside, vivid outside.
-    ring = order[len(core):]
+    # The ring starts `gap` cells beyond the core's edge.
+    edge = dist[core_cells].max() + gap if len(core) else 0
+    ring = by_dist[dist[by_dist] >= edge][:len(rim)]
     ring = ring[np.lexsort((dist[ring], angle[ring]))]
-    turn = (hue[rim] - 25) % 360  # 0 = red, at the top
-    works = rim[np.argsort(turn, kind="stable")]
-    r_core = math.sqrt(len(core) / math.pi)
-    spoke = max(1, int(round(R - r_core)))
+    works = rim[np.argsort((hue[rim] - 25) % 360, kind="stable")]  # 0 = red, at the top
+    spoke = max(1, int(round(dist[ring].max() - edge)))  # cells across the ring
     for i in range(0, len(ring), spoke):
         cells = ring[i:i + spoke]
         cells = cells[np.argsort(dist[cells], kind="stable")]
         group = works[i:i + spoke]
         pos[group[np.argsort(chroma[group], kind="stable")]] = cell_xy[cells]
-    pos, W, H, offset = crop(pos, margin=6)
+    pos, W, H, _ = crop(pos, margin=6)
+    return W, H, pos, []
 
-    # Hue names evenly on a circle just outside the rim, at the angle where that
-    # hue's works sit.
-    cx, cy = size / 2 - offset[0], size / 2 - offset[1]
-    sorted_turn = np.sort(turn)
-    labels = []
-    for text, h in HUE_NAMES:
-        frac = np.searchsorted(sorted_turn, (h - 25) % 360) / max(1, len(sorted_turn))
-        t = frac * 2 * math.pi
-        labels.append({"text": text, "x": cx + (R + 7) * math.sin(t), "y": cy - (R + 7) * math.cos(t),
-                       "size": 4000, "level": 0})
-    if len(core):
-        labels.append({"text": "Greys, black & white", "x": cx, "y": cy, "size": 1500, "level": 1})
-    return W, H, pos, labels
+
+def smooth_layer(W, H, rows, pos, tiles, sigma=2.0):
+    """Each cell's mean tile colour, blurred over its neighbours (weighted only by
+    occupied cells, so edges don't darken). The renderer blends towards this when
+    tiles are tiny, so the field reads as a smooth gradient from afar."""
+    from scipy.ndimage import gaussian_filter
+    colour = np.zeros((H, W, 3), np.float32)
+    mask = np.zeros((H, W), np.float32)
+    colour[pos[:, 1], pos[:, 0]] = tiles[rows].reshape(len(rows), -1, 3).mean(1)
+    mask[pos[:, 1], pos[:, 0]] = 1
+    blurred = gaussian_filter(colour, (sigma, sigma, 0)) / np.maximum(gaussian_filter(mask, sigma), 1e-6)[..., None]
+    rgba = np.concatenate([blurred.clip(0, 255), mask[..., None] * 255], 2).astype(np.uint8)
+    return Image.fromarray(rgba, "RGBA")
 
 
 # ── placement helpers ───────────────────────────────────────────────────────────
@@ -374,8 +372,9 @@ def constellation_layout(keys, vecs):
 
 # ── rendering ───────────────────────────────────────────────────────────────────
 
-def render(name, W, H, rows, pos, tiles, labels):
-    """rows[i] (index into artworks.json) is drawn at pos[i]."""
+def render(name, W, H, rows, pos, tiles, labels, smooth=False):
+    """rows[i] (index into artworks.json) is drawn at pos[i]. With smooth, also writes
+    smooth.png (one pixel per cell) for the renderer's zoom tint."""
     out = OUT / name
     shutil.rmtree(out, ignore_errors=True)
     (out / "chunks").mkdir(parents=True)
@@ -397,10 +396,12 @@ def render(name, W, H, rows, pos, tiles, labels):
                 chunks.append(f"{cx}_{cy}")
     small = Image.fromarray(rgba, "RGBA").resize((W * OVERVIEW, H * OVERVIEW), Image.BOX)
     small.save(out / "overview.webp", "WEBP", quality=82, method=4)
+    if smooth:
+        smooth_layer(W, H, rows, pos, tiles).save(out / "smooth.png")
     (out / "layout.json").write_text(json.dumps({
         "name": name, "width": W, "height": H, "count": int(len(rows)), "tile": TILE,
         "overview": OVERVIEW, "chunk": CHUNK, "chunks": chunks, "labelStyle": "cloud",
-        "labels": labels,
+        "labels": labels, "smooth": smooth,
     }))
     size = sum(f.stat().st_size for f in out.rglob("*") if f.is_file()) / 1e6
     print(f"{name}: {W}×{H} grid, {len(rows)} works, {len(chunks)} chunks, {size:.0f} MB -> {out}",
@@ -429,10 +430,10 @@ def main():
 def build_wheels(keys, tiles, everyone):
     colour = cached("oklch", keys, lambda: oklch_summary(tiles))
     W, H, pos, labels = wheel_layout(everyone, colour)
-    render("colour", W, H, everyone, pos, tiles, labels)
+    render("colour", W, H, everyone, pos, tiles, labels, smooth=True)
     vivid = np.argsort(-colour[:, 1])[:int(len(everyone) * VIVID_SHARE)].astype(np.int32)
     W, H, pos, labels = wheel_layout(vivid, colour)
-    render("colour-vivid", W, H, vivid, pos, tiles, labels)
+    render("colour-vivid", W, H, vivid, pos, tiles, labels, smooth=True)
 
 
 def build_constellation(keys, tiles, everyone):

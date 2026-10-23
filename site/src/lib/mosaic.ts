@@ -5,6 +5,8 @@
 // is tinted towards its slot's colour (the zoom tint); close up, a 2D overlay draws
 // the real thumbnails.
 
+import { tintAmount } from "./tint";
+
 export interface AtlasInfo { tile: number; sheet: number; perRow: number; perSheet: number; sheets: number; count: number }
 
 export interface MosaicOptions {
@@ -29,8 +31,6 @@ const THUMBS_FROM = 56; // px per cell at which real thumbnails take over
 const MAX_SCALE = 360;
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** Blend towards the slot colour: 65% when tiles are ~4px, gone by 24px. */
-export const tintAmount = (px: number) => 0.65 * Math.min(1, Math.max(0, (24 - px) / 20));
 
 const VERT = `#version 300 es
 layout(location=0) in vec3 a_from;   // x, y, alpha
