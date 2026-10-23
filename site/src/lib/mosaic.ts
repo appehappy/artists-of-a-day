@@ -6,7 +6,7 @@
 // arrives each tile is drawn in its slot's colour, so a layout shows at once and its
 // images fade in. From far away each tile is tinted towards that colour (the zoom
 // tint); layouts with a sun (Orbits) can let their rings drift when idle, and show
-// loading progress as a clock around the sun. As tiles grow on screen they
+// loading progress as a clock around the sun (others, as a gradient bar beneath). As tiles grow on screen they
 // swap to sharper copies of the real thumbnails, and close up a 2D overlay draws the
 // thumbnails themselves.
 
@@ -36,8 +36,12 @@ export interface Layout {
   /** Radians per second each tile turns about the disc when idle. */
   spin?: Float32Array;
   stagger?: number; // ms from the first tile's flight to the last's (default STAGGER)
-  /** How works joining fly in: from nearby (default) or spiralling out from the disc. */
-  enter?: "scatter" | "spiral";
+  /** How works joining fly in: from nearby (default), spiralling out from the disc, or
+   *  trailing along the gradient (from a slot a little earlier in `t`), so the shape
+   *  draws itself like a brushstroke. */
+  enter?: "scatter" | "spiral" | "trail";
+  /** Colour stops for the loading bar drawn beneath shapes without a disc. */
+  gradient?: string[];
 }
 
 interface Cam { x: number; y: number; s: number } // centre in cells; CSS px per cell
@@ -213,6 +217,7 @@ export class MosaicView {
   private lastFrame = 0;
   private hashDrift = 0; // the drift the hit-test hash was built at
   private stagger = STAGGER;
+  private gradient: string[] | null = null;
   // High-res tile cache: which slot holds which artwork, and when it was last on screen.
   private hiTex: WebGLTexture;
   private slotOfRow: Int32Array;
@@ -406,8 +411,18 @@ export class MosaicView {
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     this.bounds = { x0: x0 - cx, y0: y0 - cy, x1: x1 - cx, y1: y1 - cy };
     this.disc = layout.disc ? { ...layout.disc, x: layout.disc.x - cx, y: layout.disc.y - cy } : null;
+    this.gradient = layout.gradient ?? null;
     const stagger = layout.stagger ?? STAGGER;
     const spiral = layout.enter === "spiral" && this.disc !== null;
+    // For a trail: where each slot comes from, a few percent earlier along the gradient.
+    const source = new Int32Array(layout.rows.length);
+    if (layout.enter === "trail") {
+      const order = [...source.keys()].sort((p, q) => layout.t[p] - layout.t[q]);
+      const lag = Math.max(1, Math.round(order.length * 0.05));
+      order.forEach((slot, rank) => { source[slot] = order[Math.max(0, rank - lag)]; });
+    }
+    const slotOf = new Int32Array(this.n).fill(-1);
+    layout.rows.forEach((row, i) => { slotOf[row] = i; });
     const oldPivot = this.pivot, oldTurn = this.drift;
     const pivot = this.disc ? { x: this.disc.x, y: this.disc.y } : { x: 0, y: 0 };
     const spin = new Float32Array(this.n);
@@ -451,7 +466,11 @@ export class MosaicView {
       if (placed[row]) {
         if (pa > 0.01) { nextFrom[k3] = px; nextFrom[k3 + 1] = py; nextFrom[k3 + 2] = pa; } // showing: fly over
         else {
-          if (spiral) {
+          if (layout.enter === "trail") {
+            const j = source[slotOf[row]];
+            nextFrom[k3] = centreX(j) - cx;
+            nextFrom[k3 + 1] = centreY(j) - cy;
+          } else if (spiral) {
             // joining: spiral out from the sun, a little behind where it's going
             const [sx, sy] = turnAbout(nextTo[k3], nextTo[k3 + 1], pivot, -0.7);
             nextFrom[k3] = pivot.x + (sx - pivot.x) * 0.3;
@@ -752,6 +771,8 @@ export class MosaicView {
     const now = performance.now();
     const settled = now - this.start > this.stagger + DURATION;
     const s = this.cam.s;
+    const { shown, gone } = this.clock;
+    const clockAlpha = shown > 0 ? 1 - Math.min(1, gone ? (now - gone) / 600 : 0) : 0;
     if (this.disc) {
       const d = this.disc;
       const dx = (d.x - this.cam.x) * s + this.w / 2, dy = (d.y - this.cam.y) * s + this.h / 2;
@@ -760,16 +781,36 @@ export class MosaicView {
       ctx.arc(dx, dy, d.r * s, 0, 2 * Math.PI);
       ctx.fill();
       // Loading clock: a hairline sweeping round inside the sun's rim as sheets arrive.
-      const { shown, gone } = this.clock;
-      const alpha = 1 - Math.min(1, gone ? (now - gone) / 600 : 0);
-      if (shown > 0 && alpha > 0) {
-        ctx.strokeStyle = `rgba(244, 236, 222, ${0.8 * alpha})`;
+      if (clockAlpha > 0) {
+        ctx.strokeStyle = `rgba(244, 236, 222, ${0.8 * clockAlpha})`;
         ctx.lineWidth = Math.max(2, d.r * s * 0.025);
         ctx.lineCap = "round";
         ctx.beginPath();
         ctx.arc(dx, dy, d.r * s * 0.9, -Math.PI / 2, -Math.PI / 2 + shown * 2 * Math.PI);
         ctx.stroke();
       }
+    } else if (this.gradient && clockAlpha > 0) {
+      // Loading bar: the colour map itself, filling in beneath the shape.
+      const x0 = (this.bounds.x0 - this.cam.x) * s + this.w / 2, x1 = (this.bounds.x1 - this.cam.x) * s + this.w / 2;
+      const y = Math.min(this.h - 12, (this.bounds.y1 - this.cam.y) * s + this.h / 2 + 18);
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      this.gradient.forEach((c, i, all) => g.addColorStop(i / (all.length - 1), c));
+      ctx.save();
+      ctx.globalAlpha = clockAlpha;
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.beginPath(); // a faint track, so dark ends of a map still show
+      ctx.moveTo(x0, y);
+      ctx.lineTo(x1, y);
+      ctx.strokeStyle = "rgba(244, 236, 222, 0.12)";
+      ctx.stroke();
+      ctx.strokeStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(x0, y);
+      ctx.lineTo(x0 + (x1 - x0) * shown, y);
+      ctx.stroke();
+      ctx.restore();
     }
     const dpr = window.devicePixelRatio || 1;
     if (settled && s * dpr * 3 >= OVERLAY_FROM && this.layout) { // no tile is wider than 3 cells

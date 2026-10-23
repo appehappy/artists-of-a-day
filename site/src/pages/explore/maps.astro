@@ -215,12 +215,18 @@ const icons: Record<string, string> = {
     const amountLabel = root.querySelector("[data-amount-label]")!;
     amount.value = String(state.n);
 
+    let first = true;
     const apply = () => {
       const t0 = performance.now();
       const map = maps.find((m) => m.name === state.map)!;
       const slots = makeShape(state.shape, state.n);
       const m = match(lab, map, slots);
-      view!.setLayout({ rows: m.rows, x: slots.x, y: slots.y, t: slots.t, slotRgb: m.slotRgb });
+      // The shape draws itself along the gradient: slowly the first time, in colour
+      // until the images arrive, with the map filling in beneath as a loading bar.
+      view!.setLayout({ rows: m.rows, x: slots.x, y: slots.y, t: slots.t, slotRgb: m.slotRgb,
+                        enter: "trail", gradient: map.stops, stagger: first ? 2200 : undefined },
+                      { animateIn: first });
+      first = false;
       card.hidden = true;
       root.querySelectorAll<HTMLButtonElement>("[data-shape]").forEach((b) =>
         b.setAttribute("aria-pressed", String(b.dataset.shape === state.shape)));

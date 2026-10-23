@@ -112,7 +112,10 @@ artworks: pick a shape (band, ring, bow-tie, steps), a map and how many
 works. In the browser, each stretch of the gradient takes the closest-matching works
 from the whole archive (sized to how many slots the shape has there), lined up by
 fine gradient position and lightness (~350 ms). A WebGL2 renderer draws every work
-from sprite sheets and flies them between layouts on the GPU; from far away tiles are
+from sprite sheets and flies them between layouts on the GPU. On arrival the shape
+draws itself along the gradient like a brushstroke (each work trailing in from a little
+earlier in the map), in flat colour until the images fade in, with the map itself
+filling in beneath as a loading bar. From far away tiles are
 tinted towards their slot's colour, fading out as you zoom in. Detail follows the
 zoom in every Explore view: as tiles outgrow their sprite or map tile, works near the
 centre swap to 128px crops of their thumbnails (cached on the GPU, or as bitmaps in the
