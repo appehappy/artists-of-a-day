@@ -88,26 +88,26 @@ const UPLOAD_BUDGET = 4; // ms of uploads per frame
 /** The feel of responsive layouts' motion and light (Constellation), read live, so the
  *  ?tune panel can adjust it while you watch. */
 export const tune = {
-  brushReach: 10, // px: how close the pointer must pass to touch a work
-  brushGive: 0.3, // share of the pointer's movement passed to a work it touches
+  brushReach: 40, // px: how close the pointer must pass to touch a work
+  brushGive: 0.1, // share of the pointer's movement passed to a work it touches
   brushMax: 4, // px: furthest it moves any work directly (disturbances carry further)
   brushCarry: 0.08, // share of the pointer's speed a touched work keeps
-  springStiffness: 6.5, // rad/s: how briskly touched works spring back
+  springStiffness: 4, // rad/s: how briskly touched works spring back
   springDamping: 0.45, // below 1 overshoots a little; 1 and above glides home
-  stirStrength: 3, // px: furthest the pointer's disturbance moves a work
+  stirStrength: 7, // px: furthest the pointer's disturbance moves a work
   stirEvery: 150, // ms between the pointer's disturbances
   stirReach: 220, // px they spread before fading
   selectStrength: 12, // px: a selection's disturbance
   selectReach: 360, // px
   waveSpeed: 0.45, // px/ms a disturbance spreads out
-  driftOut: 180, // ms: how quickly a work drifts out when one reaches it...
-  driftBack: 1400, // ...and glides back
+  driftOut: 520, // ms: how quickly a work drifts out when one reaches it...
+  driftBack: 3150, // ...and glides back
   depthFar: 0.3, // how far the farthest works drift, relative to the nearest
   depthDelay: 120, // ms the farthest lag the nearest
   spotRadius: 170, // px of the pointer's spotlight
-  spotDim: 0.4, // brightness outside it
+  spotDim: 0.75, // brightness outside it
   focusDim: 0.22, // brightness of all but a selected work and its links
-  twinkle: 0.6, // how bright a glint is
+  twinkle: 0.4, // how bright a glint is
   turnSpeed: 1, // × the idle turn
 };
 export const TUNE_DEFAULTS = { ...tune };
