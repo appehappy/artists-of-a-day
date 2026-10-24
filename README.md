@@ -89,9 +89,10 @@ An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterabl
 discipline, era and region, with a column of colour swatches beside it), artist pages
 with similar works in the viewer, theme post pages, On this day, Shuffle and artist
 search. Choosing a colour on the Wall tints the UI to match: the current nav pill,
-pressed chips and the search line. The header persists across pages, so the current
-page's pill glides along the nav track to the next page, a faint pill follows the
-pointer, and Shuffle shuffles its letters before it picks an artist.
+pressed chips and the search line. The nav is a row of overlapping pills with the current
+page's standing 6px apart; the header persists across pages, so on each change the old
+pill eases back into the row and the new one springs out. Shuffle shuffles its letters
+before it picks an artist.
 
 Explore (prototypes) has three views:
 

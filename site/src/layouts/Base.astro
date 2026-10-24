@@ -45,8 +45,6 @@ const pageMotion = {
       <div class="header-left">
         <a class="wordmark" href="/"><b>Artists of a Day</b></a>
         <nav class="site-nav">
-          <span class="nav-ghost" aria-hidden="true"></span>
-          <span class="nav-pill" aria-hidden="true"></span>
           {nav.map((n, i) => (
             <a href={n.href} style={`--i:${i}`} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>
           ))}
