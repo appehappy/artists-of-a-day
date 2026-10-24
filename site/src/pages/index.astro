@@ -2,6 +2,8 @@
 import Base from "../layouts/Base.astro";
 import { artists, colours, disciplines, regions } from "../lib/data";
 import { ERAS } from "../lib/eras";
+import shuffleIcon from "../icons/shuffle.svg";
+import clearIcon from "../icons/rotate-cw.svg";
 ---
 
 <Base>
@@ -30,11 +32,21 @@ import { ERAS } from "../lib/eras";
   </section>
 
   <div class="masonry">
-    <div class="swatches reveal" style="--i:2" data-group="colour" aria-label="Colour">
-      {colours.map((c) => (
-        <button class="swatch" type="button" data-value={c.key} data-hex={c.hex} aria-pressed="false"
-                aria-label={c.key} title={c.key} style={`--c:${c.hex}`}></button>
-      ))}
+    <div class="colour-col reveal" style="--i:2">
+      <div class="swatches" data-group="colour" aria-label="Colour">
+        {colours.map((c) => (
+          <button class="swatch" type="button" data-value={c.key} data-hex={c.hex} aria-pressed="false"
+                  aria-label={c.key} title={c.key} style={`--c:${c.hex}`}></button>
+        ))}
+      </div>
+      <div class="wall-actions">
+        <button class="icon-btn" type="button" data-reshuffle aria-label="Reshuffle the wall" title="Reshuffle">
+          <img src={shuffleIcon.src} width="12" height="12" alt="" />
+        </button>
+        <button class="icon-btn" type="button" data-clear aria-label="Clear filters" title="Clear filters">
+          <img src={clearIcon.src} width="12" height="12" alt="" />
+        </button>
+      </div>
     </div>
     <div class="wall" id="wall" aria-live="polite"></div>
   </div>
@@ -51,11 +63,24 @@ import { ERAS } from "../lib/eras";
   .filters { display: grid; gap: 8px; }
 
   .masonry { display: flex; gap: 32px; align-items: flex-start; padding: 0 var(--gutter) 24px; }
-  /* The colour column stays in reach as the wall scrolls. */
+  /* The colour column runs the wall's full height so that, as it scrolls, the swatches
+     stay pinned under the header and Reshuffle / Clear to the foot of the window. */
+  .colour-col { align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; }
   .swatches {
     position: sticky; top: calc(var(--header-h) + 16px);
     display: flex; flex-direction: column; gap: 8px; padding: 2px 0;
   }
+  .wall-actions { position: sticky; bottom: 24px; display: flex; flex-direction: column; gap: 8px; }
+  .icon-btn {
+    display: grid; place-items: center; width: 24px; height: 24px; padding: 0;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+    transition: border-color 0.2s var(--ease), opacity 0.3s var(--ease);
+  }
+  .icon-btn:hover { border-color: var(--muted); }
+  .icon-btn:disabled { opacity: 0.35; cursor: default; border-color: var(--line); }
+  .icon-btn img { transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .icon-btn.jiggle img { animation: jiggle 0.45s var(--ease); } /* Reshuffle: a shake of the deck */
+  @keyframes jiggle { 25% { transform: translateX(-2px) rotate(-8deg); } 60% { transform: translateX(2px) rotate(8deg); } }
   .swatch {
     width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
     background: var(--c); padding: 0; transition: transform 0.2s var(--ease), border-color 0.2s;
@@ -63,8 +88,9 @@ import { ERAS } from "../lib/eras";
   .swatch:hover { transform: scale(1.15); }
   .swatch[aria-pressed="true"] { border: 1.6px solid var(--ink); }
   @media (max-width: 720px) {
-    .masonry { flex-direction: column; gap: 16px; }
-    .swatches { position: static; flex-direction: row; flex-wrap: wrap; }
+    .masonry { flex-direction: column; align-items: stretch; gap: 16px; }
+    .colour-col { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+    .swatches, .wall-actions { position: static; flex-direction: row; flex-wrap: wrap; }
   }
 
   .wall { flex: 1; min-width: 0; display: flex; gap: 14px; align-items: flex-start; }
@@ -138,6 +164,8 @@ import { ERAS } from "../lib/eras";
     const colourIndex = new Map(site.colours.map((c, i) => [c.key, i]));
 
     const countEl = document.querySelector("[data-count]")!;
+    const clearBtn = document.querySelector<HTMLButtonElement>("[data-clear]")!;
+    const reshuffleBtn = document.querySelector<HTMLButtonElement>("[data-reshuffle]")!;
     const sentinel = document.querySelector<HTMLElement>("[data-sentinel]")!;
     let order: ArtworkRow[] = [];
     let cols: HTMLElement[] = [];
@@ -154,6 +182,7 @@ import { ERAS } from "../lib/eras";
           b.setAttribute("aria-pressed", String(state[group] === b.dataset.value)));
       }
       tint();
+      clearBtn.disabled = !(state.disc.length || state.era || state.region || state.colour);
     }
 
     // A chosen colour tints the UI: the current nav pill, pressed chips and the search
@@ -309,6 +338,25 @@ import { ERAS } from "../lib/eras";
           state[group] = state[group] === b.dataset.value ? null : b.dataset.value!;
           reset();
         }));
+    }
+
+    reshuffleBtn.addEventListener("click", () => {
+      replay(reshuffleBtn, "jiggle");
+      state.seed = (Math.random() * 2 ** 31) | 0;
+      window.scrollTo({ top: 0, behavior: motion() ? "smooth" : "auto" });
+      reset();
+    });
+    let clearTurns = 0;
+    clearBtn.addEventListener("click", () => {
+      clearTurns++; // Clear: its arrow takes one more turn, back to the start
+      clearBtn.querySelector("img")!.style.transform = `rotate(${clearTurns * 360}deg)`;
+      Object.assign(state, { disc: [], era: null, region: null, colour: null });
+      reset();
+    });
+    function replay(el: HTMLElement, cls: string) {
+      el.classList.remove(cls);
+      void el.offsetWidth;
+      el.classList.add(cls);
     }
 
     // Initial render, restoring position when coming back

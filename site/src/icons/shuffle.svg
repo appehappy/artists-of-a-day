@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="shuffle" clip-path="url(#clip0_0_20)">
+<path id="Vector" d="M9 11L11 9L9 7M11 9H7.97952C7.65181 8.99666 7.32993 8.91283 7.04222 8.7559C6.7545 8.59896 6.50976 8.37372 6.32952 8.1L6.15002 7.875M9 5L11 3L9 1M11 3L8.0135 3.00005C7.69025 2.99784 7.37129 3.07401 7.08393 3.22205C6.79656 3.37009 6.54936 3.58557 6.3635 3.85005L3.6365 8.15005C3.45064 8.41452 3.20344 8.63001 2.91607 8.77804C2.62871 8.92608 2.30975 9.00225 1.9865 9.00005H1M1 3.00005H1.986C2.35873 2.99745 2.72477 3.09907 3.04282 3.29344C3.36087 3.4878 3.61828 3.76718 3.786 4.10005" stroke-linecap="round" stroke-linejoin="round" stroke="#9B958A"/>
+</g>
+<defs>
+<clipPath id="clip0_0_20">
+<rect width="12" height="12" fill="white"/>
+</clipPath>
+</defs>
+</svg>
