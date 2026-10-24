@@ -85,8 +85,9 @@ const DURATION = 1100; // ms per tile flight
 const STAGGER = 650; // ms from the start of the gradient to its end (by default)
 const UPLOAD_PIXELS = 2048 * 128; // sprite sheet pixels per upload call (under ~1ms)
 const UPLOAD_BUDGET = 4; // ms of uploads per frame
-const BRUSH_PX = 14; // radius of the pointer's push, screen px
-const BRUSH_MAX_PX = 8; // furthest it moves any work directly (disturbances carry further)
+const BRUSH_PX = 10; // radius of the pointer's touch, screen px
+const BRUSH_GIVE = 0.3; // share of the pointer's movement passed to a work it touches
+const BRUSH_MAX_PX = 4; // furthest it moves any work directly (disturbances carry further)
 const WAVE_SPEED = 0.45; // px/ms a disturbance spreads out
 const DRIFT_OUT = 180; // ms: how quickly a tile drifts out when one reaches it...
 const DRIFT_BACK = 1400; // ...and glides back (no bounce)
@@ -1182,10 +1183,11 @@ export class MosaicView {
     this.dirty = true;
   }
 
-  /** The moving pointer is a small disc pushing through the stars: any it overlaps is
-   *  moved straight out of its way (ahead of it, or aside, by where it was hit) and
-   *  carries a little of its motion, then springs back once it's passed. A resting
-   *  pointer pushes nothing, so the work under it settles back to be clicked. */
+  /** The moving pointer gently pushes the stars it touches: each is nudged out of its
+   *  way (ahead of it, or aside, by where it was touched) by a fraction of how far the
+   *  pointer moved, so it slides through them rather than clearing a space, then they
+   *  spring back once it's passed. A resting pointer pushes nothing, so the work under
+   *  it settles back to be clicked. */
   private brush(): number[] {
     const p = this.pointer;
     if (!p.inside || this.dragging || p.speed < 0.05 || reducedMotion()) return [];
@@ -1201,15 +1203,16 @@ export class MosaicView {
       const [x, y] = this.centre(row);
       const ux = d > 1e-6 ? (x - fx) / d : p.dx, uy = d > 1e-6 ? (y - fy) / d : p.dy;
       const i = row * 2;
-      o[i] += ux * overlap;
-      o[i + 1] += uy * overlap;
+      const nudge = Math.min(overlap, (p.speed * 16) / s) * BRUSH_GIVE; // a share of this frame's movement
+      o[i] += ux * nudge;
+      o[i + 1] += uy * nudge;
       const cap = Math.min(reach + size, BRUSH_MAX_PX / s); // never shoved far
       const far = Math.hypot(o[i], o[i + 1]);
       if (far > cap) { o[i] *= cap / far; o[i + 1] *= cap / far; }
       // Carry some of the pointer's speed along the push.
       const along = Math.max(0, p.dx * ux + p.dy * uy) * p.speed * 1000 / s;
-      v[i] = ux * along * 0.2;
-      v[i + 1] = uy * along * 0.2;
+      v[i] = ux * along * 0.08;
+      v[i + 1] = uy * along * 0.08;
       this.moving.add(row);
       pushed.push(row);
       if (pushed.length >= 2000) break;
@@ -1257,7 +1260,7 @@ export class MosaicView {
    *  works; ask for frames while any of it is changing. */
   private stepLively(now: number) {
     if (!this.lively) return;
-    const dt = Math.min(100, now - (this.livelyAt || now));
+    const dt = Math.max(0, Math.min(100, now - (this.livelyAt || now))); // never backwards
     this.livelyAt = now;
     const m = this.mouse, p = this.pointer;
     const ease = (v: number, to: number, ms: number) => v + (to - v) * Math.min(1, dt / ms);
