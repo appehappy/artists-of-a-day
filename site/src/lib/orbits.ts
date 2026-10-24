@@ -110,6 +110,8 @@ export function orbitLayout(sig: Float32Array, count: number): Layout {
   });
   return {
     ...layout, disc: { x: 0, y: 0, r: geo.sun, rgb: SUN }, stagger: 2400, enter: "spiral",
-    focusDim: 0.88, linkColour: "rgba(255, 255, 255, 0.85)", // a selection: the rest dimmed to 88%, white lines
+    // A selection: the rest dimmed to 88%, fine white lines to its look-alikes,
+    // a small dot at each end rather than circles.
+    focusDim: 0.88, linkColour: "rgba(255, 255, 255, 0.88)", linkWidth: 0.8, linkRings: false,
   };
 }

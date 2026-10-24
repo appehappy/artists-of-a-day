@@ -50,6 +50,10 @@ export interface Layout {
   focusDim?: number;
   /** Colour of the lines and rings joining a selected work to its linked works. */
   linkColour?: string;
+  linkWidth?: number; // their line width, px (default 1.25)
+  /** Circles marking linked works, and a selected or hovered work too small to
+   *  outline (default true); without them, a 3px dot at each end of every line. */
+  linkRings?: boolean;
   /** Radians per second the whole layout (names and links too) turns when idle. */
   rotate?: number;
   /** Lines between points, like a star chart's: x1, y1, x2, y2, strength (0–1). */
@@ -399,6 +403,8 @@ export class MosaicView {
   private focusOn = false; // this layout dims around a selection
   private focusDim: number | null = null; // its brightness, or null for tune.focusDim
   private linkColour = "rgba(239, 106, 76, 0.75)";
+  private linkWidth = 1.25;
+  private linkRings = true;
   private focusAt = 0;
   private rotate = 0; // rad/s the whole layout turns when idle (names and links follow)
   private lastAmbient = 0;
@@ -630,6 +636,8 @@ export class MosaicView {
     this.focusOn = layout.focusDim !== undefined || this.lively;
     this.focusDim = layout.focusDim ?? null;
     this.linkColour = layout.linkColour ?? "rgba(239, 106, 76, 0.75)";
+    this.linkWidth = layout.linkWidth ?? 1.25;
+    this.linkRings = layout.linkRings ?? true;
     this.rotate = layout.rotate ?? 0;
     this.labels = (layout.labels ?? []).map((l) => ({ ...l, x: l.x - cx, y: l.y - cy }))
       .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || (b.size ?? 0) - (a.size ?? 0));
@@ -1227,7 +1235,8 @@ export class MosaicView {
       if (row === null || !settled) continue;
       ctx.save();
       const [w, h] = this.tilePath(row, 1);
-      if (Math.min(w, h) < 10) { // too small to outline: ring it instead
+      if (Math.min(w, h) < 10) { // too small to outline: ring it instead (if this layout uses rings)
+        if (!this.linkRings) { ctx.restore(); continue; }
         ctx.beginPath();
         ctx.arc(0, 0, 8, 0, 2 * Math.PI);
       } else if (s < 6 && row === this.hovered) { ctx.restore(); continue; }
@@ -1469,8 +1478,10 @@ export class MosaicView {
     const ctx = this.overlay, s = this.cam.s;
     const [fx, fy] = this.stirred(from, ...this.screen(...(this.centre(from).slice(0, 2) as [number, number])));
     ctx.save();
-    ctx.strokeStyle = this.linkColour;
-    ctx.lineWidth = 1.25;
+    ctx.strokeStyle = ctx.fillStyle = this.linkColour;
+    ctx.lineWidth = this.linkWidth;
+    const dot = (x: number, y: number) => { ctx.beginPath(); ctx.arc(x, y, 1.5, 0, 2 * Math.PI); ctx.fill(); };
+    if (!this.linkRings && this.linked.length) dot(fx, fy);
     for (const row of this.linked) {
       const [x, y] = this.centre(row);
       const [sx, sy] = this.stirred(row, ...this.screen(x, y));
@@ -1478,6 +1489,7 @@ export class MosaicView {
       ctx.moveTo(fx, fy);
       ctx.lineTo(sx, sy);
       ctx.stroke();
+      if (!this.linkRings) { dot(sx, sy); continue; }
       ctx.beginPath();
       ctx.arc(sx, sy, Math.max(6, (Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) * s) / 2 + 3), 0, 2 * Math.PI);
       ctx.stroke();
