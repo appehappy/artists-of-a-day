@@ -11,6 +11,12 @@
   --sans: "Inter", system-ui, -apple-system, sans-serif;
   --gutter: clamp(16px, 3vw, 40px);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --header-h: 80px;
+  /* The Wall's chosen colour (set on <body> while a colour filter is on), else ink:
+     the current nav pill, pressed chips and the search line take it. */
+  --pick: var(--ink);
+  --on-pick: var(--bg);
+  --pick-line: var(--muted);
   color-scheme: light;
 }
 
@@ -49,31 +55,54 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* Header */
 .site-header {
-  position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; gap: 24px;
-  padding: 14px var(--gutter);
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 20; height: var(--header-h);
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+  padding: 24px var(--gutter) 16px;
+  background: var(--bg);
+  backdrop-filter: blur(7px);
 }
+.header-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
 .wordmark { text-decoration: none; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
 .wordmark b { font: 26px/1 var(--serif); font-weight: 400; }
-.wordmark span { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.site-nav { display: flex; gap: 4px; }
-.site-nav a, .site-nav button {
-  border: 0; background: none; text-decoration: none;
-  padding: 6px 12px; border-radius: 999px; font-size: 14px; color: var(--muted);
-  transition: background 0.2s, color 0.2s;
-}
-.site-nav a:hover, .site-nav button:hover { color: var(--ink); background: var(--tile); }
-.site-nav a[aria-current="page"] { color: var(--ink); background: var(--tile); }
 
-.search { position: relative; margin-left: auto; width: min(280px, 40vw); }
-.search input {
-  width: 100%; padding: 8px 14px; border-radius: 999px;
-  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 14px;
+/* Nav: a track of pills, the current page's lifted out of it in --pick (see lib/nav.ts) */
+.site-nav { position: relative; display: flex; background: var(--line); border-radius: 999px; isolation: isolate; }
+.site-nav a, .site-nav button {
+  position: relative; z-index: 2;
+  border: 0; background: none; text-decoration: none; white-space: nowrap;
+  padding: 6px 12px; border-radius: 999px; font-size: 14px; color: var(--muted);
+  transition: color 0.3s var(--ease);
 }
-.search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.site-nav a:hover, .site-nav button:hover { color: var(--ink); }
+.site-nav a[aria-current="page"] { color: var(--on-pick); }
+.nav-pill, .nav-ghost { position: absolute; top: 0; bottom: 0; border-radius: 999px; pointer-events: none; }
+.nav-pill {
+  z-index: 1; background: var(--pick);
+  box-shadow: 0 0 0 2px var(--bg); /* the gap that lifts it out of the track */
+  transition: left 0.42s var(--ease), right 0.42s var(--ease), background-color 0.5s var(--ease), opacity 0.2s;
+}
+.nav-ghost {
+  z-index: 0; opacity: 0; background: color-mix(in srgb, var(--ink) 9%, transparent);
+  transition: left 0.3s var(--ease), right 0.3s var(--ease), background-color 0.3s, opacity 0.25s;
+}
+.nav-ghost.on { opacity: 1; }
+.nav-pill.instant, .nav-ghost.instant { transition-property: background-color, opacity; }
+.site-nav.intro > a, .site-nav.intro > button { animation: nav-in 0.6s var(--ease) both; animation-delay: calc(var(--i) * 60ms + 80ms); }
+.site-nav.intro { animation: nav-track-in 0.5s var(--ease) both; }
+.site-nav.intro .nav-pill { animation: nav-pill-in 0.5s var(--ease) both 0.3s; }
+@keyframes nav-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes nav-track-in { from { clip-path: inset(0 100% 0 0 round 999px); } to { clip-path: inset(0 0 0 0 round 999px); } }
+@keyframes nav-pill-in { from { opacity: 0; transform: scale(0.6); } }
+
+.search { position: relative; width: min(400px, 36vw); }
+.search input {
+  width: 100%; height: 40px; padding: 8px 14px;
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+  background: none; color: var(--ink); font: inherit; font-size: 14px;
+  transition: border-color 0.3s var(--ease);
+}
+.search input::placeholder { color: var(--muted); }
+.search input:focus { outline: none; border-color: var(--pick-line); }
 .search ul {
   position: absolute; right: 0; top: calc(100% + 6px); width: 100%; min-width: 260px;
   margin: 0; padding: 6px; list-style: none;
@@ -87,12 +116,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Chips */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {
+  display: inline-flex; align-items: center; height: 28px;
   border: 1px solid var(--line); background: var(--surface);
-  padding: 5px 12px; border-radius: 999px; font-size: 13px; color: var(--muted);
-  transition: all 0.2s var(--ease);
+  padding: 5px 8px; border-radius: 999px; font-size: 12px; color: var(--muted);
+  transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.5s var(--ease);
 }
 .chip:hover { color: var(--ink); border-color: var(--muted); }
-.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--pick); color: var(--on-pick); border-color: var(--pick); }
 
 /* Image tiles fade in once decoded */
 .fade { opacity: 0; transition: opacity 0.5s var(--ease); }
@@ -116,8 +146,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lightbox .lb-next { right: 10px; top: 50%; transform: translateY(-50%); }
 
 @media (max-width: 720px) {
-  .site-header { flex-wrap: wrap; gap: 10px; }
-  .search { width: 100%; margin-left: 0; order: 3; }
+  :root { --header-h: auto; }
+  .site-header { flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 14px; }
+  .header-left { flex-wrap: wrap; gap: 12px; }
+  .search { width: 100%; }
   .lightbox { padding: 48px 12px; }
 }
 

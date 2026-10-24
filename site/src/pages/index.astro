@@ -5,78 +5,69 @@ import { ERAS } from "../lib/eras";
 ---
 
 <Base>
-  <section class="wall-head wrap">
+  <section class="wall-head">
     <p class="summary reveal" style="--i:0">
       <span data-count>…</span> from {artists.length.toLocaleString()} artists featured on{" "}
-      <a href="https://visualdiplomacyusa.blogspot.com/" target="_blank" rel="noopener">Artist of the Day</a>.
+      <a href="https://visualdiplomacyusa.blogspot.com/" target="_blank" rel="noopener">Artist of the Day</a>
     </p>
     <div class="filters reveal" style="--i:1">
-      <div class="filter-row">
-        <div class="chips" data-group="disc" aria-label="Discipline">
-          {disciplines.filter((d) => d.key !== "other").map((d) => (
-            <button class="chip" type="button" data-value={d.key} aria-pressed="false">{d.label}</button>
-          ))}
-        </div>
+      <div class="chips" data-group="disc" aria-label="Discipline">
+        {disciplines.filter((d) => d.key !== "other").map((d) => (
+          <button class="chip" type="button" data-value={d.key} aria-pressed="false">{d.label}</button>
+        ))}
       </div>
-      <div class="filter-row">
-        <div class="chips" data-group="era" aria-label="Era">
-          {ERAS.map((e) => (
-            <button class="chip" type="button" data-value={e.key} aria-pressed="false">{e.label}</button>
-          ))}
-        </div>
+      <div class="chips" data-group="era" aria-label="Era">
+        {ERAS.map((e) => (
+          <button class="chip" type="button" data-value={e.key} aria-pressed="false">{e.label}</button>
+        ))}
       </div>
-      <div class="filter-row">
-        <div class="chips" data-group="region" aria-label="Region">
-          {regions.filter((r) => r.artists >= 5).map((r) => (
-            <button class="chip" type="button" data-value={r.key} aria-pressed="false">{r.key}</button>
-          ))}
-        </div>
-      </div>
-      <div class="filter-row">
-        <div class="chips swatches" data-group="colour" aria-label="Colour">
-          {colours.map((c) => (
-            <button class="swatch" type="button" data-value={c.key} aria-pressed="false"
-                    aria-label={c.key} title={c.key} style={`--c:${c.hex}`}></button>
-          ))}
-        </div>
-      </div>
-      <div class="filter-row">
-        <div class="chips">
-          <button class="chip" type="button" data-toggle="living" aria-pressed="false">Living artists</button>
-          <span class="actions">
-            <button class="chip" type="button" data-clear hidden>Clear filters</button>
-            <button class="chip" type="button" data-reshuffle>↻ Reshuffle</button>
-          </span>
-        </div>
+      <div class="chips" data-group="region" aria-label="Region">
+        {regions.filter((r) => r.artists >= 5).map((r) => (
+          <button class="chip" type="button" data-value={r.key} aria-pressed="false">{r.key}</button>
+        ))}
       </div>
     </div>
   </section>
 
-  <div class="wall wrap" id="wall" aria-live="polite"></div>
+  <div class="masonry">
+    <div class="swatches reveal" style="--i:2" data-group="colour" aria-label="Colour">
+      {colours.map((c) => (
+        <button class="swatch" type="button" data-value={c.key} data-hex={c.hex} aria-pressed="false"
+                aria-label={c.key} title={c.key} style={`--c:${c.hex}`}></button>
+      ))}
+    </div>
+    <div class="wall" id="wall" aria-live="polite"></div>
+  </div>
   <div class="wall-end muted" data-sentinel></div>
 </Base>
 
 <style>
-  .wall-head { padding-top: 28px; padding-bottom: 28px; }
-  .summary { margin: 0 0 22px; font-size: 17px; color: var(--muted); }
-  .summary [data-count] { color: var(--ink); font-weight: 500; }
-  .summary a { color: inherit; }
-  /* Filters: one row of chips per kind. */
-  .filters { display: grid; gap: 10px; }
-  .filters .chips { align-items: center; }
-  .actions { display: flex; gap: 6px; margin-left: auto; }
-  .swatches { gap: 8px; padding: 2px 0; }
+  /* Chip text (8px in from each chip's edge) lines up with the gutter. */
+  .wall-head { padding: 16px calc(var(--gutter) - 8px) 32px; display: grid; gap: 32px; }
+  .summary { margin: 0; padding-inline: 8px; font-size: 14px; color: var(--muted); }
+  .summary [data-count] { color: var(--ink); }
+  .summary a { color: inherit; text-decoration-style: dotted; text-underline-offset: 3px; }
+  .summary a:hover { color: var(--ink); }
+  .filters { display: grid; gap: 8px; }
+
+  .masonry { display: flex; gap: 32px; align-items: flex-start; padding: 0 var(--gutter) 24px; }
+  /* The colour column stays in reach as the wall scrolls. */
+  .swatches {
+    position: sticky; top: calc(var(--header-h) + 16px);
+    display: flex; flex-direction: column; gap: 8px; padding: 2px 0;
+  }
   .swatch {
     width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
-    background: var(--c); padding: 0; transition: transform 0.2s var(--ease), box-shadow 0.2s;
+    background: var(--c); padding: 0; transition: transform 0.2s var(--ease), border-color 0.2s;
   }
   .swatch:hover { transform: scale(1.15); }
-  .swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); transform: scale(1.1); }
+  .swatch[aria-pressed="true"] { border: 1.6px solid var(--ink); }
   @media (max-width: 720px) {
-    .actions { margin-left: 0; }
+    .masonry { flex-direction: column; gap: 16px; }
+    .swatches { position: static; flex-direction: row; flex-wrap: wrap; }
   }
 
-  .wall { display: flex; gap: 14px; align-items: flex-start; padding-bottom: 24px; }
+  .wall { flex: 1; min-width: 0; display: flex; gap: 14px; align-items: flex-start; }
   .wall :global(.col) { flex: 1; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .wall :global(.tile) {
     position: relative; display: block; border-radius: 4px; overflow: hidden;
@@ -104,6 +95,11 @@ import { ERAS } from "../lib/eras";
   import { artworkHasColour, thumbUrl, type ArtworkRow, type Post } from "../lib/types";
 
   const BATCH = 48;
+  const luminance = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
   const motion = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
   const KEY = "wall-state";
   let lastNavType: string | null = null;
@@ -113,11 +109,11 @@ import { ERAS } from "../lib/eras";
 
   interface State {
     disc: string[]; era: string | null; region: string | null; colour: string | null;
-    living: boolean; seed: number; shown: number; scrollY: number;
+    seed: number; shown: number; scrollY: number;
   }
 
   function readState(): State {
-    const fresh: State = { disc: [], era: null, region: null, colour: null, living: false,
+    const fresh: State = { disc: [], era: null, region: null, colour: null,
                            seed: (Math.random() * 2 ** 31) | 0, shown: 0, scrollY: 0 };
     try {
       return { ...fresh, ...JSON.parse(sessionStorage.getItem(KEY) || "{}") };
@@ -136,14 +132,13 @@ import { ERAS } from "../lib/eras";
     const artistBySlug = new Map(site.artists.map((a) => [a.slug, a]));
     const postMeta = site.posts.map((p: Post) => {
       const a = p.artist ? artistBySlug.get(p.artist) : undefined;
-      return { post: p, artist: a, disc: new Set(a?.disciplines ?? []), living: !!a?.living,
+      return { post: p, artist: a, disc: new Set(a?.disciplines ?? []),
                region: a?.region ?? null };
     });
     const colourIndex = new Map(site.colours.map((c, i) => [c.key, i]));
 
     const countEl = document.querySelector("[data-count]")!;
     const sentinel = document.querySelector<HTMLElement>("[data-sentinel]")!;
-    const clearBtn = document.querySelector<HTMLButtonElement>("[data-clear]")!;
     let order: ArtworkRow[] = [];
     let cols: HTMLElement[] = [];
     let heights: number[] = [];
@@ -158,8 +153,19 @@ import { ERAS } from "../lib/eras";
         document.querySelectorAll<HTMLButtonElement>(`[data-group="${group}"] [data-value]`).forEach((b) =>
           b.setAttribute("aria-pressed", String(state[group] === b.dataset.value)));
       }
-      document.querySelector('[data-toggle="living"]')!.setAttribute("aria-pressed", String(state.living));
-      clearBtn.hidden = !(state.disc.length || state.era || state.region || state.colour || state.living);
+      tint();
+    }
+
+    // A chosen colour tints the UI: the current nav pill, pressed chips and the search
+    // line take it on (see --pick in global.css; <body> is replaced on leaving the Wall,
+    // so the tint goes with it).
+    function tint() {
+      const hex = state.colour ? document.querySelector<HTMLElement>(`[data-hex][data-value="${state.colour}"]`)?.dataset.hex : null;
+      const body = document.body.style;
+      if (!hex) { for (const v of ["--pick", "--on-pick", "--pick-line"]) body.removeProperty(v); return; }
+      body.setProperty("--pick", hex);
+      body.setProperty("--pick-line", hex);
+      body.setProperty("--on-pick", luminance(hex) > 0.4 ? "#12110f" : "#eeeae2"); // dark text on light colours
     }
 
     function compute() {
@@ -167,7 +173,6 @@ import { ERAS } from "../lib/eras";
       order = rows.filter((r) => {
         const m = postMeta[r[0]];
         if (disc.size && ![...disc].some((d) => m.disc.has(d))) return false;
-        if (state.living && !m.living) return false;
         if (state.era && eraOf(r[4]) !== state.era) return false;
         if (state.region && m.region !== state.region) return false;
         if (state.colour && !artworkHasColour(r[6], colourIndex.get(state.colour)!, state.colour)) return false;
@@ -194,7 +199,7 @@ import { ERAS } from "../lib/eras";
 
     function columnCount() {
       const w = wall.clientWidth;
-      return Math.max(2, Math.min(7, Math.floor(w / 270)));
+      return Math.max(2, Math.min(7, Math.floor((w + 14) / 254))); // columns at least 240px, 14px apart
     }
 
     function layout() {
@@ -305,19 +310,6 @@ import { ERAS } from "../lib/eras";
           reset();
         }));
     }
-    document.querySelector('[data-toggle="living"]')!.addEventListener("click", () => {
-      state.living = !state.living;
-      reset();
-    });
-    document.querySelector("[data-reshuffle]")!.addEventListener("click", () => {
-      state.seed = (Math.random() * 2 ** 31) | 0;
-      window.scrollTo({ top: 0, behavior: motion() ? "smooth" : "auto" });
-      reset();
-    });
-    clearBtn.addEventListener("click", () => {
-      Object.assign(state, { disc: [], era: null, region: null, colour: null, living: false });
-      reset();
-    });
 
     // Initial render, restoring position when coming back
     compute();

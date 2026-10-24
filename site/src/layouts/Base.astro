@@ -41,14 +41,18 @@ const pageMotion = {
     <ClientRouter />
   </head>
   <body>
-    <header class="site-header" transition:animate="none">
-      <a class="wordmark" href="/"><b>Artist of the Day</b><span>Archive</span></a>
-      <nav class="site-nav">
-        {nav.map((n) => (
-          <a href={n.href} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>
-        ))}
-        <button type="button" data-shuffle>Shuffle</button>
-      </nav>
+    <header class="site-header" transition:persist="site-header">
+      <div class="header-left">
+        <a class="wordmark" href="/"><b>Artists of a Day</b></a>
+        <nav class="site-nav">
+          <span class="nav-ghost" aria-hidden="true"></span>
+          <span class="nav-pill" aria-hidden="true"></span>
+          {nav.map((n, i) => (
+            <a href={n.href} style={`--i:${i}`} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>
+          ))}
+          <button type="button" style={`--i:${nav.length}`} data-shuffle>Shuffle</button>
+        </nav>
+      </div>
       <div class="search">
         <input type="search" placeholder="Search 2,300+ artists" aria-label="Search artists" autocomplete="off" />
         <ul hidden></ul>
@@ -61,6 +65,7 @@ const pageMotion = {
     <script>
       import { navigate } from "astro:transitions/client";
       import { loadSite } from "../lib/client";
+      import { mountNav } from "../lib/nav";
 
       const fold = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
       const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -90,10 +95,12 @@ const pageMotion = {
           else img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
         });
 
-        document.querySelector("[data-shuffle]")?.addEventListener("click", async () => {
-          const { artists } = await loadSite();
-          navigate(`/artist/${artists[Math.floor(Math.random() * artists.length)].slug}`);
-        });
+        // The header persists across page changes (so the nav pill can glide to the
+        // new page); bind it once.
+        const header = document.querySelector<HTMLElement>(".site-header")!;
+        mountNav(header.querySelector(".site-nav")!);
+        if (header.dataset.bound) return;
+        header.dataset.bound = "1";
 
         const input = document.querySelector<HTMLInputElement>(".search input")!;
         const list = document.querySelector<HTMLUListElement>(".search ul")!;

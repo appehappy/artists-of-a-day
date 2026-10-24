@@ -86,8 +86,12 @@ needing a human look are listed in `data/review/flagged_posts.csv`.
 ## Site (local only)
 
 An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterable by
-discipline, era, region, colour and living artists), artist pages with similar works
-in the viewer, theme post pages, On this day, Shuffle and artist search.
+discipline, era and region, with a column of colour swatches beside it), artist pages
+with similar works in the viewer, theme post pages, On this day, Shuffle and artist
+search. Choosing a colour on the Wall tints the UI to match: the current nav pill,
+pressed chips and the search line. The header persists across pages, so the current
+page's pill glides along the nav track to the next page, a faint pill follows the
+pointer, and Shuffle shuffles its letters before it picks an artist.
 
 Explore (prototypes) has three views:
 

@@ -1,6 +1,6 @@
 /* Shared by the Explore views (src/pages/explore/). Global rather than scoped because
    much of the content (tooltips, cards, similar works) is created by script. */
-.explore { position: relative; height: calc(100vh - 61px); height: calc(100dvh - 61px); overflow: hidden; }
+.explore { position: relative; height: calc(100vh - var(--header-h)); height: calc(100dvh - var(--header-h)); overflow: hidden; }
 .mosaic-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 .mosaic-canvas:active { cursor: grabbing; }
 .panel {
