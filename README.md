@@ -101,7 +101,7 @@ The rings appear at once in flat colour and spiral out from the sun while the sp
 sheets load (a clock round the sun's rim shows progress); images fade in as each sheet
 arrives. After a few idle seconds the rings drift, alternate rings turning opposite
 ways and slower close up; any input stops them. Selecting a work dims everything else
-by 88% (the sun too), leaving it and its look-alikes lit and joined by white lines.
+to 88% (the sun too), leaving it and its look-alikes lit and joined by white lines.
 
 **Constellation** is a galaxy of visual likeness, every work a star (built by
 `build_fields.py` into `site/public/fields/constellation/`, not part of `refresh.py`

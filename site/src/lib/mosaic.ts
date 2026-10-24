@@ -1216,6 +1216,9 @@ export class MosaicView {
         // Cover-crop the thumbnail to the tile.
         const scale = Math.max(w / img.width, h / img.height);
         ctx.drawImage(img, -img.width * scale / 2, -img.height * scale / 2, img.width * scale, img.height * scale);
+        // Darken it as the tile beneath is (spotlight, selection), or it'd glow above them.
+        const light = this.lightOf(row);
+        if (light < 0.995) { ctx.fillStyle = `rgba(0, 0, 0, ${1 - light})`; ctx.fillRect(-w / 2, -h / 2, w, h); }
         ctx.restore();
       }
     }
@@ -1398,6 +1401,16 @@ export class MosaicView {
     if (this.waves.length) this.dirty = true;
     const after = [m.x, m.y, m.spot];
     if (after.some((v, i) => Math.abs(v - before[i]) > 0.002)) this.dirty = true;
+  }
+
+  /** How lit a work is (0–1), as the vertex shader computes it: dimmed around a
+   *  selection unless it's part of it, and away from the pointer's spotlight. */
+  private lightOf(row: number) {
+    if (this.focusSet.has(row)) return 1;
+    const [x, y] = this.screen(...(this.centre(row).slice(0, 2) as [number, number]));
+    const lit = Math.exp(-((x - this.mouse.x) ** 2 + (y - this.mouse.y) ** 2) / tune.spotRadius ** 2);
+    const spot = 1 + this.mouse.spot * (tune.spotDim + (1 - tune.spotDim) * lit - 1);
+    return spot * (1 - (1 - this.dimTo()) * this.focusAmt);
   }
 
   /** How bright everything but a selected work and its links becomes. */
