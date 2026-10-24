@@ -86,10 +86,11 @@ const STAGGER = 650; // ms from the start of the gradient to its end (by default
 const UPLOAD_PIXELS = 2048 * 128; // sprite sheet pixels per upload call (under ~1ms)
 const UPLOAD_BUDGET = 4; // ms of uploads per frame
 const BRUSH_PX = 14; // radius of the pointer's push, screen px
-const BRUSH_MAX_PX = 8; // furthest it moves any work directly (ripples carry it further)
-const WAVE_SPEED = 0.45; // px/ms a ripple spreads out
-const WAVE_DECAY = 380; // ms for a tile's sway to fade
-const WAVE_PERIOD = 420; // ms per sway
+const BRUSH_MAX_PX = 8; // furthest it moves any work directly (disturbances carry further)
+const WAVE_SPEED = 0.45; // px/ms a disturbance spreads out
+const DRIFT_OUT = 180; // ms: how quickly a tile drifts out when one reaches it...
+const DRIFT_BACK = 1400; // ...and glides back (no bounce)
+const DRIFT_PEAK = (1 - Math.exp(-Math.log(1 + DRIFT_BACK / DRIFT_OUT))) * Math.exp(-(DRIFT_OUT / DRIFT_BACK) * Math.log(1 + DRIFT_BACK / DRIFT_OUT)); // so `amp` is the furthest it goes
 const KNOCK_W = 6.5; // rad/s: knocked works spring back over about a second
 const KNOCK_DAMP = 0.45; // a slight overshoot before they settle
 const DECODERS = 3; // workers decoding sprite sheets
@@ -168,7 +169,7 @@ uniform vec3 u_mouse;     // pointer x, y (screen px), spotlight 0–1
 uniform int u_focus[16];  // the selected work and its linked works (rows)
 uniform int u_focusCount;
 uniform float u_focusAmt; // how far everything else is dimmed, 0–1
-uniform vec4 u_waves[16];    // ripples: source x, y (cells), start (s), strength (px)
+uniform vec4 u_waves[16];    // disturbances: source x, y (cells), start (s), strength (px)
 uniform vec4 u_waveDirs[16]; // their push direction x, y and reach (px)
 uniform int u_waveCount;
 out float v_light;
@@ -210,22 +211,25 @@ void main() {
   vec2 dm = at - u_mouse.xy;
   float lit = exp(-dot(dm, dm) / 28900.0);
   v_light = focused ? 1.0 : mix(1.0, 0.4 + 0.6 * lit, u_mouse.z) * mix(1.0, 0.22, u_focusAmt);
-  // Ripples: each spreads out from where it started (WAVE_SPEED), and a tile it reaches
-  // sways out and back, fading with distance (reach) and time; every tile by its own
-  // slightly different amount and moment. Mirrored in MosaicView.rippled().
+  // Disturbances spread out through space from where they started (WAVE_SPEED); a tile
+  // one reaches drifts outward and glides back, with no bounce, by less the further
+  // away it is. Each tile has a depth: nearer ones drift further and sooner, farther
+  // ones less and later, like parallax. Mirrored in MosaicView.stirred().
   uint h = uint(gl_InstanceID) * 747796405u + 2891336453u;
   h = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u;
   h = (h >> 22u) ^ h;
   float j1 = float(h & 1023u) / 1023.0, j2 = float((h >> 10u) & 1023u) / 1023.0;
+  float depth = 0.3 + 0.7 * j1; // 1 = nearest
   if (!focused) {
     for (int k = 0; k < 16; k++) {
       if (k >= u_waveCount) break;
       vec4 w = u_waves[k], wd = u_waveDirs[k];
       vec2 rel = at - ((w.xy - u_cam.xy) * u_cam.z + u_view * 0.5);
       float r = length(rel);
-      float since = (u_clock - w.z) * 1000.0 - r / ${WAVE_SPEED.toFixed(3)} - (j2 - 0.5) * 60.0;
+      float since = (u_clock - w.z) * 1000.0 - r / ${WAVE_SPEED.toFixed(3)} - (1.0 - depth) * 120.0 - (j2 - 0.5) * 60.0;
       if (since <= 0.0) continue;
-      float amp = w.w * exp(-r / wd.z) * exp(-since / ${WAVE_DECAY.toFixed(1)}) * sin(since * ${(2 * Math.PI / WAVE_PERIOD).toFixed(5)}) * (0.65 + 0.7 * j1);
+      float amp = w.w * exp(-r / wd.z) * depth
+                * (1.0 - exp(-since / ${DRIFT_OUT.toFixed(1)})) * exp(-since / ${DRIFT_BACK.toFixed(1)}) / ${DRIFT_PEAK.toFixed(4)};
       vec2 dir = (r > 0.001 ? rel / r : vec2(0.0)) * 0.7 + wd.xy * 0.3;
       at += dir / max(length(dir), 0.001) * amp;
     }
@@ -342,7 +346,7 @@ export class MosaicView {
   private offset: Float32Array;
   private velocity: Float32Array;
   private moving = new Set<number>();
-  // Ripples spreading out: from the moving pointer, and from a selected work.
+  // Disturbances spreading out: from the moving pointer, and from a selected work.
   private waves: { x: number; y: number; t0: number; amp: number; dx: number; dy: number; reach: number; life: number; big: boolean }[] = [];
   private waveAt = 0;
   private focusRows: number[] = [];
@@ -1024,7 +1028,7 @@ export class MosaicView {
     const ctx = this.overlay, s = this.cam.s, k = row * 4;
     const w = Math.max(0.5, this.shape[k] * s - inset), h = Math.max(0.5, this.shape[k + 1] * s - inset);
     const [x, y, rot] = this.centre(row);
-    ctx.translate(...this.rippled(row, ...this.screen(x, y)));
+    ctx.translate(...this.stirred(row, ...this.screen(x, y)));
     ctx.rotate(rot);
     ctx.beginPath();
     ctx.roundRect(-w / 2, -h / 2, w, h, this.shape[k + 3] * Math.min(w, h));
@@ -1213,12 +1217,12 @@ export class MosaicView {
     return pushed;
   }
 
-  /** Start a ripple at field point (x, y): `amp` px at its source, pushing along
-   *  (dx, dy) as well as outward, fading over `reach` px. The pointer's ripples make
-   *  way for a selection's when there are too many. */
-  private ripple(x: number, y: number, amp: number, dx: number, dy: number, reach: number, big = false) {
+  /** Start a disturbance at field point (x, y): tiles drift up to `amp` px, outward
+   *  and along (dx, dy), by less over `reach` px. The pointer's make way for a
+   *  selection's when there are too many. */
+  private stir(x: number, y: number, amp: number, dx: number, dy: number, reach: number, big = false) {
     const t0 = (performance.now() - this.born) / 1000;
-    const life = (3 * reach) / WAVE_SPEED + 4 * WAVE_DECAY;
+    const life = (3 * reach) / WAVE_SPEED + 5 * DRIFT_BACK;
     this.waves.push({ x, y, t0, amp, dx, dy, reach, life, big });
     while (this.waves.length > 16) {
       const i = this.waves.findIndex((w) => !w.big);
@@ -1226,19 +1230,21 @@ export class MosaicView {
     }
   }
 
-  /** Where a tile's centre (screen px) is drawn once the ripples have moved it: the
+  /** Where a tile's centre (screen px) is drawn once disturbances have moved it: the
    *  same sums as the vertex shader, for the overlay's thumbnails, outlines and lines. */
-  private rippled(row: number, sx: number, sy: number): [number, number] {
+  private stirred(row: number, sx: number, sy: number): [number, number] {
     if (!this.waves.length || this.focusSet.has(row)) return [sx, sy];
     const [j1, j2] = jitter(row);
+    const depth = 0.3 + 0.7 * j1;
     const clock = (performance.now() - this.born) / 1000;
     let x = sx, y = sy;
     for (const w of this.waves) {
       const [wx, wy] = this.screen(w.x, w.y);
       const rx = x - wx, ry = y - wy, r = Math.hypot(rx, ry);
-      const since = (clock - w.t0) * 1000 - r / WAVE_SPEED - (j2 - 0.5) * 60;
+      const since = (clock - w.t0) * 1000 - r / WAVE_SPEED - (1 - depth) * 120 - (j2 - 0.5) * 60;
       if (since <= 0) continue;
-      const amp = w.amp * Math.exp(-r / w.reach) * Math.exp(-since / WAVE_DECAY) * Math.sin(since * 2 * Math.PI / WAVE_PERIOD) * (0.65 + 0.7 * j1);
+      const amp = w.amp * Math.exp(-r / w.reach) * depth
+        * (1 - Math.exp(-since / DRIFT_OUT)) * Math.exp(-since / DRIFT_BACK) / DRIFT_PEAK;
       let dx = (r > 0.001 ? rx / r : 0) * 0.7 + w.dx * 0.3, dy = (r > 0.001 ? ry / r : 0) * 0.7 + w.dy * 0.3;
       const l = Math.max(Math.hypot(dx, dy), 0.001);
       x += (dx / l) * amp;
@@ -1264,10 +1270,10 @@ export class MosaicView {
     this.focusAmt = ease(this.focusAmt, this.focusRows.length ? 1 : 0, 250);
     const sprung = this.stepKnocks(dt);
     this.uploadOffsets(sprung.concat(this.brush()));
-    // The moving pointer sends out soft ripples as it goes.
+    // The moving pointer stirs the space around it as it goes.
     if (p.inside && !this.dragging && p.speed > 0.05 && !reducedMotion() && now - this.waveAt > 150) {
       this.waveAt = now;
-      this.ripple(...this.toField(p.x, p.y), Math.min(3, Math.max(0.6, p.speed * 4)), p.dx, p.dy, 220);
+      this.stir(...this.toField(p.x, p.y), Math.min(3, Math.max(0.6, p.speed * 4)), p.dx, p.dy, 220);
     }
     const clock = (now - this.born) / 1000;
     this.waves = this.waves.filter((w) => (clock - w.t0) * 1000 < w.life);
@@ -1315,13 +1321,13 @@ export class MosaicView {
   /** Lines from the selected work to the works it's linked to (its look-alikes). */
   private drawLinked(from: number) {
     const ctx = this.overlay, s = this.cam.s;
-    const [fx, fy] = this.rippled(from, ...this.screen(...(this.centre(from).slice(0, 2) as [number, number])));
+    const [fx, fy] = this.stirred(from, ...this.screen(...(this.centre(from).slice(0, 2) as [number, number])));
     ctx.save();
     ctx.strokeStyle = "rgba(239, 106, 76, 0.75)";
     ctx.lineWidth = 1.25;
     for (const row of this.linked) {
       const [x, y] = this.centre(row);
-      const [sx, sy] = this.rippled(row, ...this.screen(x, y));
+      const [sx, sy] = this.stirred(row, ...this.screen(x, y));
       ctx.beginPath();
       ctx.moveTo(fx, fy);
       ctx.lineTo(sx, sy);
@@ -1383,7 +1389,7 @@ export class MosaicView {
     this.focusSet = new Set(this.focusRows);
     if (this.lively && sel !== null && this.linked.length && !reducedMotion()) {
       const [x, y] = this.centre(sel);
-      this.ripple(x, y, 12, 0, 0, 360, true);
+      this.stir(x, y, 12, 0, 0, 360, true);
     }
     this.invalidate();
   }
