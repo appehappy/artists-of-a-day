@@ -41,9 +41,9 @@ export interface Layout {
   labels?: { text: string; x: number; y: number; size?: number; level?: number }[];
   /** Ambient life (Constellation): distant tiles glint now and then. */
   twinkle?: boolean;
-  /** Responsive (Constellation): the pointer nudges tiles aside as it moves and lights
-   *  the area around it; selecting a work throws its neighbours out and back, and
-   *  dims all but it and its linked works. */
+  /** Responsive (Constellation): tiles the pointer brushes past are knocked aside and
+   *  spring back, each in its own way, and the area around it is lit; selecting a
+   *  work knocks its neighbours out and back, and dims all but it and its links. */
   lively?: boolean;
   /** Radians per second the whole layout (names and links too) turns when idle. */
   rotate?: number;
@@ -85,6 +85,9 @@ const DURATION = 1100; // ms per tile flight
 const STAGGER = 650; // ms from the start of the gradient to its end (by default)
 const UPLOAD_PIXELS = 2048 * 128; // sprite sheet pixels per upload call (under ~1ms)
 const UPLOAD_BUDGET = 4; // ms of uploads per frame
+const BRUSH_PX = 26; // how close the pointer must pass to knock a work aside
+const KNOCK_W = 6.5; // rad/s: knocked works spring back over about a second
+const KNOCK_DAMP = 0.45; // a slight overshoot before they settle
 const DECODERS = 3; // workers decoding sprite sheets
 // Worker: fetch an image and return its raw RGBA pixels (transferred, not copied).
 const DECODER = `onmessage = async (e) => {
@@ -136,6 +139,7 @@ layout(location=4) in vec3 a_uv;     // u0, v0, sheet
 layout(location=5) in vec4 a_shape;  // w, h (cells), rotation, corner radius fraction
 layout(location=6) in vec3 a_hi;     // u0, v0, layer of a high-res tile, or layer -1
 layout(location=7) in float a_spin;  // radians per second of drift about the pivot
+layout(location=8) in vec2 a_offset; // cells: where a knock has moved it (springs back)
 uniform vec2 u_view;      // canvas size, CSS px
 uniform vec3 u_cam;       // centre x, y (cells), px per cell
 uniform float u_time;     // ms since the layout change
@@ -148,8 +152,7 @@ uniform vec2 u_pivot;     // centre of the drift, cells
 uniform float u_sheetFade[16]; // 0 until a sheet's images arrive, then up to 1
 uniform float u_clock;    // seconds, for twinkling
 uniform float u_twinkle;  // 0 or 1
-uniform vec4 u_mouse;     // pointer x, y (screen px), push 0–1, spotlight 0–1
-uniform vec3 u_burst;     // x, y (screen px) and strength of a selection's shockwave
+uniform vec3 u_mouse;     // pointer x, y (screen px), spotlight 0–1
 uniform int u_focus[16];  // the selected work and its linked works (rows)
 uniform int u_focusCount;
 uniform float u_focusAmt; // how far everything else is dimmed, 0–1
@@ -175,7 +178,7 @@ void main() {
   float turn = a_spin * u_drift;
   float tc = cos(turn), ts = sin(turn);
   vec2 q0 = p - u_pivot;
-  p = u_pivot + vec2(q0.x * tc - q0.y * ts, q0.x * ts + q0.y * tc);
+  p = u_pivot + vec2(q0.x * tc - q0.y * ts, q0.x * ts + q0.y * tc) + a_offset;
   float alpha = mix(a_from.z, a_to.z, e);
   v_alpha = alpha;
   float size = 0.35 + 0.65 * alpha;   // works joining grow in, leaving shrink out
@@ -187,20 +190,11 @@ void main() {
     if (i >= u_focusCount) break;
     if (u_focus[i] == gl_InstanceID) focused = true;
   }
-  // Pointer: tiles near it are pushed aside while it moves (100px reach), and lit
-  // (170px) while everything else dims. Mirrored in MosaicView.nudge().
+  // Spotlight: tiles near the pointer (170px) stay lit while everything else dims.
   vec2 at = (p - u_cam.xy) * u_cam.z + u_view * 0.5;
   vec2 dm = at - u_mouse.xy;
-  float lm = length(dm);
-  float lit = exp(-lm * lm / 28900.0);
-  at += dm / max(lm, 0.001) * u_mouse.z * 18.0 * exp(-lm * lm / 10000.0);
-  // A selection's shockwave throws its neighbours out and back (150px reach).
-  if (!focused) {
-    vec2 db = at - u_burst.xy;
-    float lb = length(db);
-    at += db / max(lb, 0.001) * u_burst.z * 30.0 * exp(-lb * lb / 22500.0);
-  }
-  v_light = focused ? 1.0 : mix(1.0, 0.4 + 0.6 * lit, u_mouse.w) * mix(1.0, 0.22, u_focusAmt);
+  float lit = exp(-dot(dm, dm) / 28900.0);
+  v_light = focused ? 1.0 : mix(1.0, 0.4 + 0.6 * lit, u_mouse.z) * mix(1.0, 0.22, u_focusAmt);
   vec2 px = at + vec2(local.x * c - local.y * s, local.x * s + local.y * c);
   gl_Position = alpha < 0.01 ? vec4(2.0, 2.0, 0.0, 1.0)
                              : vec4(px / u_view * 2.0 - 1.0, 0.0, 1.0) * vec4(1.0, -1.0, 1.0, 1.0);
@@ -276,7 +270,7 @@ export class MosaicView {
   private gl: WebGL2RenderingContext;
   private overlay: CanvasRenderingContext2D;
   private prog: WebGLProgram;
-  private buf: Record<"from" | "to" | "delay" | "tint" | "shape" | "hi" | "spin", WebGLBuffer>;
+  private buf: Record<"from" | "to" | "delay" | "tint" | "shape" | "hi" | "spin" | "offset", WebGLBuffer>;
   // Loading: when each sprite sheet arrived, and the clock around the sun.
   private sheetAt: number[];
   private clock = { shown: 0, gone: 0 };
@@ -305,11 +299,15 @@ export class MosaicView {
   // Responsive layouts: where the pointer is, how hard it's pushing (from its speed),
   // the spotlight, a selection's shockwave, and the works kept lit when selected.
   private lively = false;
-  private pointer = { x: -1e5, y: -1e5, inside: false, speed: 0, movedAt: 0 };
+  private pointer = { x: -1e5, y: -1e5, inside: false, speed: 0, dx: 0, dy: 0, movedAt: 0 };
   private livelyAt = 0;
   private dragging = false;
-  private mouse = { x: -1e5, y: -1e5, push: 0, spot: 0 };
-  private burst = { row: -1, t0: 0, amount: 0, x: 0, y: 0 };
+  private mouse = { x: -1e5, y: -1e5, spot: 0 };
+  // Knocks: each work's offset and velocity (cells), springing back to rest.
+  private offset: Float32Array;
+  private velocity: Float32Array;
+  private knockedAt: Float64Array;
+  private moving = new Set<number>();
   private focusRows: number[] = [];
   private focusSet = new Set<number>();
   private focusAmt = 0;
@@ -369,13 +367,16 @@ export class MosaicView {
     this.shape = new Float32Array(this.n * 4);
     this.slotOfRow = new Int32Array(this.n).fill(-1);
     this.spin = new Float32Array(this.n);
+    this.offset = new Float32Array(this.n * 2);
+    this.velocity = new Float32Array(this.n * 2);
+    this.knockedAt = new Float64Array(this.n);
     this.lastInput = performance.now();
     this.sheetAt = new Array(atlas.sheets).fill(Infinity);
     this.thumbs = new ImageCache(400, () => this.invalidate());
 
     this.prog = this.program();
     for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade", "u_clock", "u_twinkle",
-                      "u_mouse", "u_burst", "u_focus", "u_focusCount", "u_focusAmt"]) {
+                      "u_mouse", "u_focus", "u_focusCount", "u_focusAmt"]) {
       this.u[name] = gl.getUniformLocation(this.prog, name);
     }
     const vao = gl.createVertexArray();
@@ -395,6 +396,7 @@ export class MosaicView {
       shape: attrib(5, 4, this.shape),
       hi: attrib(6, 3, new Float32Array(this.n * 3).map((_, i) => (i % 3 === 2 ? -1 : 0))),
       spin: attrib(7, 1, this.spin),
+      offset: attrib(8, 2, this.offset),
     };
     attrib(4, 3, uvs);
 
@@ -625,6 +627,11 @@ export class MosaicView {
     this.delay = nextDelay;
     this.shape = shape;
     this.spin = spin;
+    this.offset.fill(0);
+    this.velocity.fill(0);
+    this.moving.clear();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buf.offset);
+    this.gl.bufferSubData(this.gl.ARRAY_BUFFER, 0, this.offset);
     this.maxSize = maxSize;
     this.pivot = pivot;
     this.drift = 0;
@@ -736,10 +743,11 @@ export class MosaicView {
   /** Where an artwork's tile has settled, including any drift: centre and rotation. */
   private centre(row: number): [number, number, number] {
     const x = this.to[row * 3], y = this.to[row * 3 + 1], rot = this.shape[row * 4 + 2];
+    const ox = this.offset[row * 2], oy = this.offset[row * 2 + 1];
     const turn = this.spin[row] * this.drift;
-    if (turn === 0) return [x, y, rot];
+    if (turn === 0) return [x + ox, y + oy, rot];
     const [tx, ty] = turnAbout(x, y, this.pivot, turn);
-    return [tx, ty, rot + turn];
+    return [tx + ox, ty + oy, rot + turn];
   }
 
   /** Is field point (fx, fy) inside this artwork's (possibly rotated) tile? */
@@ -959,11 +967,7 @@ export class MosaicView {
     gl.uniform1fv(this.u.u_sheetFade, fade);
     gl.uniform1f(this.u.u_clock, (now - this.born) / 1000);
     gl.uniform1f(this.u.u_twinkle, this.twinkle && !reducedMotion() ? 1 : 0);
-    const b = this.burst;
-    b.amount = this.burstAmount(now);
-    [b.x, b.y] = b.amount ? this.screen(...(this.centre(b.row).slice(0, 2) as [number, number])) : [-1e5, -1e5];
-    gl.uniform4f(this.u.u_mouse, this.mouse.x, this.mouse.y, this.mouse.push, this.mouse.spot);
-    gl.uniform3f(this.u.u_burst, b.x, b.y, b.amount);
+    gl.uniform3f(this.u.u_mouse, this.mouse.x, this.mouse.y, this.mouse.spot);
     const focus = new Int32Array(16).fill(-1);
     focus.set(this.focusRows);
     gl.uniform1iv(this.u.u_focus, focus);
@@ -978,7 +982,7 @@ export class MosaicView {
     const ctx = this.overlay, s = this.cam.s, k = row * 4;
     const w = Math.max(0.5, this.shape[k] * s - inset), h = Math.max(0.5, this.shape[k + 1] * s - inset);
     const [x, y, rot] = this.centre(row);
-    ctx.translate(...this.nudge(...this.screen(x, y), row));
+    ctx.translate(...this.screen(x, y));
     ctx.rotate(rot);
     ctx.beginPath();
     ctx.roundRect(-w / 2, -h / 2, w, h, this.shape[k + 3] * Math.min(w, h));
@@ -1085,53 +1089,110 @@ export class MosaicView {
     return (1 + this.mouse.spot * (0.4 + 0.6 * near - 1)) * (1 - 0.8 * this.focusAmt);
   }
 
-  /** Where a tile's centre (screen px) is drawn after the pointer's push and any
-   *  selection shockwave: the same as the vertex shader. */
-  private nudge(sx: number, sy: number, row: number): [number, number] {
-    let dx = sx - this.mouse.x, dy = sy - this.mouse.y, l = Math.max(Math.hypot(dx, dy), 0.001);
-    const push = this.mouse.push * 18 * Math.exp(-l * l / 10000);
-    sx += (dx / l) * push;
-    sy += (dy / l) * push;
-    const b = this.burst;
-    if (b.amount && !this.focusSet.has(row)) {
-      dx = sx - b.x; dy = sy - b.y; l = Math.max(Math.hypot(dx, dy), 0.001);
-      const g = b.amount * 30 * Math.exp(-l * l / 22500);
-      sx += (dx / l) * g;
-      sy += (dy / l) * g;
+  /** Works whose centres lie within r cells of (fx, fy), nearest first. */
+  private near(fx: number, fy: number, r: number): [number, number][] {
+    if (this.drift !== this.hashDrift) this.rehash();
+    const out: [number, number][] = [];
+    for (let bx = Math.floor(fx - r); bx <= Math.floor(fx + r); bx++) {
+      for (let by = Math.floor(fy - r); by <= Math.floor(fy + r); by++) {
+        for (const row of this.hash.get(bx * 100000 + by) ?? []) {
+          const [x, y] = this.centre(row);
+          const d = Math.hypot(x - fx, y - fy);
+          if (d <= r) out.push([row, d]);
+        }
+      }
     }
-    return [sx, sy];
+    return out.sort((a, b) => a[1] - b[1]);
   }
 
-  /** A selection's shockwave: out fast (140ms), then springing back with a slight
-   *  overshoot, settled in about 1.5s. */
-  private burstAmount(now: number) {
-    if (this.burst.row < 0) return 0;
-    const t = now - this.burst.t0;
-    if (t < 140) return Math.sin((t / 140) * Math.PI / 2);
-    const u = t - 140;
-    if (u > 1500) { this.burst.row = -1; return 0; }
-    return Math.exp(-u / 260) * Math.cos(u / 150);
+  /** Knock a work: give it a velocity (screen px of travel at its peak, along dir,
+   *  turned a little at random) that its spring then takes back. */
+  private knock(row: number, dirX: number, dirY: number, peakPx: number) {
+    const a = (Math.random() - 0.5) * 0.7, c = Math.cos(a), s = Math.sin(a);
+    const speed = (peakPx / this.cam.s) * KNOCK_W * 1.6; // cells/s, for that peak with this damping
+    this.velocity[row * 2] += (dirX * c - dirY * s) * speed;
+    this.velocity[row * 2 + 1] += (dirX * s + dirY * c) * speed;
+    this.moving.add(row);
   }
 
-  /** Ease the pointer's push, the spotlight and the selection dimming; ask for frames
-   *  while any of them is changing. */
+  /** Spring every knocked work back to rest (a slight overshoot, settled in ~1s), and
+   *  upload the offsets that changed. */
+  private stepKnocks(dt: number) {
+    if (!this.moving.size) return;
+    const gl = this.gl, o = this.offset, v = this.velocity, s = this.cam.s;
+    const t = Math.min(0.05, dt / 1000);
+    const changed: number[] = [];
+    for (const row of this.moving) {
+      const i = row * 2;
+      for (const k of [i, i + 1]) {
+        v[k] += (-KNOCK_W * KNOCK_W * o[k] - 2 * KNOCK_DAMP * KNOCK_W * v[k]) * t;
+        o[k] += v[k] * t;
+      }
+      if (Math.hypot(o[i], o[i + 1]) * s < 0.05 && Math.hypot(v[i], v[i + 1]) * s < 0.5) {
+        o[i] = o[i + 1] = v[i] = v[i + 1] = 0;
+        this.moving.delete(row);
+      }
+      changed.push(row);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buf.offset);
+    if (changed.length > 1500) gl.bufferSubData(gl.ARRAY_BUFFER, 0, o);
+    else for (const row of changed) gl.bufferSubData(gl.ARRAY_BUFFER, row * 8, o, row * 2, 2);
+    this.dirty = true;
+  }
+
+  /** The pointer brushing past works knocks them aside: only those it touches, by how
+   *  fast it's moving, in its direction of travel and away from it. Specks too small
+   *  to see as works (far out) are left alone. */
+  private brush(now: number) {
+    const p = this.pointer;
+    if (!p.inside || this.dragging || p.speed < 0.08 || this.cam.s < 2 || reducedMotion()) return;
+    const [fx, fy] = this.toField(p.x, p.y);
+    const reach = BRUSH_PX / this.cam.s;
+    for (const [row, d] of this.near(fx, fy, reach + this.maxSize / 2)) {
+      const size = Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) / 2;
+      if (d > reach + size || now - this.knockedAt[row] < 300 || this.focusSet.has(row)) continue;
+      this.knockedAt[row] = now;
+      const [x, y] = this.centre(row);
+      const away = Math.max(d, 1e-6);
+      let dx = ((x - fx) / away) * 0.55 + p.dx * 0.45, dy = ((y - fy) / away) * 0.55 + p.dy * 0.45;
+      const l = Math.hypot(dx, dy) || 1;
+      dx /= l; dy /= l;
+      const peak = Math.min(8, Math.max(1.5, p.speed * 9)) * (0.6 + Math.random() * 0.7) * Math.sqrt(1 - Math.min(1, d / (reach + size)));
+      this.knock(row, dx, dy, peak);
+    }
+  }
+
+  /** On selecting a work, knock its neighbours outward, each a little differently. */
+  private ripple(row: number) {
+    const [fx, fy] = this.centre(row);
+    const reach = 150 / this.cam.s;
+    for (const [r, d] of this.near(fx, fy, reach).slice(1, 3000)) {
+      if (this.focusSet.has(r)) continue;
+      const [x, y] = this.centre(r);
+      const away = Math.max(d, 1e-6);
+      this.knock(r, (x - fx) / away, (y - fy) / away, 24 * Math.exp(-((d / reach) ** 2) * 2.5) * (0.7 + Math.random() * 0.6));
+    }
+  }
+
+  /** Ease the spotlight and the selection dimming, brush and spring the knocked
+   *  works; ask for frames while any of it is changing. */
   private stepLively(now: number) {
     if (!this.lively) return;
     const dt = Math.min(100, now - (this.livelyAt || now));
     this.livelyAt = now;
     const m = this.mouse, p = this.pointer;
     const ease = (v: number, to: number, ms: number) => v + (to - v) * Math.min(1, dt / ms);
-    const before = [m.x, m.y, m.push, m.spot, this.focusAmt];
+    const before = [m.x, m.y, m.spot, this.focusAmt];
     m.x = ease(m.x, p.x, 50);
     m.y = ease(m.y, p.y, 50);
     if (Math.abs(m.x - p.x) > 400 || Math.abs(m.y - p.y) > 400) { m.x = p.x; m.y = p.y; } // no sweeping in from afar
     p.speed *= Math.exp(-dt / 120); // settles once the pointer rests
-    const push = p.inside && !this.dragging && !reducedMotion() ? Math.min(1, p.speed / 0.8) : 0;
-    m.push = ease(m.push, push, push > m.push ? 60 : 350);
     m.spot = ease(m.spot, p.inside && !this.dragging ? 1 : 0, 300);
     this.focusAmt = ease(this.focusAmt, this.focusRows.length ? 1 : 0, 250);
-    const after = [m.x, m.y, m.push, m.spot, this.focusAmt];
-    if (after.some((v, i) => Math.abs(v - before[i]) > 0.002) || this.burst.row >= 0) this.dirty = true;
+    this.brush(now);
+    this.stepKnocks(dt);
+    const after = [m.x, m.y, m.spot, this.focusAmt];
+    if (after.some((v, i) => Math.abs(v - before[i]) > 0.002)) this.dirty = true;
   }
 
   /** Constellation lines between linked points, with a ring at each end, drawn in
@@ -1173,13 +1234,13 @@ export class MosaicView {
   /** Lines from the selected work to the works it's linked to (its look-alikes). */
   private drawLinked(from: number) {
     const ctx = this.overlay, s = this.cam.s;
-    const [fx, fy] = this.nudge(...this.screen(...(this.centre(from).slice(0, 2) as [number, number])), from);
+    const [fx, fy] = this.screen(...(this.centre(from).slice(0, 2) as [number, number]));
     ctx.save();
     ctx.strokeStyle = "rgba(239, 106, 76, 0.75)";
     ctx.lineWidth = 1.25;
     for (const row of this.linked) {
       const [x, y] = this.centre(row);
-      const [sx, sy] = this.nudge(...this.screen(x, y), row);
+      const [sx, sy] = this.screen(x, y);
       ctx.beginPath();
       ctx.moveTo(fx, fy);
       ctx.lineTo(sx, sy);
@@ -1239,9 +1300,7 @@ export class MosaicView {
     const sel = this.selected;
     this.focusRows = sel !== null && this.linked.length ? [sel, ...this.linked].slice(0, 16) : [];
     this.focusSet = new Set(this.focusRows);
-    if (this.lively && sel !== null && this.linked.length && !reducedMotion()) {
-      this.burst = { ...this.burst, row: sel, t0: performance.now() };
-    }
+    if (this.lively && sel !== null && this.linked.length && !reducedMotion()) this.ripple(sel);
     this.invalidate();
   }
 
@@ -1267,7 +1326,11 @@ export class MosaicView {
       const [x, y] = local(e);
       const now = performance.now(), p = this.pointer;
       const ms = Math.max(1, now - (p.movedAt || now));
-      if (p.inside) p.speed = 0.6 * p.speed + 0.4 * (Math.hypot(x - p.x, y - p.y) / ms);
+      const step = Math.hypot(x - p.x, y - p.y);
+      if (p.inside) {
+        p.speed = 0.6 * p.speed + 0.4 * (step / ms);
+        if (step > 0.5) { p.dx = (x - p.x) / step; p.dy = (y - p.y) / step; }
+      }
       p.x = x; p.y = y; p.inside = true; p.movedAt = now;
       this.invalidate();
     });
