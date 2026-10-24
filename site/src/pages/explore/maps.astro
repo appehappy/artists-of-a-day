@@ -123,7 +123,7 @@ const icons: Record<string, string> = {
 
 <script>
   import { loadArtworks, loadSite, onPage } from "../../lib/client";
-  import { makeShape, match, SHAPES, type ColourMap, type ShapeKey } from "../../lib/colourmaps";
+  import { makeShape, match, SHAPES, type ColourMap, type Match, type ShapeKey } from "../../lib/colourmaps";
   import { loadMosaicData, MosaicView } from "../../lib/mosaic";
   import { imgUrl, thumbUrl } from "../../lib/types";
 
@@ -219,12 +219,41 @@ const icons: Record<string, string> = {
     const amountLabel = root.querySelector("[data-amount-label]")!;
     amount.value = String(state.n);
 
+    // Matching takes up to a second, so it runs in a worker and the page stays
+    // responsive (on the main thread if workers aren't available).
+    let worker: Worker | null = null;
+    try {
+      worker = new Worker(new URL("../../lib/matcher.worker.ts", import.meta.url), { type: "module" });
+      worker.postMessage({ lab });
+      document.addEventListener("astro:before-swap", () => worker?.terminate(), { once: true });
+    } catch { worker = null; }
+    let latest = 0;
+    const matchFor = (id: number, map: ColourMap, slots: ReturnType<typeof makeShape>) => new Promise<Match>((resolve) => {
+      if (!worker) { resolve(match(lab, map, slots)); return; }
+      const w = worker;
+      const reply = (e: MessageEvent<Match & { id: number }>) => {
+        if (e.data.id !== id) return;
+        w.removeEventListener("message", reply);
+        resolve(e.data);
+      };
+      w.addEventListener("message", reply);
+      w.postMessage({ id, map, slots });
+    });
+
     let first = true;
-    const apply = () => {
+    const apply = async () => {
       const t0 = performance.now();
+      const id = ++latest;
       const map = maps.find((m) => m.name === state.map)!;
       const slots = makeShape(state.shape, state.n);
-      const m = match(lab, map, slots);
+      root.querySelectorAll<HTMLButtonElement>("[data-shape]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b.dataset.shape === state.shape)));
+      root.querySelectorAll<HTMLButtonElement>("[data-map]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b.dataset.map === state.map)));
+      amountLabel.textContent = slots.n.toLocaleString();
+      history.replaceState(history.state, "", `?map=${state.map}&shape=${state.shape}&n=${state.n}`);
+      const m = await matchFor(id, map, slots);
+      if (id !== latest) return; // a newer choice is on its way
       // The shape draws itself along the gradient: slowly the first time, in colour
       // until the images arrive, with the map filling in beneath as a loading bar.
       view!.setLayout({ rows: m.rows, x: slots.x, y: slots.y, t: slots.t, slotRgb: m.slotRgb,
@@ -232,14 +261,8 @@ const icons: Record<string, string> = {
                       { animateIn: first });
       first = false;
       card.hidden = true;
-      root.querySelectorAll<HTMLButtonElement>("[data-shape]").forEach((b) =>
-        b.setAttribute("aria-pressed", String(b.dataset.shape === state.shape)));
-      root.querySelectorAll<HTMLButtonElement>("[data-map]").forEach((b) =>
-        b.setAttribute("aria-pressed", String(b.dataset.map === state.map)));
-      amountLabel.textContent = slots.n.toLocaleString();
       root.querySelector("[data-readout]")!.textContent =
         `${state.map} · ${slots.n.toLocaleString()} works · average colour distance ${m.distance.toFixed(3)} · arranged in ${Math.round(performance.now() - t0)} ms`;
-      history.replaceState(history.state, "", `?map=${state.map}&shape=${state.shape}&n=${state.n}`);
     };
 
     root.querySelectorAll<HTMLButtonElement>("[data-shape]").forEach((b) =>
@@ -264,7 +287,7 @@ const icons: Record<string, string> = {
       view!.invalidate();
     });
 
-    apply();
+    await apply();
     loading.classList.add("done");
   });
 </script>

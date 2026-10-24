@@ -225,6 +225,8 @@ void main() {
   p = u_pivot + vec2(q0.x * tc - q0.y * ts, q0.x * ts + q0.y * tc) + a_offset;
   float alpha = mix(a_from.z, a_to.z, e);
   v_alpha = alpha;
+  // Hidden tiles (most of the archive in Orbits and Colour maps) skip the rest.
+  if (alpha < 0.01) { gl_Position = vec4(2.0, 2.0, 0.0, 1.0); return; }
   float size = 0.35 + 0.65 * alpha;   // works joining grow in, leaving shrink out
   vec2 half_ = max(vec2(0.5), (a_shape.xy * u_cam.z * size - vec2(u_gap)) * 0.5);
   vec2 local = (corner * 2.0 - 1.0) * half_;
@@ -349,6 +351,15 @@ export class MosaicView {
   private lastInput = 0;
   private lastFrame = 0;
   private hashDrift = 0; // the drift the hit-test hash was built at
+  // When every tile turns alike (or none do), the hash keeps their resting places
+  // and lookups turn the query back instead of rebuilding it as tiles move.
+  private uniformSpin: number | null = 0;
+  private turnCache = { turn: 0, cos: 1, sin: 0 };
+  private textWidths = new Map<string, number>();
+  // Placed works biggest first, with their sizes (cells), to find those big enough
+  // on screen to need something without looking at every work.
+  private bySize = new Int32Array(0);
+  private sizeOf = new Float32Array(0);
   private stagger = STAGGER;
   private atlasTex!: WebGLTexture;
   // Decoded sheet images (each mip level separately), not yet on the GPU.
@@ -546,7 +557,8 @@ export class MosaicView {
       // Ambient life (twinkling) needs frames, but ~30 a second is plenty.
       const ambient = this.twinkle && !reducedMotion() && now - this.lastAmbient > 33;
       if (ambient) this.lastAmbient = now;
-      if (this.dirty || animating || ambient || this.startPending) { this.draw(); this.dirty = false; }
+      if (this.dirty || animating || this.startPending) { this.draw(); this.dirty = false; }
+      else if (ambient) this.drawTiles(); // twinkling only: names, lines and outlines are unchanged
       // Time the entrance from the end of its first frame, which can be slow (the GPU
       // commits texture memory on first use), so that frame's cost can't jump it ahead.
       if (this.startPending) { this.start = performance.now(); this.startPending = false; }
@@ -696,6 +708,7 @@ export class MosaicView {
     this.delay = nextDelay;
     this.shape = shape;
     this.spin = spin;
+    this.uniformSpin = layout.spin ? null : layout.rotate ?? 0;
     this.offset.fill(0);
     this.velocity.fill(0);
     this.moving.clear();
@@ -707,6 +720,9 @@ export class MosaicView {
     this.hashDrift = 0;
     this.stagger = stagger;
     this.placedRows = layout.rows;
+    this.bySize = Int32Array.from(layout.rows).sort((p, q) =>
+      Math.max(shape[q * 4], shape[q * 4 + 1]) - Math.max(shape[p * 4], shape[p * 4 + 1]));
+    this.sizeOf = Float32Array.from(this.bySize, (r) => Math.max(shape[r * 4], shape[r * 4 + 1]));
     this.placed = new Set(layout.rows);
     this.start = now;
     this.startPending = true; // not before the frame: setup work would eat the first frames
@@ -815,8 +831,10 @@ export class MosaicView {
     const ox = this.offset[row * 2], oy = this.offset[row * 2 + 1];
     const turn = this.spin[row] * this.drift;
     if (turn === 0) return [x + ox, y + oy, rot];
-    const [tx, ty] = turnAbout(x, y, this.pivot, turn);
-    return [tx + ox, ty + oy, rot + turn];
+    const t = this.turnCache;
+    if (turn !== t.turn) { t.turn = turn; t.cos = Math.cos(turn); t.sin = Math.sin(turn); }
+    const dx = x - this.pivot.x, dy = y - this.pivot.y;
+    return [this.pivot.x + dx * t.cos - dy * t.sin + ox, this.pivot.y + dx * t.sin + dy * t.cos + oy, rot + turn];
   }
 
   /** Is field point (fx, fy) inside this artwork's (possibly rotated) tile? */
@@ -829,10 +847,60 @@ export class MosaicView {
     return Math.abs(dx * c - dy * s) <= w / 2 && Math.abs(dx * s + dy * c) <= h / 2;
   }
 
+  /** A field point turned back to where tiles rest, for looking up the hash. */
+  private atRest(fx: number, fy: number): [number, number] {
+    if (this.uniformSpin === null) {
+      if (this.drift !== this.hashDrift) this.rehash(); // tiles turn differently: track them
+      return [fx, fy];
+    }
+    const turn = this.uniformSpin * this.drift;
+    return turn ? turnAbout(fx, fy, this.pivot, -turn) : [fx, fy];
+  }
+
+  /** Works whose centres lie in this field rectangle: from the hash's cells when
+   *  that's fewer to look at than every work, else by checking them all. */
+  private visible(fx0: number, fy0: number, fx1: number, fy1: number): number[] {
+    const out: number[] = [];
+    const corners = [[fx0, fy0], [fx1, fy0], [fx0, fy1], [fx1, fy1]].map(([x, y]) => this.atRest(x, y));
+    const pad = 1 + this.maxSize / 2 + tune.brushMax / this.cam.s; // tiles nudged off their cell
+    const bx0 = Math.floor(Math.min(...corners.map((c) => c[0])) - pad), bx1 = Math.floor(Math.max(...corners.map((c) => c[0])) + pad);
+    const by0 = Math.floor(Math.min(...corners.map((c) => c[1])) - pad), by1 = Math.floor(Math.max(...corners.map((c) => c[1])) + pad);
+    const inside = (row: number) => {
+      const [x, y] = this.centre(row);
+      return x >= fx0 && x <= fx1 && y >= fy0 && y <= fy1;
+    };
+    if ((bx1 - bx0 + 1) * (by1 - by0 + 1) > this.placedRows.length) {
+      for (const row of this.placedRows) if (inside(row)) out.push(row);
+      return out;
+    }
+    for (let bx = bx0; bx <= bx1; bx++) {
+      for (let by = by0; by <= by1; by++) {
+        const bucket = this.hash.get(bx * 100000 + by);
+        if (bucket) for (const row of bucket) if (inside(row)) out.push(row);
+      }
+    }
+    return out;
+  }
+
+  /** Works at least `minCells` across with centres in this field rectangle: from the
+   *  biggest-first list when few are that big, else from the visible area. */
+  private bigAndVisible(minCells: number, fx0: number, fy0: number, fx1: number, fy1: number): number[] {
+    let lo = 0, hi = this.sizeOf.length; // how many are at least minCells (sizes descend)
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (this.sizeOf[mid] >= minCells) lo = mid + 1; else hi = mid; }
+    if (lo > 20000) return this.visible(fx0, fy0, fx1, fy1).filter((r) => Math.max(this.shape[r * 4], this.shape[r * 4 + 1]) >= minCells);
+    const out: number[] = [];
+    for (let i = 0; i < lo; i++) {
+      const row = this.bySize[i];
+      const [x, y] = this.centre(row);
+      if (x >= fx0 && x <= fx1 && y >= fy0 && y <= fy1) out.push(row);
+    }
+    return out;
+  }
+
   rowAt(sx: number, sy: number): number | null {
-    if (this.drift !== this.hashDrift) this.rehash();
     const [fx, fy] = this.toField(sx, sy);
-    const bx = Math.floor(fx), by = Math.floor(fy);
+    const [rx, ry] = this.atRest(fx, fy);
+    const bx = Math.floor(rx), by = Math.floor(ry);
     for (let dx = -2; dx <= 2; dx++) {
       for (let dy = -2; dy <= 2; dy++) {
         for (const row of this.hash.get((bx + dx) * 100000 + (by + dy)) ?? []) {
@@ -843,7 +911,8 @@ export class MosaicView {
     return null;
   }
 
-  /** Rebuild the hit-test hash where tiles have drifted to. */
+  /** Rebuild the hit-test hash where tiles have drifted to (when they turn
+   *  differently, as Orbits' rings do). */
   private rehash() {
     this.hash.clear();
     for (const row of this.placedRows) {
@@ -873,13 +942,11 @@ export class MosaicView {
     const [fx0, fy0] = this.toField(-s * 2, -s * 2);
     const [fx1, fy1] = this.toField(this.w + s * 2, this.h + s * 2);
     const want: [number, number][] = [];
-    for (const row of this.placedRows) {
+    for (const row of this.bigAndVisible(SPRITE_MAX / (s * dpr), fx0, fy0, fx1, fy1)) {
       const [x, y] = this.centre(row);
-      if (x < fx0 || x > fx1 || y < fy0 || y > fy1) continue;
       const slot = this.slotOfRow[row];
       if (slot >= 0) { this.slotUsed[slot] = now; continue; }
       if (this.loadingRows.has(row)) continue;
-      if (Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) * s * dpr < SPRITE_MAX) continue;
       want.push([row, (x - this.cam.x) ** 2 + (y - this.cam.y) ** 2]);
     }
     want.sort((a, b) => a[1] - b[1]);
@@ -1017,6 +1084,11 @@ export class MosaicView {
   }
 
   private draw() {
+    this.drawTiles();
+    this.drawOverlay();
+  }
+
+  private drawTiles() {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(0, 0, 0, 0);
@@ -1051,7 +1123,6 @@ export class MosaicView {
     gl.uniform4fv(this.u.u_waveDirs, dirs);
     gl.uniform1i(this.u.u_waveCount, this.waves.length);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.n);
-    this.drawOverlay();
   }
 
   /** Set up the overlay context for a tile: centred, rotated, with its outline as the path. */
@@ -1121,10 +1192,7 @@ export class MosaicView {
       const [fx1, fy1] = this.toField(this.w + s * 2, this.h + s * 2);
       const shaped = this.layout.w !== undefined;
       const gap = shaped ? 0 : Math.max(1, Math.min(2, s * 0.008));
-      for (const row of this.placedRows) {
-        const [x, y] = this.centre(row);
-        if (x < fx0 || x > fx1 || y < fy0 || y > fy1) continue;
-        if (Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) * s * dpr < OVERLAY_FROM) continue;
+      for (const row of this.bigAndVisible(OVERLAY_FROM / (s * dpr), fx0, fy0, fx1, fy1)) {
         const img = this.thumbs.get(this.opts.thumbUrl(row));
         if (!img) continue;
         ctx.save();
@@ -1169,10 +1237,11 @@ export class MosaicView {
 
   /** Works whose centres lie within r cells of (fx, fy), nearest first. */
   private near(fx: number, fy: number, r: number): [number, number][] {
-    if (this.drift !== this.hashDrift) this.rehash();
+    const [rx, ry] = this.atRest(fx, fy);
     const out: [number, number][] = [];
-    for (let bx = Math.floor(fx - r); bx <= Math.floor(fx + r); bx++) {
-      for (let by = Math.floor(fy - r); by <= Math.floor(fy + r); by++) {
+    const pad = r + tune.brushMax / this.cam.s; // tiles nudged off their cell
+    for (let bx = Math.floor(rx - pad); bx <= Math.floor(rx + pad); bx++) {
+      for (let by = Math.floor(ry - pad); by <= Math.floor(ry + pad); by++) {
         for (const row of this.hash.get(bx * 100000 + by) ?? []) {
           const [x, y] = this.centre(row);
           const d = Math.hypot(x - fx, y - fy);
@@ -1400,7 +1469,10 @@ export class MosaicView {
                              : `600 ${size}px Inter, system-ui, sans-serif`;
       ctx.letterSpacing = level === 0 ? "0px" : "1.2px";
       const ty = level === 0 ? y - Math.max(14, 1.7 * this.cam.s + 12) : y; // a system's name sits above its brightest star
-      const half = ctx.measureText(text).width / 2;
+      const key = `${ctx.font}|${ctx.letterSpacing}|${text}`;
+      let width = this.textWidths.get(key);
+      if (width === undefined) { width = ctx.measureText(text).width; this.textWidths.set(key, width); }
+      const half = width / 2;
       // Names keep a little air around them, so where they'd crowd, the bigger one shows.
       const [padX, padY] = level === 0 ? [12, 6] : [8, 5];
       const box: [number, number, number, number] = [x - half - padX, ty - size / 2 - padY, x + half + padX, ty + size / 2 + padY];

@@ -151,18 +151,21 @@ export function makeShape(shape: ShapeKey, n: number): Slots {
 const BINS = 128;
 
 /** The k unused items with the smallest distance, via a bounded max-heap. */
-function closest(k: number, count: number, used: Uint8Array, distance: (i: number) => number): number[] {
+function closest(k: number, lab: Float32Array, used: Uint8Array, [sl, sa, sb]: number[]): number[] {
   if (k <= 0) return [];
+  const count = lab.length / 3;
   const heapD = new Float64Array(k);
   const heapI = new Int32Array(k);
   let size = 0;
   const swap = (a: number, b: number) => {
-    [heapD[a], heapD[b]] = [heapD[b], heapD[a]];
-    [heapI[a], heapI[b]] = [heapI[b], heapI[a]];
+    const d = heapD[a]; heapD[a] = heapD[b]; heapD[b] = d;
+    const i = heapI[a]; heapI[a] = heapI[b]; heapI[b] = i;
   };
   for (let i = 0; i < count; i++) {
     if (used[i]) continue;
-    const d = distance(i);
+    // Squared distance: ranks the same as the distance, without a square root.
+    const dl = lab[i * 3] - sl, da = lab[i * 3 + 1] - sa, db = lab[i * 3 + 2] - sb;
+    const d = dl * dl + da * da + db * db;
     if (size < k) {
       let c = size++;
       heapD[c] = d; heapI[c] = i;
@@ -193,14 +196,16 @@ export function match(lab: Float32Array, map: ColourMap, s: Slots): Match {
   const dist = new Float32Array(count);
   const fine = new Float32Array(count);
   const d = new Float32Array(BINS);
+  const flat = Float64Array.from(stops.flat());
   for (let i = 0; i < count; i++) {
     const L = lab[i * 3], A = lab[i * 3 + 1], B = lab[i * 3 + 2];
     let best = 0;
-    for (let b = 0; b < BINS; b++) {
-      const st = stops[b];
-      d[b] = Math.hypot(L - st[0], A - st[1], B - st[2]);
+    for (let b = 0; b < BINS; b++) { // squared distances: the nearest is the same
+      const dl = L - flat[b * 3], da = A - flat[b * 3 + 1], db = B - flat[b * 3 + 2];
+      d[b] = dl * dl + da * da + db * db;
       if (d[b] < d[best]) best = b;
     }
+    for (const b of [best - 1, best, best + 1]) if (b >= 0 && b < BINS) d[b] = Math.sqrt(d[b]);
     near[i] = best;
     dist[i] = d[best];
     // Refine between neighbouring bins by comparing distances to them.
@@ -223,9 +228,7 @@ export function match(lab: Float32Array, map: ColourMap, s: Slots): Match {
   const used = new Uint8Array(count);
   const chosen: { row: number; bin: number }[] = [];
   for (const b of order) {
-    const [sl, sa, sb] = stops[b];
-    for (const row of closest(quota[b], count, used, (i) =>
-      Math.hypot(lab[i * 3] - sl, lab[i * 3 + 1] - sa, lab[i * 3 + 2] - sb))) {
+    for (const row of closest(quota[b], lab, used, stops[b])) {
       used[row] = 1;
       chosen.push({ row, bin: b });
     }
