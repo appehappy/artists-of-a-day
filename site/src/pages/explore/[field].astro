@@ -60,6 +60,7 @@ const { title, blurb, orbits } = Astro.props;
 <script>
   import { loadArtworks, loadSite, onPage } from "../../lib/client";
   import { galaxyLayout, loadGalaxy } from "../../lib/galaxy";
+  import { mountTuner } from "../../lib/tuner";
   import { loadMosaicData, MosaicView } from "../../lib/mosaic";
   import { orbitLayout } from "../../lib/orbits";
   import { imgUrl, thumbUrl, type SimilarMap } from "../../lib/types";
@@ -185,6 +186,10 @@ const { title, blurb, orbits } = Astro.props;
       return;
     }
     loading.classList.add("done");
+    // Temporary: ?tune adds sliders for the Constellation's motion and light.
+    if (field === "constellation" && new URLSearchParams(location.search).has("tune")) {
+      mountTuner(root, () => view?.invalidate());
+    }
 
     root.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) =>
       b.addEventListener("click", () => view!.flyTo({ s: view!.cam.s * Number(b.dataset.zoom) }, 350)));

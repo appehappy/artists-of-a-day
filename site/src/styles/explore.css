@@ -64,3 +64,14 @@
 
 .mosaic-canvas.top { z-index: 1; }
 .mosaic-canvas[hidden] { display: none; }
+
+/* Temporary tuning panel (?tune): sliders for the Constellation's motion and light */
+.tuner { top: 200px; left: 16px; width: 280px; max-height: calc(100% - 290px); overflow-y: auto; padding: 10px 14px 12px; font-size: 12px; }
+.tuner summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.tuner h4 { margin: 12px 0 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.tuner label { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; margin: 6px 0; color: var(--muted); }
+.tuner label.changed span, .tuner label.changed output { color: var(--ink); }
+.tuner output { font-variant-numeric: tabular-nums; }
+.tuner input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.tuner-actions { display: flex; gap: 6px; margin-top: 10px; }
+.tuner-actions button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; }

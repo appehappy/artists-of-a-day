@@ -85,15 +85,39 @@ const DURATION = 1100; // ms per tile flight
 const STAGGER = 650; // ms from the start of the gradient to its end (by default)
 const UPLOAD_PIXELS = 2048 * 128; // sprite sheet pixels per upload call (under ~1ms)
 const UPLOAD_BUDGET = 4; // ms of uploads per frame
-const BRUSH_PX = 10; // radius of the pointer's touch, screen px
-const BRUSH_GIVE = 0.3; // share of the pointer's movement passed to a work it touches
-const BRUSH_MAX_PX = 4; // furthest it moves any work directly (disturbances carry further)
-const WAVE_SPEED = 0.45; // px/ms a disturbance spreads out
-const DRIFT_OUT = 180; // ms: how quickly a tile drifts out when one reaches it...
-const DRIFT_BACK = 1400; // ...and glides back (no bounce)
-const DRIFT_PEAK = (1 - Math.exp(-Math.log(1 + DRIFT_BACK / DRIFT_OUT))) * Math.exp(-(DRIFT_OUT / DRIFT_BACK) * Math.log(1 + DRIFT_BACK / DRIFT_OUT)); // so `amp` is the furthest it goes
-const KNOCK_W = 6.5; // rad/s: knocked works spring back over about a second
-const KNOCK_DAMP = 0.45; // a slight overshoot before they settle
+/** The feel of responsive layouts' motion and light (Constellation), read live, so the
+ *  ?tune panel can adjust it while you watch. */
+export const tune = {
+  brushReach: 10, // px: how close the pointer must pass to touch a work
+  brushGive: 0.3, // share of the pointer's movement passed to a work it touches
+  brushMax: 4, // px: furthest it moves any work directly (disturbances carry further)
+  brushCarry: 0.08, // share of the pointer's speed a touched work keeps
+  springStiffness: 6.5, // rad/s: how briskly touched works spring back
+  springDamping: 0.45, // below 1 overshoots a little; 1 and above glides home
+  stirStrength: 3, // px: furthest the pointer's disturbance moves a work
+  stirEvery: 150, // ms between the pointer's disturbances
+  stirReach: 220, // px they spread before fading
+  selectStrength: 12, // px: a selection's disturbance
+  selectReach: 360, // px
+  waveSpeed: 0.45, // px/ms a disturbance spreads out
+  driftOut: 180, // ms: how quickly a work drifts out when one reaches it...
+  driftBack: 1400, // ...and glides back
+  depthFar: 0.3, // how far the farthest works drift, relative to the nearest
+  depthDelay: 120, // ms the farthest lag the nearest
+  spotRadius: 170, // px of the pointer's spotlight
+  spotDim: 0.4, // brightness outside it
+  focusDim: 0.22, // brightness of all but a selected work and its links
+  twinkle: 0.6, // how bright a glint is
+  turnSpeed: 1, // × the idle turn
+};
+export const TUNE_DEFAULTS = { ...tune };
+
+/** How far a drift-and-glide goes at its peak, so a disturbance's strength is its
+ *  furthest reach. */
+const driftPeak = () => {
+  const k = Math.log(1 + tune.driftBack / tune.driftOut);
+  return (1 - Math.exp(-k)) * Math.exp(-(tune.driftOut / tune.driftBack) * k);
+};
 const DECODERS = 3; // workers decoding sprite sheets
 // Worker: fetch an image and return its raw RGBA pixels (transferred, not copied).
 const DECODER = `onmessage = async (e) => {
@@ -165,11 +189,14 @@ uniform float u_drift;    // seconds of drift so far
 uniform vec2 u_pivot;     // centre of the drift, cells
 uniform float u_sheetFade[16]; // 0 until a sheet's images arrive, then up to 1
 uniform float u_clock;    // seconds, for twinkling
-uniform float u_twinkle;  // 0 or 1
+uniform float u_twinkle;  // how bright a glint is (0 = none)
 uniform vec3 u_mouse;     // pointer x, y (screen px), spotlight 0–1
 uniform int u_focus[16];  // the selected work and its linked works (rows)
 uniform int u_focusCount;
 uniform float u_focusAmt; // how far everything else is dimmed, 0–1
+uniform vec4 u_wave;      // disturbances: speed (px/ms), drift out, back (ms), peak
+uniform vec4 u_look;      // spotlight radius (px), its dimming, focus dimming, glint
+uniform vec2 u_depth;     // farthest works' share of the drift, and their lag (ms)
 uniform vec4 u_waves[16];    // disturbances: source x, y (cells), start (s), strength (px)
 uniform vec4 u_waveDirs[16]; // their push direction x, y and reach (px)
 uniform int u_waveCount;
@@ -210,9 +237,9 @@ void main() {
   // Spotlight: tiles near the pointer (170px) stay lit while everything else dims.
   vec2 at = (p - u_cam.xy) * u_cam.z + u_view * 0.5;
   vec2 dm = at - u_mouse.xy;
-  float lit = exp(-dot(dm, dm) / 28900.0);
-  v_light = focused ? 1.0 : mix(1.0, 0.4 + 0.6 * lit, u_mouse.z) * mix(1.0, 0.22, u_focusAmt);
-  // Disturbances spread out through space from where they started (WAVE_SPEED); a tile
+  float lit = exp(-dot(dm, dm) / (u_look.x * u_look.x));
+  v_light = focused ? 1.0 : mix(1.0, u_look.y + (1.0 - u_look.y) * lit, u_mouse.z) * mix(1.0, u_look.z, u_focusAmt);
+  // Disturbances spread out through space from where they started (u_wave.x); a tile
   // one reaches drifts outward and glides back, with no bounce, by less the further
   // away it is. Each tile has a depth: nearer ones drift further and sooner, farther
   // ones less and later, like parallax. Mirrored in MosaicView.stirred().
@@ -220,17 +247,17 @@ void main() {
   h = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u;
   h = (h >> 22u) ^ h;
   float j1 = float(h & 1023u) / 1023.0, j2 = float((h >> 10u) & 1023u) / 1023.0;
-  float depth = 0.3 + 0.7 * j1; // 1 = nearest
+  float depth = u_depth.x + (1.0 - u_depth.x) * j1; // 1 = nearest
   if (!focused) {
     for (int k = 0; k < 16; k++) {
       if (k >= u_waveCount) break;
       vec4 w = u_waves[k], wd = u_waveDirs[k];
       vec2 rel = at - ((w.xy - u_cam.xy) * u_cam.z + u_view * 0.5);
       float r = length(rel);
-      float since = (u_clock - w.z) * 1000.0 - r / ${WAVE_SPEED.toFixed(3)} - (1.0 - depth) * 120.0 - (j2 - 0.5) * 60.0;
+      float since = (u_clock - w.z) * 1000.0 - r / u_wave.x - (1.0 - depth) * u_depth.y - (j2 - 0.5) * 60.0;
       if (since <= 0.0) continue;
       float amp = w.w * exp(-r / wd.z) * depth
-                * (1.0 - exp(-since / ${DRIFT_OUT.toFixed(1)})) * exp(-since / ${DRIFT_BACK.toFixed(1)}) / ${DRIFT_PEAK.toFixed(4)};
+                * (1.0 - exp(-since / u_wave.y)) * exp(-since / u_wave.z) / u_wave.w;
       vec2 dir = (r > 0.001 ? rel / r : vec2(0.0)) * 0.7 + wd.xy * 0.3;
       at += dir / max(length(dir), 0.001) * amp;
     }
@@ -280,7 +307,7 @@ void main() {
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - v_radius;
   float a = v_alpha * clamp(0.5 - d, 0.0, 1.0);
   vec3 c = v_hi.z >= 0.0 ? texture(u_hi, v_hi).rgb : texture(u_atlas, v_uv).rgb;
-  c = mix(mix(c, v_tint, max(u_tintAmt, 1.0 - v_fade)), vec3(1.0), 0.6 * v_glint) * v_light;
+  c = mix(mix(c, v_tint, max(u_tintAmt, 1.0 - v_fade)), vec3(1.0), v_glint) * v_light;
   colour = vec4(c * a, a);
 }`;
 
@@ -418,7 +445,7 @@ export class MosaicView {
     this.prog = this.program();
     for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade", "u_clock", "u_twinkle",
                       "u_mouse", "u_focus", "u_focusCount", "u_focusAmt",
-                      "u_waves", "u_waveDirs", "u_waveCount"]) {
+                      "u_waves", "u_waveDirs", "u_waveCount", "u_wave", "u_look", "u_depth"]) {
       this.u[name] = gl.getUniformLocation(this.prog, name);
     }
     const vao = gl.createVertexArray();
@@ -970,7 +997,7 @@ export class MosaicView {
     const target = idle ? Math.min(1, 6 / this.cam.s) : 0; // gentler close up, where it'd race past
     this.driftRate += (target - this.driftRate) * Math.min(1, dt / (target > this.driftRate ? 1500 : 250));
     if (this.driftRate < 0.002 && !target) { this.driftRate = 0; return; }
-    this.drift += (this.driftRate * dt) / 1000;
+    this.drift += ((this.driftRate * dt) / 1000) * (this.rotate ? tune.turnSpeed : 1);
     this.dirty = true;
   }
 
@@ -1008,7 +1035,10 @@ export class MosaicView {
     this.sheetAt.forEach((t, s) => { fade[s] = Math.min(1, Math.max(0, (now - t) / FADE)); });
     gl.uniform1fv(this.u.u_sheetFade, fade);
     gl.uniform1f(this.u.u_clock, (now - this.born) / 1000);
-    gl.uniform1f(this.u.u_twinkle, this.twinkle && !reducedMotion() ? 1 : 0);
+    gl.uniform1f(this.u.u_twinkle, this.twinkle && !reducedMotion() ? tune.twinkle : 0);
+    gl.uniform4f(this.u.u_wave, tune.waveSpeed, tune.driftOut, tune.driftBack, driftPeak());
+    gl.uniform4f(this.u.u_look, tune.spotRadius, tune.spotDim, tune.focusDim, 0);
+    gl.uniform2f(this.u.u_depth, tune.depthFar, tune.depthDelay);
     gl.uniform3f(this.u.u_mouse, this.mouse.x, this.mouse.y, this.mouse.spot);
     const focus = new Int32Array(16).fill(-1);
     focus.set(this.focusRows);
@@ -1132,8 +1162,9 @@ export class MosaicView {
   /** How lit overlay marks are (names, lines): dimmed while a work is selected, and
    *  away from the pointer's spotlight (at sx, sy, if given), like the tiles. */
   private dim(sx?: number, sy?: number) {
-    const near = sx === undefined ? 0.6 : Math.exp(-((sx - this.mouse.x) ** 2 + (sy! - this.mouse.y) ** 2) / 28900);
-    return (1 + this.mouse.spot * (0.4 + 0.6 * near - 1)) * (1 - 0.8 * this.focusAmt);
+    const near = sx === undefined ? 0.6 : Math.exp(-((sx - this.mouse.x) ** 2 + (sy! - this.mouse.y) ** 2) / tune.spotRadius ** 2);
+    const spot = tune.spotDim + (1 - tune.spotDim) * near;
+    return (1 + this.mouse.spot * (spot - 1)) * (1 - (1 - tune.focusDim) * this.focusAmt);
   }
 
   /** Works whose centres lie within r cells of (fx, fy), nearest first. */
@@ -1161,7 +1192,7 @@ export class MosaicView {
     for (const row of this.moving) {
       const i = row * 2;
       for (const k of [i, i + 1]) {
-        v[k] += (-KNOCK_W * KNOCK_W * o[k] - 2 * KNOCK_DAMP * KNOCK_W * v[k]) * t;
+        v[k] += (-(tune.springStiffness ** 2) * o[k] - 2 * tune.springDamping * tune.springStiffness * v[k]) * t;
         o[k] += v[k] * t;
       }
       if (Math.hypot(o[i], o[i + 1]) * s < 0.05 && Math.hypot(v[i], v[i + 1]) * s < 0.5) {
@@ -1193,7 +1224,7 @@ export class MosaicView {
     if (!p.inside || this.dragging || p.speed < 0.05 || reducedMotion()) return [];
     const s = this.cam.s, o = this.offset, v = this.velocity;
     const [fx, fy] = this.toField(p.x, p.y);
-    const reach = BRUSH_PX / s;
+    const reach = tune.brushReach / s;
     const pushed: number[] = [];
     for (const [row, d] of this.near(fx, fy, reach + this.maxSize / 2)) {
       if (this.focusSet.has(row)) continue;
@@ -1203,16 +1234,16 @@ export class MosaicView {
       const [x, y] = this.centre(row);
       const ux = d > 1e-6 ? (x - fx) / d : p.dx, uy = d > 1e-6 ? (y - fy) / d : p.dy;
       const i = row * 2;
-      const nudge = Math.min(overlap, (p.speed * 16) / s) * BRUSH_GIVE; // a share of this frame's movement
+      const nudge = Math.min(overlap, (p.speed * 16) / s) * tune.brushGive; // a share of this frame's movement
       o[i] += ux * nudge;
       o[i + 1] += uy * nudge;
-      const cap = Math.min(reach + size, BRUSH_MAX_PX / s); // never shoved far
+      const cap = Math.min(reach + size, tune.brushMax / s); // never shoved far
       const far = Math.hypot(o[i], o[i + 1]);
       if (far > cap) { o[i] *= cap / far; o[i + 1] *= cap / far; }
       // Carry some of the pointer's speed along the push.
       const along = Math.max(0, p.dx * ux + p.dy * uy) * p.speed * 1000 / s;
-      v[i] = ux * along * 0.08;
-      v[i + 1] = uy * along * 0.08;
+      v[i] = ux * along * tune.brushCarry;
+      v[i + 1] = uy * along * tune.brushCarry;
       this.moving.add(row);
       pushed.push(row);
       if (pushed.length >= 2000) break;
@@ -1225,7 +1256,7 @@ export class MosaicView {
    *  selection's when there are too many. */
   private stir(x: number, y: number, amp: number, dx: number, dy: number, reach: number, big = false) {
     const t0 = (performance.now() - this.born) / 1000;
-    const life = (3 * reach) / WAVE_SPEED + 5 * DRIFT_BACK;
+    const life = (3 * reach) / tune.waveSpeed + 5 * tune.driftBack;
     this.waves.push({ x, y, t0, amp, dx, dy, reach, life, big });
     while (this.waves.length > 16) {
       const i = this.waves.findIndex((w) => !w.big);
@@ -1238,16 +1269,17 @@ export class MosaicView {
   private stirred(row: number, sx: number, sy: number): [number, number] {
     if (!this.waves.length || this.focusSet.has(row)) return [sx, sy];
     const [j1, j2] = jitter(row);
-    const depth = 0.3 + 0.7 * j1;
+    const depth = tune.depthFar + (1 - tune.depthFar) * j1;
+    const peak = driftPeak();
     const clock = (performance.now() - this.born) / 1000;
     let x = sx, y = sy;
     for (const w of this.waves) {
       const [wx, wy] = this.screen(w.x, w.y);
       const rx = x - wx, ry = y - wy, r = Math.hypot(rx, ry);
-      const since = (clock - w.t0) * 1000 - r / WAVE_SPEED - (1 - depth) * 120 - (j2 - 0.5) * 60;
+      const since = (clock - w.t0) * 1000 - r / tune.waveSpeed - (1 - depth) * tune.depthDelay - (j2 - 0.5) * 60;
       if (since <= 0) continue;
       const amp = w.amp * Math.exp(-r / w.reach) * depth
-        * (1 - Math.exp(-since / DRIFT_OUT)) * Math.exp(-since / DRIFT_BACK) / DRIFT_PEAK;
+        * (1 - Math.exp(-since / tune.driftOut)) * Math.exp(-since / tune.driftBack) / peak;
       let dx = (r > 0.001 ? rx / r : 0) * 0.7 + w.dx * 0.3, dy = (r > 0.001 ? ry / r : 0) * 0.7 + w.dy * 0.3;
       const l = Math.max(Math.hypot(dx, dy), 0.001);
       x += (dx / l) * amp;
@@ -1274,9 +1306,9 @@ export class MosaicView {
     const sprung = this.stepKnocks(dt);
     this.uploadOffsets(sprung.concat(this.brush()));
     // The moving pointer stirs the space around it as it goes.
-    if (p.inside && !this.dragging && p.speed > 0.05 && !reducedMotion() && now - this.waveAt > 150) {
+    if (p.inside && !this.dragging && p.speed > 0.05 && !reducedMotion() && now - this.waveAt > tune.stirEvery) {
       this.waveAt = now;
-      this.stir(...this.toField(p.x, p.y), Math.min(3, Math.max(0.6, p.speed * 4)), p.dx, p.dy, 220);
+      this.stir(...this.toField(p.x, p.y), tune.stirStrength * Math.min(1, Math.max(0.2, p.speed * 1.33)), p.dx, p.dy, tune.stirReach);
     }
     const clock = (now - this.born) / 1000;
     this.waves = this.waves.filter((w) => (clock - w.t0) * 1000 < w.life);
@@ -1392,7 +1424,7 @@ export class MosaicView {
     this.focusSet = new Set(this.focusRows);
     if (this.lively && sel !== null && this.linked.length && !reducedMotion()) {
       const [x, y] = this.centre(sel);
-      this.stir(x, y, 12, 0, 0, 360, true);
+      this.stir(x, y, tune.selectStrength, 0, 0, tune.selectReach, true);
     }
     this.invalidate();
   }
