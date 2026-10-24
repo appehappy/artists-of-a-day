@@ -41,10 +41,17 @@ const pageMotion = {
     <ClientRouter />
   </head>
   <body>
-    <header class="site-header" transition:persist="site-header">
+    <header class="site-header" transition:persist="site-header" transition:animate="none">
       <div class="header-left">
         <a class="wordmark" href="/"><b>Artists of a Day</b></a>
         <nav class="site-nav">
+          <svg width="0" height="0" aria-hidden="true">
+            <filter id="nav-goo" x="-10%" y="-50%" width="120%" height="200%" color-interpolation-filters="sRGB">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
+              <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -7" />
+            </filter>
+          </svg>
+          <div class="nav-goo" aria-hidden="true">{[...nav, null].map(() => <span></span>)}</div>
           {nav.map((n, i) => (
             <a href={n.href} style={`--i:${i}`} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>
           ))}

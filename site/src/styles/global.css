@@ -65,27 +65,33 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .wordmark { text-decoration: none; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
 .wordmark b { font: 26px/1 var(--serif); font-weight: 400; }
 
-/* Nav: pills overlapping by 1px so they read as one row; the current page's stands
-   6px apart, in --pick (see lib/nav.ts). The margins spring as it separates. */
-.site-nav { display: flex; align-items: flex-start; }
+/* Nav: the pills are blobs in a layer behind the labels, merged by the goo filter in
+   Base.astro; the current page's stands 6px apart, in --pick. lib/nav.ts springs the
+   gaps (each label's left margin) and keeps the blobs under their labels. */
+.site-nav { position: relative; display: flex; align-items: flex-start; }
+.site-nav > svg { position: absolute; }
+.nav-goo { position: absolute; inset: 0; filter: url(#nav-goo); pointer-events: none; }
+.nav-goo > span {
+  position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px;
+  background: var(--line); transition: background-color 0.5s var(--ease);
+}
+.nav-goo > span.current { background: var(--pick); }
 .site-nav > a, .site-nav > button {
-  position: relative;
-  border: 0; background: var(--line); text-decoration: none; white-space: nowrap;
+  position: relative; z-index: 1; flex: none;
+  border: 0; text-decoration: none; white-space: nowrap;
   padding: 6px 12px; border-radius: 999px; font-size: 14px; color: var(--muted);
-  margin: 0 -1px 0 0;
-  transition: margin 0.55s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.4s var(--ease), color 0.3s var(--ease);
+  background: radial-gradient(48px circle at var(--gx, -99px) var(--gy, -99px),
+              color-mix(in srgb, var(--ink) 13%, transparent), transparent);
+  transition: color 0.3s var(--ease);
 }
-.site-nav > :last-child { margin-right: 0; }
-.site-nav > a:hover, .site-nav > button:hover { color: var(--ink); background: color-mix(in srgb, var(--line), var(--ink) 9%); }
-.site-nav > [aria-current="page"], .site-nav > [aria-current="page"]:hover {
-  z-index: 1; color: var(--on-pick); background: var(--pick); margin-right: 6px;
+.site-nav > a:hover, .site-nav > button:hover { color: var(--ink); }
+.site-nav > [aria-current="page"] {
+  color: var(--on-pick);
+  background: radial-gradient(48px circle at var(--gx, -99px) var(--gy, -99px),
+              color-mix(in srgb, var(--on-pick) 16%, transparent), transparent);
 }
-.site-nav > [aria-current="page"]:not(:first-child) { margin-left: 7px; } /* 6px past the neighbour's 1px overlap */
-.site-nav > [aria-current="page"]:last-child { margin-right: 0; }
-.site-nav > .pop { animation: nav-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.site-nav.intro > * { animation: nav-in 0.6s var(--ease) both; animation-delay: calc(var(--i) * 60ms + 80ms); }
-@keyframes nav-in { from { opacity: 0; transform: translateY(8px); } }
-@keyframes nav-pop { 40% { transform: scale(1.06); } }
+.site-nav.intro > a, .site-nav.intro > button { animation: nav-in 0.7s var(--ease) both; animation-delay: calc(var(--i) * 90ms + 220ms); }
+@keyframes nav-in { from { opacity: 0; } }
 
 .search { position: relative; width: min(400px, 36vw); }
 .search input {
