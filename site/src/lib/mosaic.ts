@@ -85,7 +85,8 @@ const DURATION = 1100; // ms per tile flight
 const STAGGER = 650; // ms from the start of the gradient to its end (by default)
 const UPLOAD_PIXELS = 2048 * 128; // sprite sheet pixels per upload call (under ~1ms)
 const UPLOAD_BUDGET = 4; // ms of uploads per frame
-const BRUSH_PX = 26; // how close the pointer must pass to knock a work aside
+const BRUSH_PX = 18; // radius of the pointer's push, screen px
+const BRUSH_MAX_PX = 30; // furthest it moves any work
 const KNOCK_W = 6.5; // rad/s: knocked works spring back over about a second
 const KNOCK_DAMP = 0.45; // a slight overshoot before they settle
 const DECODERS = 3; // workers decoding sprite sheets
@@ -306,7 +307,6 @@ export class MosaicView {
   // Knocks: each work's offset and velocity (cells), springing back to rest.
   private offset: Float32Array;
   private velocity: Float32Array;
-  private knockedAt: Float64Array;
   private moving = new Set<number>();
   private focusRows: number[] = [];
   private focusSet = new Set<number>();
@@ -369,7 +369,6 @@ export class MosaicView {
     this.spin = new Float32Array(this.n);
     this.offset = new Float32Array(this.n * 2);
     this.velocity = new Float32Array(this.n * 2);
-    this.knockedAt = new Float64Array(this.n);
     this.lastInput = performance.now();
     this.sheetAt = new Array(atlas.sheets).fill(Infinity);
     this.thumbs = new ImageCache(400, () => this.invalidate());
@@ -1115,11 +1114,10 @@ export class MosaicView {
     this.moving.add(row);
   }
 
-  /** Spring every knocked work back to rest (a slight overshoot, settled in ~1s), and
-   *  upload the offsets that changed. */
-  private stepKnocks(dt: number) {
-    if (!this.moving.size) return;
-    const gl = this.gl, o = this.offset, v = this.velocity, s = this.cam.s;
+  /** Spring every moved work back to rest (a slight overshoot, settled in ~1s);
+   *  returns the works whose offsets changed. */
+  private stepKnocks(dt: number): number[] {
+    const o = this.offset, v = this.velocity, s = this.cam.s;
     const t = Math.min(0.05, dt / 1000);
     const changed: number[] = [];
     for (const row of this.moving) {
@@ -1134,32 +1132,52 @@ export class MosaicView {
       }
       changed.push(row);
     }
+    return changed;
+  }
+
+  /** Upload the offsets of these works (or all of them, if many changed). */
+  private uploadOffsets(rows: number[]) {
+    if (!rows.length) return;
+    const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buf.offset);
-    if (changed.length > 1500) gl.bufferSubData(gl.ARRAY_BUFFER, 0, o);
-    else for (const row of changed) gl.bufferSubData(gl.ARRAY_BUFFER, row * 8, o, row * 2, 2);
+    if (rows.length > 1500) gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.offset);
+    else for (const row of rows) gl.bufferSubData(gl.ARRAY_BUFFER, row * 8, this.offset, row * 2, 2);
     this.dirty = true;
   }
 
-  /** The pointer brushing past works knocks them aside: only those it touches, by how
-   *  fast it's moving, in its direction of travel and away from it. Specks too small
-   *  to see as works (far out) are left alone. */
-  private brush(now: number) {
+  /** The moving pointer is a small disc pushing through the stars: any it overlaps is
+   *  moved straight out of its way (ahead of it, or aside, by where it was hit) and
+   *  carries a little of its motion, then springs back once it's passed. A resting
+   *  pointer pushes nothing, so the work under it settles back to be clicked. */
+  private brush(): number[] {
     const p = this.pointer;
-    if (!p.inside || this.dragging || p.speed < 0.08 || this.cam.s < 2 || reducedMotion()) return;
+    if (!p.inside || this.dragging || p.speed < 0.05 || reducedMotion()) return [];
+    const s = this.cam.s, o = this.offset, v = this.velocity;
     const [fx, fy] = this.toField(p.x, p.y);
-    const reach = BRUSH_PX / this.cam.s;
+    const reach = BRUSH_PX / s;
+    const pushed: number[] = [];
     for (const [row, d] of this.near(fx, fy, reach + this.maxSize / 2)) {
+      if (this.focusSet.has(row)) continue;
       const size = Math.max(this.shape[row * 4], this.shape[row * 4 + 1]) / 2;
-      if (d > reach + size || now - this.knockedAt[row] < 300 || this.focusSet.has(row)) continue;
-      this.knockedAt[row] = now;
+      const overlap = reach + size - d;
+      if (overlap <= 0) continue;
       const [x, y] = this.centre(row);
-      const away = Math.max(d, 1e-6);
-      let dx = ((x - fx) / away) * 0.55 + p.dx * 0.45, dy = ((y - fy) / away) * 0.55 + p.dy * 0.45;
-      const l = Math.hypot(dx, dy) || 1;
-      dx /= l; dy /= l;
-      const peak = Math.min(8, Math.max(1.5, p.speed * 9)) * (0.6 + Math.random() * 0.7) * Math.sqrt(1 - Math.min(1, d / (reach + size)));
-      this.knock(row, dx, dy, peak);
+      const ux = d > 1e-6 ? (x - fx) / d : p.dx, uy = d > 1e-6 ? (y - fy) / d : p.dy;
+      const i = row * 2;
+      o[i] += ux * overlap;
+      o[i + 1] += uy * overlap;
+      const cap = Math.min(reach + size, BRUSH_MAX_PX / s); // never shoved far
+      const far = Math.hypot(o[i], o[i + 1]);
+      if (far > cap) { o[i] *= cap / far; o[i + 1] *= cap / far; }
+      // Carry some of the pointer's speed along the push.
+      const along = Math.max(0, p.dx * ux + p.dy * uy) * p.speed * 1000 / s;
+      v[i] = ux * along * 0.35;
+      v[i + 1] = uy * along * 0.35;
+      this.moving.add(row);
+      pushed.push(row);
+      if (pushed.length >= 2000) break;
     }
+    return pushed;
   }
 
   /** On selecting a work, knock its neighbours outward, each a little differently. */
@@ -1189,8 +1207,8 @@ export class MosaicView {
     p.speed *= Math.exp(-dt / 120); // settles once the pointer rests
     m.spot = ease(m.spot, p.inside && !this.dragging ? 1 : 0, 300);
     this.focusAmt = ease(this.focusAmt, this.focusRows.length ? 1 : 0, 250);
-    this.brush(now);
-    this.stepKnocks(dt);
+    const sprung = this.stepKnocks(dt);
+    this.uploadOffsets(sprung.concat(this.brush()));
     const after = [m.x, m.y, m.spot, this.focusAmt];
     if (after.some((v, i) => Math.abs(v - before[i]) > 0.002)) this.dirty = true;
   }
