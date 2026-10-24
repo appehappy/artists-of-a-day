@@ -108,5 +108,8 @@ export function orbitLayout(sig: Float32Array, count: number): Layout {
       i++;
     }
   });
-  return { ...layout, disc: { x: 0, y: 0, r: geo.sun, rgb: SUN }, stagger: 2400, enter: "spiral" };
+  return {
+    ...layout, disc: { x: 0, y: 0, r: geo.sun, rgb: SUN }, stagger: 2400, enter: "spiral",
+    focusDim: 0.12, linkColour: "rgba(255, 255, 255, 0.85)", // a selection: the rest dimmed by 88%, white lines
+  };
 }

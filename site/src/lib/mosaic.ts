@@ -45,6 +45,11 @@ export interface Layout {
    *  spring back, each in its own way, and the area around it is lit; selecting a
    *  work knocks its neighbours out and back, and dims all but it and its links. */
   lively?: boolean;
+  /** While a work is selected, everything but it and its linked works is dimmed to
+   *  this brightness (0–1). Responsive layouts dim by default (tune.focusDim). */
+  focusDim?: number;
+  /** Colour of the lines and rings joining a selected work to its linked works. */
+  linkColour?: string;
   /** Radians per second the whole layout (names and links too) turns when idle. */
   rotate?: number;
   /** Lines between points, like a star chart's: x1, y1, x2, y2, strength (0–1). */
@@ -391,6 +396,10 @@ export class MosaicView {
   private focusRows: number[] = [];
   private focusSet = new Set<number>();
   private focusAmt = 0;
+  private focusOn = false; // this layout dims around a selection
+  private focusDim: number | null = null; // its brightness, or null for tune.focusDim
+  private linkColour = "rgba(239, 106, 76, 0.75)";
+  private focusAt = 0;
   private rotate = 0; // rad/s the whole layout turns when idle (names and links follow)
   private lastAmbient = 0;
   private readonly born = performance.now();
@@ -553,6 +562,7 @@ export class MosaicView {
       const animating = loading || now - this.start < this.stagger + DURATION + 50;
       this.stepDrift(now);
       this.stepLively(now);
+      this.stepFocus(now);
       if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
       // Ambient life (twinkling) needs frames, but ~30 a second is plenty.
       const ambient = this.twinkle && !reducedMotion() && now - this.lastAmbient > 33;
@@ -617,6 +627,9 @@ export class MosaicView {
     // moved like the tiles so the shape is centred.
     this.twinkle = layout.twinkle ?? false;
     this.lively = layout.lively ?? false;
+    this.focusOn = layout.focusDim !== undefined || this.lively;
+    this.focusDim = layout.focusDim ?? null;
+    this.linkColour = layout.linkColour ?? "rgba(239, 106, 76, 0.75)";
     this.rotate = layout.rotate ?? 0;
     this.labels = (layout.labels ?? []).map((l) => ({ ...l, x: l.x - cx, y: l.y - cy }))
       .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || (b.size ?? 0) - (a.size ?? 0));
@@ -794,7 +807,7 @@ export class MosaicView {
       x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r);
     }
     const left = this.leftInset();
-    const s = Math.max(this.fitScale(), Math.min(maxScale,
+    const s = Math.max(this.fitScale() * 0.5, Math.min(maxScale, // may zoom out past the fit, as far as zooming allows
       (this.w - left - this.insetRight - right - 80) / (x1 - x0), (this.h - 120) / (y1 - y0)));
     this.flyTo({ x: (x0 + x1) / 2 - (left - this.insetRight - right) / (2 * s), y: (y0 + y1) / 2, s }, 900);
   }
@@ -1109,7 +1122,7 @@ export class MosaicView {
     gl.uniform1f(this.u.u_clock, (now - this.born) / 1000);
     gl.uniform1f(this.u.u_twinkle, this.twinkle && !reducedMotion() ? tune.twinkle : 0);
     gl.uniform4f(this.u.u_wave, tune.waveSpeed, tune.driftOut, tune.driftBack, driftPeak());
-    gl.uniform4f(this.u.u_look, tune.spotRadius, tune.spotDim, tune.focusDim, 0);
+    gl.uniform4f(this.u.u_look, tune.spotRadius, tune.spotDim, this.dimTo(), 0);
     gl.uniform2f(this.u.u_depth, tune.depthFar, tune.depthDelay);
     gl.uniform3f(this.u.u_mouse, this.mouse.x, this.mouse.y, this.mouse.spot);
     const focus = new Int32Array(16).fill(-1);
@@ -1150,9 +1163,11 @@ export class MosaicView {
       const dx = (d.x - this.cam.x) * s + this.w / 2, dy = (d.y - this.cam.y) * s + this.h / 2;
       if (d.rgb) {
         ctx.fillStyle = `rgb(${d.rgb.map((c) => Math.round(c * 255)).join(",")})`;
+        ctx.globalAlpha = 1 - (1 - this.dimTo()) * this.focusAmt; // dims with the works around a selection
         ctx.beginPath();
         ctx.arc(dx, dy, d.r * s, 0, 2 * Math.PI);
         ctx.fill();
+        ctx.globalAlpha = 1;
       }
       // Loading clock: a hairline sweeping round inside the sun's rim as sheets arrive.
       if (clockAlpha > 0) {
@@ -1232,7 +1247,7 @@ export class MosaicView {
   private dim(sx?: number, sy?: number) {
     const near = sx === undefined ? 0.6 : Math.exp(-((sx - this.mouse.x) ** 2 + (sy! - this.mouse.y) ** 2) / tune.spotRadius ** 2);
     const spot = tune.spotDim + (1 - tune.spotDim) * near;
-    return (1 + this.mouse.spot * (spot - 1)) * (1 - (1 - tune.focusDim) * this.focusAmt);
+    return (1 + this.mouse.spot * (spot - 1)) * (1 - (1 - this.dimTo()) * this.focusAmt);
   }
 
   /** Works whose centres lie within r cells of (fx, fy), nearest first. */
@@ -1365,13 +1380,12 @@ export class MosaicView {
     this.livelyAt = now;
     const m = this.mouse, p = this.pointer;
     const ease = (v: number, to: number, ms: number) => v + (to - v) * Math.min(1, dt / ms);
-    const before = [m.x, m.y, m.spot, this.focusAmt];
+    const before = [m.x, m.y, m.spot];
     m.x = ease(m.x, p.x, 50);
     m.y = ease(m.y, p.y, 50);
     if (Math.abs(m.x - p.x) > 400 || Math.abs(m.y - p.y) > 400) { m.x = p.x; m.y = p.y; } // no sweeping in from afar
     p.speed *= Math.exp(-dt / 120); // settles once the pointer rests
     m.spot = ease(m.spot, p.inside && !this.dragging ? 1 : 0, 300);
-    this.focusAmt = ease(this.focusAmt, this.focusRows.length ? 1 : 0, 250);
     const sprung = this.stepKnocks(dt);
     this.uploadOffsets(sprung.concat(this.brush()));
     // The moving pointer stirs the space around it as it goes.
@@ -1382,8 +1396,23 @@ export class MosaicView {
     const clock = (now - this.born) / 1000;
     this.waves = this.waves.filter((w) => (clock - w.t0) * 1000 < w.life);
     if (this.waves.length) this.dirty = true;
-    const after = [m.x, m.y, m.spot, this.focusAmt];
+    const after = [m.x, m.y, m.spot];
     if (after.some((v, i) => Math.abs(v - before[i]) > 0.002)) this.dirty = true;
+  }
+
+  /** How bright everything but a selected work and its links becomes. */
+  private dimTo() { return this.focusDim ?? tune.focusDim; }
+
+  /** Ease the dimming around a selected work in and out. */
+  private stepFocus(now: number) {
+    const dt = Math.max(0, Math.min(100, now - (this.focusAt || now)));
+    this.focusAt = now;
+    if (!this.focusOn) { this.focusAmt = 0; return; }
+    const to = this.focusRows.length ? 1 : 0;
+    if (this.focusAmt === to) return;
+    this.focusAmt += (to - this.focusAmt) * Math.min(1, dt / 250);
+    if (Math.abs(this.focusAmt - to) < 0.002) this.focusAmt = to;
+    this.dirty = true;
   }
 
   /** Constellation lines between linked points, with a ring at each end, drawn in
@@ -1427,7 +1456,7 @@ export class MosaicView {
     const ctx = this.overlay, s = this.cam.s;
     const [fx, fy] = this.stirred(from, ...this.screen(...(this.centre(from).slice(0, 2) as [number, number])));
     ctx.save();
-    ctx.strokeStyle = "rgba(239, 106, 76, 0.75)";
+    ctx.strokeStyle = this.linkColour;
     ctx.lineWidth = 1.25;
     for (const row of this.linked) {
       const [x, y] = this.centre(row);
@@ -1492,7 +1521,7 @@ export class MosaicView {
   linkTo(rows: number[]) {
     this.linked = rows.filter((r) => this.placed.has(r));
     const sel = this.selected;
-    this.focusRows = sel !== null && this.linked.length ? [sel, ...this.linked].slice(0, 16) : [];
+    this.focusRows = sel !== null ? [sel, ...this.linked].slice(0, 16) : []; // the selection stays lit even with no links in view
     this.focusSet = new Set(this.focusRows);
     if (this.lively && sel !== null && this.linked.length && !reducedMotion()) {
       const [x, y] = this.centre(sel);
