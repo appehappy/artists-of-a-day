@@ -66,9 +66,11 @@ import clearIcon from "../icons/rotate-cw.svg";
   /* The colour column runs the wall's full height so that, as it scrolls, the swatches
      stay pinned under the header and Reshuffle / Clear to the foot of the window. */
   .colour-col { align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; gap: 24px; }
+  /* The swatches are a liquid shape (lib/liquid.ts): joined into one running spectrum,
+     the chosen colour standing apart. */
   .swatches {
     position: sticky; top: calc(var(--header-h) + 16px);
-    display: flex; flex-direction: column; gap: 8px; padding: 2px 0;
+    display: flex; flex-direction: column; align-items: flex-start; padding: 2px 0;
   }
   .wall-actions { position: sticky; bottom: 24px; display: flex; flex-direction: column; gap: 8px; }
   .icon-btn {
@@ -82,15 +84,16 @@ import clearIcon from "../icons/rotate-cw.svg";
   .icon-btn.jiggle img { animation: jiggle 0.45s var(--ease); } /* Reshuffle: a shake of the deck */
   @keyframes jiggle { 25% { transform: translateX(-2px) rotate(-8deg); } 60% { transform: translateX(2px) rotate(8deg); } }
   .swatch {
-    width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line);
-    background: var(--c); padding: 0; transition: transform 0.2s var(--ease), border-color 0.2s;
+    position: relative; z-index: 1; flex: none;
+    width: 24px; height: 24px; border-radius: 50%; border: 1.6px solid transparent;
+    background: none; padding: 0; transition: border-color 0.3s var(--ease);
   }
-  .swatch:hover { transform: scale(1.15); }
-  .swatch[aria-pressed="true"] { border: 1.6px solid var(--ink); }
+  .swatch[aria-pressed="true"] { border-color: var(--ink); }
   @media (max-width: 720px) {
     .masonry { flex-direction: column; align-items: stretch; gap: 16px; }
     .colour-col { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
-    .swatches, .wall-actions { position: static; flex-direction: row; flex-wrap: wrap; }
+    .swatches { position: relative; flex-direction: row; }
+    .wall-actions { position: static; flex-direction: row; }
   }
 
   .wall { flex: 1; min-width: 0; display: flex; gap: 14px; align-items: flex-start; }
@@ -117,6 +120,7 @@ import clearIcon from "../icons/rotate-cw.svg";
 
 <script>
   import { loadArtworks, loadSite, mulberry32, onPage, shuffleInPlace } from "../lib/client";
+  import { liquid } from "../lib/liquid";
   import { eraOf } from "../lib/eras";
   import { artworkHasColour, thumbUrl, type ArtworkRow, type Post } from "../lib/types";
 
@@ -154,6 +158,18 @@ import clearIcon from "../icons/rotate-cw.svg";
     const state = readState();
     if (!restoring) { state.shown = 0; state.scrollY = 0; }
 
+    // Draw the swatches (with whatever colour was chosen) before the data arrives.
+    for (const sw of document.querySelectorAll<HTMLElement>("[data-group=colour] .swatch")) {
+      sw.setAttribute("aria-pressed", String(state.colour === sw.dataset.value));
+    }
+    const swatchCol = document.querySelector<HTMLElement>(".swatches")!;
+    const swatches = liquid(swatchCol, [...swatchCol.querySelectorAll<HTMLElement>(".swatch")], {
+      axis: getComputedStyle(swatchCol).flexDirection === "row" ? "x" : "y",
+      joined: 1, apart: 6, nudge: 3.5, outline: true, intro: !restoring,
+      isApart: (el) => el.getAttribute("aria-pressed") === "true",
+      fill: (el) => el.dataset.hex!,
+    });
+
     const [site, rows] = await Promise.all([loadSite(), loadArtworks()]);
     const artistBySlug = new Map(site.artists.map((a) => [a.slug, a]));
     const postMeta = site.posts.map((p: Post) => {
@@ -182,6 +198,7 @@ import clearIcon from "../icons/rotate-cw.svg";
           b.setAttribute("aria-pressed", String(state[group] === b.dataset.value)));
       }
       tint();
+      swatches.retarget();
       clearBtn.disabled = !(state.disc.length || state.era || state.region || state.colour);
     }
 
@@ -381,6 +398,7 @@ import clearIcon from "../icons/rotate-cw.svg";
     document.addEventListener("astro:before-swap", () => {
       io.disconnect();
       window.removeEventListener("resize", onResize);
+      swatches.destroy();
     }, { once: true });
   });
 </script>

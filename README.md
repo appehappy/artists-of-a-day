@@ -89,7 +89,9 @@ An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterabl
 discipline, era and region, with a column of colour swatches beside it and Reshuffle /
 Clear filters pinned to the foot of the window), artist pages
 with similar works in the viewer, theme post pages, On this day, Shuffle and artist
-search. Choosing a colour on the Wall tints the UI to match: the current nav pill,
+search. The swatches are the same liquid shape as the nav (below): joined
+into one running spectrum, colours blending at the joins, the chosen one standing
+apart. Choosing a colour on the Wall tints the UI to match: the current nav pill,
 pressed chips and the search line. The nav (after Floema's) draws its pills as one liquid
 shape: neighbours join with soft waists, and the current page's pill stands 6px apart.
 The header persists across pages, so on each change the new pill stretches away until

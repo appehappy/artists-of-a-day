@@ -1,26 +1,20 @@
-// The header nav, after Floema's: the pills are drawn as one liquid shape behind
-// the labels (an SVG in Base.astro whose "goo" filter merges blobs that come close), so
+// The header nav, after Floema's: its pills are one liquid shape (lib/liquid.ts), so
 // neighbours join with soft waists rather than notches. The current page's pill (in
-// the Wall's chosen colour, if any) stands 6px apart from the rest: on a page change
-// it stretches away, its neck thinning until it pinches off, while the old one flows
-// back into the row. Hovering a pill eases it a little apart, still joined; a faint
-// glow follows the pointer, masked by the same merged shape so it flows over the joins. The gaps are springs, so everything settles rather than
-// stops. Shuffle shuffles its own letters before it takes you somewhere.
+// the Wall's chosen colour, if any) stands 6px apart: the header persists across page
+// changes, so on each one the new pill stretches away until its neck pinches off and
+// the old one flows back into the row. Shuffle shuffles its own letters before it
+// takes you somewhere.
 
 import { navigate } from "astro:transitions/client";
 import { loadSite } from "./client";
+import { liquid } from "./liquid";
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const isCurrent = (href: string, path: string) =>
   href === "/" ? path === "/" : path.startsWith(href.replace(/\/[^/]*$/, "") || href);
 
-const JOINED = -1; // px between neighbours at rest: overlapping, so they read as one
-const APART = 6; // either side of the current page's pill (the goo lets go past ~4.5)
-const NUDGE = 3; // either side of a hovered pill: stretched, but still joined
-const STIFFNESS = 80, DAMPING = 10.5; // a little under critical: a soft overshoot
-
-interface Gap { at: number; v: number; to: number; delay: number }
+let shape: ReturnType<typeof liquid> | null = null;
 
 export function mountNav(nav: HTMLElement) {
   const items = [...nav.querySelectorAll<HTMLElement>(":scope > a, :scope > button")];
@@ -32,82 +26,18 @@ export function mountNav(nav: HTMLElement) {
     if (a === current) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
-  const blobs = [...nav.querySelectorAll<SVGRectElement>(".nav-blobs rect")];
-  blobs.forEach((b, i) => b.classList.toggle("current", items[i] === current));
+  if (shape) { shape.retarget(); return; }
 
-  if (nav.dataset.bound) { nav.dispatchEvent(new Event("nav:retarget")); return; }
-  nav.dataset.bound = "1";
-
-  const masks = [...nav.querySelectorAll<SVGRectElement>("mask rect")];
-  const glow = nav.querySelector<SVGCircleElement>(".nav-glow")!;
-
-  // gaps[k] sits between items k and k + 1; it's that item's left margin.
-  const gaps: Gap[] = items.slice(1).map(() => ({ at: JOINED, v: 0, to: JOINED, delay: 0 }));
-  let hovered: HTMLElement | null = null;
-  const retarget = () => {
-    const now = nav.querySelector<HTMLElement>('[aria-current="page"]');
-    gaps.forEach((g, k) => {
-      const pair = [items[k], items[k + 1]];
-      g.to = now && pair.includes(now) ? APART : hovered && pair.includes(hovered) ? NUDGE : JOINED;
-    });
-    wake();
-  };
-
-  // First visit: each pill buds out of the one before it, left to right.
+  shape = liquid(nav, items, {
+    axis: "x", joined: -1, apart: 6, nudge: 3, intro: true,
+    isApart: (el) => el.getAttribute("aria-current") === "page",
+    fill: (el) => (el.getAttribute("aria-current") === "page" ? "var(--pick)" : "var(--line)"),
+  });
+  // First visit: the labels fade in as their pills bud out.
   if (!reducedMotion()) {
-    gaps.forEach((g, k) => { g.at = -items[k + 1].offsetWidth * 0.85; g.delay = 140 + k * 90; });
     nav.classList.add("intro");
     setTimeout(() => nav.classList.remove("intro"), 1400);
   }
-
-  let frame = 0, last = 0;
-  const wake = () => { if (!frame) { last = performance.now(); frame = requestAnimationFrame(step); } };
-  function step(now: number) {
-    const dt = Math.min(0.032, (now - last) / 1000);
-    last = now;
-    let moving = false;
-    for (const g of gaps) {
-      if (reducedMotion()) { g.at = g.to; g.v = 0; continue; }
-      if (g.delay > 0) { g.delay -= dt * 1000; moving = true; continue; }
-      g.v += (STIFFNESS * (g.to - g.at) - DAMPING * g.v) * dt;
-      g.at += g.v * dt;
-      if (Math.abs(g.to - g.at) > 0.02 || Math.abs(g.v) > 0.05) moving = true;
-      else { g.at = g.to; g.v = 0; }
-    }
-    draw();
-    frame = moving ? requestAnimationFrame(step) : 0;
-  }
-  function draw() {
-    gaps.forEach((g, k) => { items[k + 1].style.marginLeft = `${g.at.toFixed(2)}px`; });
-    items.forEach((el, i) => {
-      for (const rect of [blobs[i], masks[i]]) {
-        rect.setAttribute("x", String(el.offsetLeft));
-        rect.setAttribute("width", String(el.offsetWidth));
-        rect.setAttribute("height", String(el.offsetHeight));
-        rect.setAttribute("rx", String(el.offsetHeight / 2));
-      }
-    });
-  }
-
-  for (const el of items) {
-    el.addEventListener("pointerenter", () => { hovered = el; retarget(); });
-  }
-  nav.addEventListener("pointerleave", () => {
-    hovered = null;
-    retarget();
-    glow.classList.remove("on");
-  });
-  // The glow: a soft light under the pointer, wherever the shape is.
-  nav.addEventListener("pointermove", (e) => {
-    const r = nav.getBoundingClientRect();
-    glow.setAttribute("cx", String(e.clientX - r.left));
-    glow.setAttribute("cy", String(e.clientY - r.top));
-    glow.classList.add("on");
-  });
-  nav.addEventListener("nav:retarget", retarget);
-  addEventListener("resize", draw);
-  draw();
-  retarget();
 
   const shuffle = nav.querySelector<HTMLButtonElement>("[data-shuffle]")!;
   shuffle.addEventListener("click", async () => {

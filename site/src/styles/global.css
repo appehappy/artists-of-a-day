@@ -65,17 +65,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .wordmark { text-decoration: none; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
 .wordmark b { font: 26px/1 var(--serif); font-weight: 400; }
 
-/* Nav: the pills are blobs in an SVG behind the labels, merged by its goo filter
-   (Base.astro); the current page's stands 6px apart, in --pick. lib/nav.ts springs the
-   gaps (each label's left margin) and keeps the blobs, and the glow, under the pointer. */
+/* Liquid shapes (lib/liquid.ts): the SVG of blobs behind a row of controls. */
+.liquid { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.liquid-blobs rect { transition: fill 0.5s var(--ease); }
+.liquid-edge { flood-color: var(--line); }
+.liquid-glow { opacity: 0; transition: opacity 0.4s var(--ease); }
+.liquid-glow.on { opacity: 1; }
+.liquid-glow-fill stop { stop-color: var(--ink); stop-opacity: 0.14; }
+.liquid-glow-fill stop + stop { stop-opacity: 0; }
+
+/* Nav: its pills are a liquid shape; the current page's stands 6px apart, in --pick
+   (lib/nav.ts). */
 .site-nav { position: relative; display: flex; align-items: flex-start; }
-.nav-shape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.nav-blobs rect { fill: var(--line); transition: fill 0.5s var(--ease); }
-.nav-blobs rect.current { fill: var(--pick); }
-.nav-glow { opacity: 0; transition: opacity 0.4s var(--ease); }
-.nav-glow.on { opacity: 1; }
-#nav-glow stop { stop-color: var(--ink); stop-opacity: 0.14; }
-#nav-glow stop + stop { stop-opacity: 0; }
 .site-nav > a, .site-nav > button {
   position: relative; z-index: 1; flex: none;
   border: 0; background: none; text-decoration: none; white-space: nowrap;
