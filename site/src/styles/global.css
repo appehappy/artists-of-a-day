@@ -65,31 +65,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .wordmark { text-decoration: none; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
 .wordmark b { font: 26px/1 var(--serif); font-weight: 400; }
 
-/* Nav: the pills are blobs in a layer behind the labels, merged by the goo filter in
-   Base.astro; the current page's stands 6px apart, in --pick. lib/nav.ts springs the
-   gaps (each label's left margin) and keeps the blobs under their labels. */
+/* Nav: the pills are blobs in an SVG behind the labels, merged by its goo filter
+   (Base.astro); the current page's stands 6px apart, in --pick. lib/nav.ts springs the
+   gaps (each label's left margin) and keeps the blobs, and the glow, under the pointer. */
 .site-nav { position: relative; display: flex; align-items: flex-start; }
-.site-nav > svg { position: absolute; }
-.nav-goo { position: absolute; inset: 0; filter: url(#nav-goo); pointer-events: none; }
-.nav-goo > span {
-  position: absolute; top: 0; left: 0; height: 100%; border-radius: 999px;
-  background: var(--line); transition: background-color 0.5s var(--ease);
-}
-.nav-goo > span.current { background: var(--pick); }
+.nav-shape { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.nav-blobs rect { fill: var(--line); transition: fill 0.5s var(--ease); }
+.nav-blobs rect.current { fill: var(--pick); }
+.nav-glow { opacity: 0; transition: opacity 0.4s var(--ease); }
+.nav-glow.on { opacity: 1; }
+#nav-glow stop { stop-color: var(--ink); stop-opacity: 0.14; }
+#nav-glow stop + stop { stop-opacity: 0; }
 .site-nav > a, .site-nav > button {
   position: relative; z-index: 1; flex: none;
-  border: 0; text-decoration: none; white-space: nowrap;
+  border: 0; background: none; text-decoration: none; white-space: nowrap;
   padding: 6px 12px; border-radius: 999px; font-size: 14px; color: var(--muted);
-  background: radial-gradient(48px circle at var(--gx, -99px) var(--gy, -99px),
-              color-mix(in srgb, var(--ink) 13%, transparent), transparent);
   transition: color 0.3s var(--ease);
 }
 .site-nav > a:hover, .site-nav > button:hover { color: var(--ink); }
-.site-nav > [aria-current="page"] {
-  color: var(--on-pick);
-  background: radial-gradient(48px circle at var(--gx, -99px) var(--gy, -99px),
-              color-mix(in srgb, var(--on-pick) 16%, transparent), transparent);
-}
+.site-nav > [aria-current="page"] { color: var(--on-pick); }
 .site-nav.intro > a, .site-nav.intro > button { animation: nav-in 0.7s var(--ease) both; animation-delay: calc(var(--i) * 90ms + 220ms); }
 @keyframes nav-in { from { opacity: 0; } }
 

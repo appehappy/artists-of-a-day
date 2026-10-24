@@ -1,10 +1,10 @@
 // The header nav, after Floema's: the pills are drawn as one liquid shape behind
-// the labels (a "goo" filter in Base.astro merges blobs that come close), so
+// the labels (an SVG in Base.astro whose "goo" filter merges blobs that come close), so
 // neighbours join with soft waists rather than notches. The current page's pill (in
 // the Wall's chosen colour, if any) stands 6px apart from the rest: on a page change
 // it stretches away, its neck thinning until it pinches off, while the old one flows
 // back into the row. Hovering a pill eases it a little apart, still joined; a faint
-// glow follows the pointer. The gaps are springs, so everything settles rather than
+// glow follows the pointer, masked by the same merged shape so it flows over the joins. The gaps are springs, so everything settles rather than
 // stops. Shuffle shuffles its own letters before it takes you somewhere.
 
 import { navigate } from "astro:transitions/client";
@@ -32,11 +32,14 @@ export function mountNav(nav: HTMLElement) {
     if (a === current) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   }
-  const blobs = [...nav.querySelectorAll<HTMLElement>(".nav-goo > span")];
+  const blobs = [...nav.querySelectorAll<SVGRectElement>(".nav-blobs rect")];
   blobs.forEach((b, i) => b.classList.toggle("current", items[i] === current));
 
   if (nav.dataset.bound) { nav.dispatchEvent(new Event("nav:retarget")); return; }
   nav.dataset.bound = "1";
+
+  const masks = [...nav.querySelectorAll<SVGRectElement>("mask rect")];
+  const glow = nav.querySelector<SVGCircleElement>(".nav-glow")!;
 
   // gaps[k] sits between items k and k + 1; it's that item's left margin.
   const gaps: Gap[] = items.slice(1).map(() => ({ at: JOINED, v: 0, to: JOINED, delay: 0 }));
@@ -77,8 +80,12 @@ export function mountNav(nav: HTMLElement) {
   function draw() {
     gaps.forEach((g, k) => { items[k + 1].style.marginLeft = `${g.at.toFixed(2)}px`; });
     items.forEach((el, i) => {
-      blobs[i].style.transform = `translateX(${el.offsetLeft}px)`;
-      blobs[i].style.width = `${el.offsetWidth}px`;
+      for (const rect of [blobs[i], masks[i]]) {
+        rect.setAttribute("x", String(el.offsetLeft));
+        rect.setAttribute("width", String(el.offsetWidth));
+        rect.setAttribute("height", String(el.offsetHeight));
+        rect.setAttribute("rx", String(el.offsetHeight / 2));
+      }
     });
   }
 
@@ -88,15 +95,14 @@ export function mountNav(nav: HTMLElement) {
   nav.addEventListener("pointerleave", () => {
     hovered = null;
     retarget();
-    for (const el of items) el.style.removeProperty("--gx");
+    glow.classList.remove("on");
   });
-  // The glow: a soft light under the pointer, inside whichever pills it's over.
+  // The glow: a soft light under the pointer, wherever the shape is.
   nav.addEventListener("pointermove", (e) => {
-    for (const el of items) {
-      const r = el.getBoundingClientRect();
-      el.style.setProperty("--gx", `${e.clientX - r.left}px`);
-      el.style.setProperty("--gy", `${e.clientY - r.top}px`);
-    }
+    const r = nav.getBoundingClientRect();
+    glow.setAttribute("cx", String(e.clientX - r.left));
+    glow.setAttribute("cy", String(e.clientY - r.top));
+    glow.classList.add("on");
   });
   nav.addEventListener("nav:retarget", retarget);
   addEventListener("resize", draw);

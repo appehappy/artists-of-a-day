@@ -45,13 +45,18 @@ const pageMotion = {
       <div class="header-left">
         <a class="wordmark" href="/"><b>Artists of a Day</b></a>
         <nav class="site-nav">
-          <svg width="0" height="0" aria-hidden="true">
-            <filter id="nav-goo" x="-10%" y="-50%" width="120%" height="200%" color-interpolation-filters="sRGB">
-              <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
-              <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -7" />
-            </filter>
+          <svg class="nav-shape" aria-hidden="true">
+            <defs>
+              <filter id="nav-goo" x="-10%" y="-50%" width="120%" height="200%" color-interpolation-filters="sRGB">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
+                <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -7" />
+              </filter>
+              <radialGradient id="nav-glow"><stop offset="0" /><stop offset="1" /></radialGradient>
+              <mask id="nav-mask"><g filter="url(#nav-goo)">{[...nav, null].map(() => <rect fill="#fff" />)}</g></mask>
+            </defs>
+            <g class="nav-blobs" filter="url(#nav-goo)">{[...nav, null].map(() => <rect />)}</g>
+            <circle class="nav-glow" r="48" cx="-99" cy="-99" fill="url(#nav-glow)" mask="url(#nav-mask)" />
           </svg>
-          <div class="nav-goo" aria-hidden="true">{[...nav, null].map(() => <span></span>)}</div>
           {nav.map((n, i) => (
             <a href={n.href} style={`--i:${i}`} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>
           ))}
