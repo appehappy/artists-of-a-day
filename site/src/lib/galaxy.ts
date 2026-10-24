@@ -41,6 +41,7 @@ export function galaxyLayout(g: Galaxy, lab: Float32Array): Layout {
   return {
     ...layout, labels: g.labels, links: g.links, enter: "spiral", stagger: 2600,
     twinkle: true, rotate: 0.0035, // stars glint, and it turns once in ~30 minutes when idle
+    lively: true, // the pointer nudges and lights stars; selecting throws neighbours out and back
     disc: { x: 0, y: 0, r: 0, rgb: null }, // where the loading clock turns
   };
 }

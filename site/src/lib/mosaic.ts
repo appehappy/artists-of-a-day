@@ -41,6 +41,10 @@ export interface Layout {
   labels?: { text: string; x: number; y: number; size?: number; level?: number }[];
   /** Ambient life (Constellation): distant tiles glint now and then. */
   twinkle?: boolean;
+  /** Responsive (Constellation): the pointer nudges tiles aside as it moves and lights
+   *  the area around it; selecting a work throws its neighbours out and back, and
+   *  dims all but it and its linked works. */
+  lively?: boolean;
   /** Radians per second the whole layout (names and links too) turns when idle. */
   rotate?: number;
   /** Lines between points, like a star chart's: x1, y1, x2, y2, strength (0–1). */
@@ -144,6 +148,12 @@ uniform vec2 u_pivot;     // centre of the drift, cells
 uniform float u_sheetFade[16]; // 0 until a sheet's images arrive, then up to 1
 uniform float u_clock;    // seconds, for twinkling
 uniform float u_twinkle;  // 0 or 1
+uniform vec4 u_mouse;     // pointer x, y (screen px), push 0–1, spotlight 0–1
+uniform vec3 u_burst;     // x, y (screen px) and strength of a selection's shockwave
+uniform int u_focus[16];  // the selected work and its linked works (rows)
+uniform int u_focusCount;
+uniform float u_focusAmt; // how far everything else is dimmed, 0–1
+out float v_light;
 out float v_fade;
 out float v_glint;
 out vec3 v_uv;
@@ -172,7 +182,26 @@ void main() {
   vec2 half_ = max(vec2(0.5), (a_shape.xy * u_cam.z * size - vec2(u_gap)) * 0.5);
   vec2 local = (corner * 2.0 - 1.0) * half_;
   float c = cos(a_shape.z + turn), s = sin(a_shape.z + turn);
-  vec2 px = (p - u_cam.xy) * u_cam.z + u_view * 0.5 + vec2(local.x * c - local.y * s, local.x * s + local.y * c);
+  bool focused = false;
+  for (int i = 0; i < 16; i++) {
+    if (i >= u_focusCount) break;
+    if (u_focus[i] == gl_InstanceID) focused = true;
+  }
+  // Pointer: tiles near it are pushed aside while it moves (100px reach), and lit
+  // (170px) while everything else dims. Mirrored in MosaicView.nudge().
+  vec2 at = (p - u_cam.xy) * u_cam.z + u_view * 0.5;
+  vec2 dm = at - u_mouse.xy;
+  float lm = length(dm);
+  float lit = exp(-lm * lm / 28900.0);
+  at += dm / max(lm, 0.001) * u_mouse.z * 18.0 * exp(-lm * lm / 10000.0);
+  // A selection's shockwave throws its neighbours out and back (150px reach).
+  if (!focused) {
+    vec2 db = at - u_burst.xy;
+    float lb = length(db);
+    at += db / max(lb, 0.001) * u_burst.z * 30.0 * exp(-lb * lb / 22500.0);
+  }
+  v_light = focused ? 1.0 : mix(1.0, 0.4 + 0.6 * lit, u_mouse.w) * mix(1.0, 0.22, u_focusAmt);
+  vec2 px = at + vec2(local.x * c - local.y * s, local.x * s + local.y * c);
   gl_Position = alpha < 0.01 ? vec4(2.0, 2.0, 0.0, 1.0)
                              : vec4(px / u_view * 2.0 - 1.0, 0.0, 1.0) * vec4(1.0, -1.0, 1.0, 1.0);
   // Cover-crop the square tile to the shape's aspect ratio.
@@ -204,6 +233,7 @@ in vec3 v_uv;
 in vec3 v_hi;
 in vec3 v_tint;
 in float v_fade;
+in float v_light;
 in float v_glint;
 in float v_alpha;
 in vec2 v_local;
@@ -216,7 +246,7 @@ void main() {
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - v_radius;
   float a = v_alpha * clamp(0.5 - d, 0.0, 1.0);
   vec3 c = v_hi.z >= 0.0 ? texture(u_hi, v_hi).rgb : texture(u_atlas, v_uv).rgb;
-  c = mix(mix(c, v_tint, max(u_tintAmt, 1.0 - v_fade)), vec3(1.0), 0.6 * v_glint);
+  c = mix(mix(c, v_tint, max(u_tintAmt, 1.0 - v_fade)), vec3(1.0), 0.6 * v_glint) * v_light;
   colour = vec4(c * a, a);
 }`;
 
@@ -272,6 +302,17 @@ export class MosaicView {
   private linked: number[] = []; // works joined to the selected one by lines
   private maxSize = 1; // the widest tile, cells
   private twinkle = false;
+  // Responsive layouts: where the pointer is, how hard it's pushing (from its speed),
+  // the spotlight, a selection's shockwave, and the works kept lit when selected.
+  private lively = false;
+  private pointer = { x: -1e5, y: -1e5, inside: false, speed: 0, movedAt: 0 };
+  private livelyAt = 0;
+  private dragging = false;
+  private mouse = { x: -1e5, y: -1e5, push: 0, spot: 0 };
+  private burst = { row: -1, t0: 0, amount: 0, x: 0, y: 0 };
+  private focusRows: number[] = [];
+  private focusSet = new Set<number>();
+  private focusAmt = 0;
   private rotate = 0; // rad/s the whole layout turns when idle (names and links follow)
   private lastAmbient = 0;
   private readonly born = performance.now();
@@ -333,7 +374,8 @@ export class MosaicView {
     this.thumbs = new ImageCache(400, () => this.invalidate());
 
     this.prog = this.program();
-    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade", "u_clock", "u_twinkle"]) {
+    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade", "u_clock", "u_twinkle",
+                      "u_mouse", "u_burst", "u_focus", "u_focusCount", "u_focusAmt"]) {
       this.u[name] = gl.getUniformLocation(this.prog, name);
     }
     const vao = gl.createVertexArray();
@@ -428,6 +470,7 @@ export class MosaicView {
       const loading = this.loadingVisible(now);
       const animating = loading || now - this.start < this.stagger + DURATION + 50;
       this.stepDrift(now);
+      this.stepLively(now);
       if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
       // Ambient life (twinkling) needs frames, but ~30 a second is plenty.
       const ambient = this.twinkle && !reducedMotion() && now - this.lastAmbient > 33;
@@ -490,6 +533,7 @@ export class MosaicView {
     // Labels in order of drawing priority (systems first, bigger first), and links,
     // moved like the tiles so the shape is centred.
     this.twinkle = layout.twinkle ?? false;
+    this.lively = layout.lively ?? false;
     this.rotate = layout.rotate ?? 0;
     this.labels = (layout.labels ?? []).map((l) => ({ ...l, x: l.x - cx, y: l.y - cy }))
       .sort((a, b) => (a.level ?? 0) - (b.level ?? 0) || (b.size ?? 0) - (a.size ?? 0));
@@ -915,6 +959,16 @@ export class MosaicView {
     gl.uniform1fv(this.u.u_sheetFade, fade);
     gl.uniform1f(this.u.u_clock, (now - this.born) / 1000);
     gl.uniform1f(this.u.u_twinkle, this.twinkle && !reducedMotion() ? 1 : 0);
+    const b = this.burst;
+    b.amount = this.burstAmount(now);
+    [b.x, b.y] = b.amount ? this.screen(...(this.centre(b.row).slice(0, 2) as [number, number])) : [-1e5, -1e5];
+    gl.uniform4f(this.u.u_mouse, this.mouse.x, this.mouse.y, this.mouse.push, this.mouse.spot);
+    gl.uniform3f(this.u.u_burst, b.x, b.y, b.amount);
+    const focus = new Int32Array(16).fill(-1);
+    focus.set(this.focusRows);
+    gl.uniform1iv(this.u.u_focus, focus);
+    gl.uniform1i(this.u.u_focusCount, this.focusRows.length);
+    gl.uniform1f(this.u.u_focusAmt, this.focusAmt);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.n);
     this.drawOverlay();
   }
@@ -924,7 +978,7 @@ export class MosaicView {
     const ctx = this.overlay, s = this.cam.s, k = row * 4;
     const w = Math.max(0.5, this.shape[k] * s - inset), h = Math.max(0.5, this.shape[k + 1] * s - inset);
     const [x, y, rot] = this.centre(row);
-    ctx.translate((x - this.cam.x) * s + this.w / 2, (y - this.cam.y) * s + this.h / 2);
+    ctx.translate(...this.nudge(...this.screen(x, y), row));
     ctx.rotate(rot);
     ctx.beginPath();
     ctx.roundRect(-w / 2, -h / 2, w, h, this.shape[k + 3] * Math.min(w, h));
@@ -1024,6 +1078,62 @@ export class MosaicView {
     return [(x - this.cam.x) * this.cam.s + this.w / 2, (y - this.cam.y) * this.cam.s + this.h / 2];
   }
 
+  /** How lit overlay marks are (names, lines): dimmed while a work is selected, and
+   *  away from the pointer's spotlight (at sx, sy, if given), like the tiles. */
+  private dim(sx?: number, sy?: number) {
+    const near = sx === undefined ? 0.6 : Math.exp(-((sx - this.mouse.x) ** 2 + (sy! - this.mouse.y) ** 2) / 28900);
+    return (1 + this.mouse.spot * (0.4 + 0.6 * near - 1)) * (1 - 0.8 * this.focusAmt);
+  }
+
+  /** Where a tile's centre (screen px) is drawn after the pointer's push and any
+   *  selection shockwave: the same as the vertex shader. */
+  private nudge(sx: number, sy: number, row: number): [number, number] {
+    let dx = sx - this.mouse.x, dy = sy - this.mouse.y, l = Math.max(Math.hypot(dx, dy), 0.001);
+    const push = this.mouse.push * 18 * Math.exp(-l * l / 10000);
+    sx += (dx / l) * push;
+    sy += (dy / l) * push;
+    const b = this.burst;
+    if (b.amount && !this.focusSet.has(row)) {
+      dx = sx - b.x; dy = sy - b.y; l = Math.max(Math.hypot(dx, dy), 0.001);
+      const g = b.amount * 30 * Math.exp(-l * l / 22500);
+      sx += (dx / l) * g;
+      sy += (dy / l) * g;
+    }
+    return [sx, sy];
+  }
+
+  /** A selection's shockwave: out fast (140ms), then springing back with a slight
+   *  overshoot, settled in about 1.5s. */
+  private burstAmount(now: number) {
+    if (this.burst.row < 0) return 0;
+    const t = now - this.burst.t0;
+    if (t < 140) return Math.sin((t / 140) * Math.PI / 2);
+    const u = t - 140;
+    if (u > 1500) { this.burst.row = -1; return 0; }
+    return Math.exp(-u / 260) * Math.cos(u / 150);
+  }
+
+  /** Ease the pointer's push, the spotlight and the selection dimming; ask for frames
+   *  while any of them is changing. */
+  private stepLively(now: number) {
+    if (!this.lively) return;
+    const dt = Math.min(100, now - (this.livelyAt || now));
+    this.livelyAt = now;
+    const m = this.mouse, p = this.pointer;
+    const ease = (v: number, to: number, ms: number) => v + (to - v) * Math.min(1, dt / ms);
+    const before = [m.x, m.y, m.push, m.spot, this.focusAmt];
+    m.x = ease(m.x, p.x, 50);
+    m.y = ease(m.y, p.y, 50);
+    if (Math.abs(m.x - p.x) > 400 || Math.abs(m.y - p.y) > 400) { m.x = p.x; m.y = p.y; } // no sweeping in from afar
+    p.speed *= Math.exp(-dt / 120); // settles once the pointer rests
+    const push = p.inside && !this.dragging && !reducedMotion() ? Math.min(1, p.speed / 0.8) : 0;
+    m.push = ease(m.push, push, push > m.push ? 60 : 350);
+    m.spot = ease(m.spot, p.inside && !this.dragging ? 1 : 0, 300);
+    this.focusAmt = ease(this.focusAmt, this.focusRows.length ? 1 : 0, 250);
+    const after = [m.x, m.y, m.push, m.spot, this.focusAmt];
+    if (after.some((v, i) => Math.abs(v - before[i]) > 0.002) || this.burst.row >= 0) this.dirty = true;
+  }
+
   /** Constellation lines between linked points, with a ring at each end, drawn in
    *  after the entrance and fading out as you zoom in among the stars. */
   private drawLinks() {
@@ -1038,14 +1148,14 @@ export class MosaicView {
     const ends = new Map<string, [number, number]>();
     for (const [x1, y1, x2, y2, k] of this.links) {
       const [a, b] = this.screen(...this.turned(x1, y1)), [c, d] = this.screen(...this.turned(x2, y2));
-      ctx.strokeStyle = `rgba(244, 236, 222, ${(0.22 + 0.35 * Math.max(0, (k - 0.8) / 0.15)) * fade * appear})`;
+      ctx.strokeStyle = `rgba(244, 236, 222, ${(0.22 + 0.35 * Math.max(0, (k - 0.8) / 0.15)) * fade * appear * this.dim()})`;
       ctx.beginPath();
       ctx.moveTo(a, b);
       ctx.lineTo(a + (c - a) * appear, b + (d - b) * appear); // lines draw themselves in
       ctx.stroke();
       ends.set(`${x1},${y1}`, [a, b]).set(`${x2},${y2}`, [c, d]);
     }
-    ctx.strokeStyle = `rgba(244, 236, 222, ${0.7 * fade * appear})`;
+    ctx.strokeStyle = `rgba(244, 236, 222, ${0.7 * fade * appear * this.dim()})`;
     ctx.lineWidth = 1.5;
     for (const [sx, sy] of ends.values()) {
       ctx.beginPath();
@@ -1063,13 +1173,13 @@ export class MosaicView {
   /** Lines from the selected work to the works it's linked to (its look-alikes). */
   private drawLinked(from: number) {
     const ctx = this.overlay, s = this.cam.s;
-    const [fx, fy] = this.screen(...(this.centre(from).slice(0, 2) as [number, number]));
+    const [fx, fy] = this.nudge(...this.screen(...(this.centre(from).slice(0, 2) as [number, number])), from);
     ctx.save();
     ctx.strokeStyle = "rgba(239, 106, 76, 0.75)";
     ctx.lineWidth = 1.25;
     for (const row of this.linked) {
       const [x, y] = this.centre(row);
-      const [sx, sy] = this.screen(x, y);
+      const [sx, sy] = this.nudge(...this.screen(x, y), row);
       ctx.beginPath();
       ctx.moveTo(fx, fy);
       ctx.lineTo(sx, sy);
@@ -1099,6 +1209,7 @@ export class MosaicView {
       const alpha = appear * (level === 0 ? clamp((10 - zoom) / 6) : Math.min(clamp((zoom - 2) / 2), clamp((40 - zoom) / 20)));
       if (alpha <= 0.02) continue;
       const [x, y] = this.screen(...this.turned(l.x, l.y));
+      const lit = this.dim(x, y);
       if (x < -300 || y < -60 || x > this.w + 300 || y > this.h + 60) continue;
       const size = level === 0 ? Math.round(Math.min(22, 12 + Math.sqrt(l.size ?? 400) / 10)) : 11;
       const text = level === 0 ? l.text : l.text.toUpperCase();
@@ -1112,7 +1223,7 @@ export class MosaicView {
       const box: [number, number, number, number] = [x - half - padX, ty - size / 2 - padY, x + half + padX, ty + size / 2 + padY];
       if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) continue;
       placed.push(box);
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = alpha * lit;
       ctx.lineWidth = level === 0 ? 5 : 4;
       ctx.strokeStyle = "rgba(0,0,0,0.65)";
       ctx.strokeText(text, x, ty);
@@ -1125,6 +1236,12 @@ export class MosaicView {
   /** Join the selected work to these works with lines (e.g. its look-alikes in view). */
   linkTo(rows: number[]) {
     this.linked = rows.filter((r) => this.placed.has(r));
+    const sel = this.selected;
+    this.focusRows = sel !== null && this.linked.length ? [sel, ...this.linked].slice(0, 16) : [];
+    this.focusSet = new Set(this.focusRows);
+    if (this.lively && sel !== null && this.linked.length && !reducedMotion()) {
+      this.burst = { ...this.burst, row: sel, t0: performance.now() };
+    }
     this.invalidate();
   }
 
@@ -1145,6 +1262,18 @@ export class MosaicView {
     };
     const touch = () => { this.lastInput = performance.now(); };
     for (const type of ["pointerdown", "pointermove", "wheel", "dblclick"] as const) on(type, touch);
+    // Pointer position and speed, for the push and spotlight.
+    on("pointermove", (e) => {
+      const [x, y] = local(e);
+      const now = performance.now(), p = this.pointer;
+      const ms = Math.max(1, now - (p.movedAt || now));
+      if (p.inside) p.speed = 0.6 * p.speed + 0.4 * (Math.hypot(x - p.x, y - p.y) / ms);
+      p.x = x; p.y = y; p.inside = true; p.movedAt = now;
+      this.invalidate();
+    });
+    on("pointerdown", () => { this.dragging = true; });
+    on("pointerup", () => { this.dragging = false; });
+    on("pointerleave", () => { this.pointer.inside = false; this.dragging = false; });
     on("pointerdown", (e) => {
       c.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });

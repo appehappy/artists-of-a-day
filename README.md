@@ -112,7 +112,11 @@ anchor stars are joined by constellation lines to their most alike systems; syst
 names show from afar (more as you zoom), regions within them closer in. Click a star
 and lines join it to its look-alikes; Surprise me and "More like this" fly to frame a
 work with its look-alikes. It's quietly alive: distant stars glint now and then, and
-when left idle the galaxy turns, about once in half an hour. `build_fields.py --preview out.png` draws the galaxy as an image
+when left idle the galaxy turns, about once in half an hour. It responds to the pointer:
+stars part as it moves through them and settle back when it rests, and a spotlight
+follows it while the rest of the galaxy dims. Selecting a star throws its neighbours
+out and lets them spring back, and dims everything but it and its look-alikes until the
+card is closed. `build_fields.py --preview out.png` draws the galaxy as an image
 for tuning.
 
 **Colour maps** (`/explore/maps`) draws Fabio Crameri's Scientific Colour Maps with
