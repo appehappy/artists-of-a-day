@@ -60,7 +60,30 @@ import clearIcon from "../icons/rotate-cw.svg";
   .summary [data-count] { color: var(--ink); }
   .summary a { color: inherit; text-decoration-style: dotted; text-underline-offset: 3px; }
   .summary a:hover { color: var(--ink); }
-  .filters { display: grid; gap: 8px; }
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; } /* rows no wider than the page */
+  /* From tablet up each row stays on one line; lib/overflow.ts moves what doesn't fit
+     behind a "…" chip whose menu drops below it. */
+  @media (min-width: 721px) {
+    .filters .chips { flex-wrap: nowrap; }
+    .filters .chips > .chip { flex: none; white-space: nowrap; } /* overflow rather than squash */
+  }
+  .filters :global(.chip-more) { position: relative; flex: none; }
+  .filters :global(.chip-more[hidden]) { display: none; }
+  .filters :global(.more-btn) { min-width: 36px; justify-content: center; letter-spacing: 0.08em; }
+  .filters :global(.more-btn.has-active) { background: var(--pick); color: var(--on-pick); border-color: var(--pick); }
+  .filters :global(.chip-menu) {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+    padding: 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    opacity: 0; visibility: hidden; transform: translateY(-4px) scale(0.98); transform-origin: top right;
+    transition: opacity 0.18s var(--ease), transform 0.25s var(--ease), visibility 0s 0.25s;
+  }
+  .filters :global(.chip-more.open .chip-menu) {
+    opacity: 1; visibility: visible; transform: none;
+    transition: opacity 0.18s var(--ease), transform 0.25s var(--ease);
+  }
+  .filters :global(.chip-menu .chip) { white-space: nowrap; }
 
   .masonry { display: flex; gap: 32px; align-items: flex-start; padding: 0 var(--gutter) 24px; }
   /* The colour column runs the wall's full height so that, as it scrolls, the swatches
@@ -122,6 +145,7 @@ import clearIcon from "../icons/rotate-cw.svg";
 <script>
   import { loadArtworks, loadSite, mulberry32, onPage, shuffleInPlace } from "../lib/client";
   import { liquid } from "../lib/liquid";
+  import { overflowRow } from "../lib/overflow";
   import { eraOf } from "../lib/eras";
   import { artworkHasColour, thumbUrl, type ArtworkRow, type Post } from "../lib/types";
 
@@ -172,6 +196,10 @@ import clearIcon from "../icons/rotate-cw.svg";
       fill: (el) => el.dataset.hex!,
     });
 
+    // Filter rows stay on one line (tablet up); what doesn't fit goes behind a "…" chip.
+    const chipRows = ([["disc", "disciplines"], ["era", "eras"], ["region", "regions"]] as const)
+      .map(([group, label]) => overflowRow(document.querySelector<HTMLElement>(`[data-group="${group}"]`)!, label));
+
     const [site, rows] = await Promise.all([loadSite(), loadArtworks()]);
     const artistBySlug = new Map(site.artists.map((a) => [a.slug, a]));
     const postMeta = site.posts.map((p: Post) => {
@@ -191,9 +219,9 @@ import clearIcon from "../icons/rotate-cw.svg";
     let tiles: HTMLElement[] = [];
 
     function syncChips() {
-      document.querySelectorAll<HTMLButtonElement>('[data-group="disc"] .chip').forEach((b) =>
+      document.querySelectorAll<HTMLButtonElement>('[data-group="disc"] .chip[data-value]').forEach((b) =>
         b.setAttribute("aria-pressed", String(state.disc.includes(b.dataset.value!))));
-      document.querySelectorAll<HTMLButtonElement>('[data-group="era"] .chip').forEach((b) =>
+      document.querySelectorAll<HTMLButtonElement>('[data-group="era"] .chip[data-value]').forEach((b) =>
         b.setAttribute("aria-pressed", String(state.era === b.dataset.value)));
       for (const group of ["region", "colour"] as const) {
         document.querySelectorAll<HTMLButtonElement>(`[data-group="${group}"] [data-value]`).forEach((b) =>
@@ -201,6 +229,7 @@ import clearIcon from "../icons/rotate-cw.svg";
       }
       tint();
       swatches.retarget();
+      for (const r of chipRows) r.sync();
       clearBtn.disabled = !(state.disc.length || state.era || state.region || state.colour);
     }
 
@@ -340,13 +369,13 @@ import clearIcon from "../icons/rotate-cw.svg";
     }
 
     // Filters
-    document.querySelectorAll<HTMLButtonElement>('[data-group="disc"] .chip').forEach((b) =>
+    document.querySelectorAll<HTMLButtonElement>('[data-group="disc"] .chip[data-value]').forEach((b) =>
       b.addEventListener("click", () => {
         const v = b.dataset.value!;
         state.disc = state.disc.includes(v) ? state.disc.filter((d) => d !== v) : [...state.disc, v];
         reset();
       }));
-    document.querySelectorAll<HTMLButtonElement>('[data-group="era"] .chip').forEach((b) =>
+    document.querySelectorAll<HTMLButtonElement>('[data-group="era"] .chip[data-value]').forEach((b) =>
       b.addEventListener("click", () => {
         state.era = state.era === b.dataset.value ? null : b.dataset.value!;
         reset();
@@ -393,6 +422,7 @@ import clearIcon from "../icons/rotate-cw.svg";
 
     let resizeTimer = 0;
     const onResize = () => {
+      for (const r of chipRows) r.fit();
       clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(() => { if (columnCount() !== cols.length) layout(); }, 150);
     };
@@ -401,6 +431,7 @@ import clearIcon from "../icons/rotate-cw.svg";
       io.disconnect();
       window.removeEventListener("resize", onResize);
       swatches.destroy();
+      for (const r of chipRows) r.destroy();
     }, { once: true });
   });
 </script>

@@ -86,7 +86,8 @@ needing a human look are listed in `data/review/flagged_posts.csv`.
 ## Site (local only)
 
 An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterable by
-discipline, era and region, with a column of colour swatches beside it and Reshuffle /
+discipline, era and region (each a single row from tablet width up, with a "…" menu
+for what doesn't fit), with a column of colour swatches beside it and Reshuffle /
 Clear filters pinned to the foot of the window), artist pages
 with similar works in the viewer, theme post pages, On this day, Shuffle and artist
 search. The swatches are the same liquid shape as the nav (below): joined
