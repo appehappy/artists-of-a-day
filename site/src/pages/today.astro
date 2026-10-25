@@ -1,31 +1,40 @@
 ---
 import Base from "../layouts/Base.astro";
+import prevIcon from "../icons/chevron-left.svg";
+import nextIcon from "../icons/chevron-right.svg";
 ---
 
 <Base title="On this day">
   <section class="today wrap" data-today>
-    <div class="day-nav">
-      <button type="button" class="arrow" data-step="-1" aria-label="Previous day">‹</button>
-      <div>
-        <p class="kicker muted">On this day</p>
+    <div class="day-head">
+      <div class="date">
+        <p class="summary" data-summary></p>
         <h1 class="serif" data-label>…</h1>
       </div>
-      <button type="button" class="arrow" data-step="1" aria-label="Next day">›</button>
-      <button type="button" class="chip" data-reset>Today</button>
+      <div class="day-nav">
+        <button type="button" class="icon-btn lg" data-step="-1" aria-label="Previous day" title="Previous day">
+          <img src={prevIcon.src} width="12" height="12" alt="" />
+        </button>
+        <button type="button" class="chip" data-reset>Today</button>
+        <button type="button" class="icon-btn lg" data-step="1" aria-label="Next day" title="Next day">
+          <img src={nextIcon.src} width="12" height="12" alt="" />
+        </button>
+      </div>
     </div>
-    <p class="muted" data-summary></p>
     <div class="years" data-years></div>
   </section>
 </Base>
 
 <style>
-  .today { padding-top: 40px; padding-bottom: 64px; }
-  .day-nav { display: flex; align-items: center; gap: 18px; }
-  .kicker { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; }
-  h1 { font-size: clamp(44px, 6vw, 84px); line-height: 1; margin: 4px 0 0; min-width: 6ch; }
-  .arrow { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; width: 44px; height: 44px; font-size: 22px; }
-  .arrow:hover { border-color: var(--muted); }
-  .years { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px 22px; margin-top: 28px; }
+  .today { padding-top: 16px; padding-bottom: 64px; }
+  /* The date: how many features, the day in large serif, and the controls to step it. */
+  .day-head { display: grid; justify-items: start; gap: 15px; }
+  .date { display: grid; gap: 4px; }
+  .summary { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+  h1 { font-size: clamp(52px, 7vw, 84px); line-height: 1; letter-spacing: -0.01em; margin: 0; min-width: 6ch; }
+  .day-nav { display: flex; align-items: center; gap: 8px; }
+  .day-nav .chip { padding-inline: 16px; }
+  .years { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px 22px; margin-top: 32px; }
   .years :global(.card) { text-decoration: none; display: grid; gap: 6px; animation: rise 0.5s var(--ease) both; }
   .years :global(.card .yr) { font: 15px/1 var(--sans); font-weight: 600; letter-spacing: 0.08em; color: var(--accent); }
   .years :global(.card .img) { aspect-ratio: 4 / 5; background: var(--tile); border-radius: 4px; overflow: hidden; }

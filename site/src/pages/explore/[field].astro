@@ -1,4 +1,5 @@
 ---
+import ExploreControls from "../../components/ExploreControls.astro";
 import ExploreSwitch from "../../components/ExploreSwitch.astro";
 import Base from "../../layouts/Base.astro";
 import "../../styles/explore.css";
@@ -34,12 +35,7 @@ const { title, blurb, orbits } = Astro.props;
       <p class="hint">Drag to move · pinch or ⌘-scroll to zoom · click a work</p>
     </div>
 
-    <div class="panel bottom-left controls">
-      <button type="button" data-zoom="1.8" aria-label="Zoom in">+</button>
-      <button type="button" data-zoom="0.55" aria-label="Zoom out">−</button>
-      <button type="button" data-fit>Whole field</button>
-      <button type="button" data-surprise>Surprise me</button>
-    </div>
+    <ExploreControls fitLabel="Whole field" />
 
     <div class="loading" data-loading>{orbits ? "Gathering colours…" : "Gathering 89,000 stars…"}</div>
     <div class="tip" hidden></div>

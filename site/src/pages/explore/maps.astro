@@ -3,6 +3,7 @@
 // archive's closest-matching works fly into place to draw it.
 import fs from "node:fs";
 import path from "node:path";
+import ExploreControls from "../../components/ExploreControls.astro";
 import ExploreSwitch from "../../components/ExploreSwitch.astro";
 import Base from "../../layouts/Base.astro";
 import { cssGradient, SHAPES, type ColourMap } from "../../lib/colourmaps";
@@ -35,6 +36,7 @@ const icons: Record<string, string> = {
     </div>
 
     <div class="panel picker">
+      <section>
       <h4>Shape</h4>
       <div class="shapes">
         {SHAPES.map((s) => (
@@ -44,8 +46,9 @@ const icons: Record<string, string> = {
           </button>
         ))}
       </div>
+      </section>
       {types.map((type) => (
-        <>
+        <section>
           <h4>{type}</h4>
           <div class="maps">
             {data.maps.filter((m) => m.type === type).map((m) => (
@@ -55,22 +58,18 @@ const icons: Record<string, string> = {
               </button>
             ))}
           </div>
-        </>
+        </section>
       ))}
       <label class="amount">
         <span>Works <output data-amount-label>6,000</output></span>
         <input type="range" min="1000" max="20000" step="500" value="6000" data-amount />
       </label>
       <p class="readout" data-readout>…</p>
-      <p class="credit">{data.credit.replace(/ \(doi.*\)/, "")}</p>
+      <a class="credit" href={`https://doi.org/${data.credit.match(/doi:([^)\s]+)/)?.[1] ?? "10.5281/zenodo.1243862"}`}
+         target="_blank" rel="noopener">{data.credit.replace(/ \(doi.*\)/, "")}</a>
     </div>
 
-    <div class="panel bottom-left controls">
-      <button type="button" data-zoom="1.8" aria-label="Zoom in">+</button>
-      <button type="button" data-zoom="0.55" aria-label="Zoom out">−</button>
-      <button type="button" data-fit>Whole shape</button>
-      <button type="button" data-surprise>Surprise me</button>
-    </div>
+    <ExploreControls fitLabel="Whole shape" />
 
     <div class="loading" data-loading>{data.maps.length ? "Gathering 89,000 works…" : "Colour map data isn't built yet. Run scripts/build_colourmaps.py."}</div>
     <div class="tip" hidden></div>
@@ -87,34 +86,53 @@ const icons: Record<string, string> = {
 
 <style>
   .top { z-index: 1; }
+  /* The picker: sections of a heading and its options, 16px apart. */
   .picker {
     top: 16px; right: 16px; bottom: 16px; width: 300px; overflow-y: auto; z-index: 2;
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; flex-direction: column; gap: 16px;
   }
-  .picker h4 { margin: 8px 0 0; font: 500 11px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .shapes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .picker section { display: grid; gap: 12px; }
+  .picker h4 { margin: 0; font: 500 10px/1 var(--sans); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+  /* Shapes: square segments butted together, the chosen one in ink. */
+  .shapes { display: flex; }
   .shapes button {
-    display: grid; justify-items: center; gap: 4px; padding: 8px 4px; border-radius: 10px;
-    border: 1px solid var(--line); background: var(--surface); color: var(--muted); font-size: 12px;
-    transition: all 0.2s var(--ease);
+    flex: 1 1 0; min-width: 0; height: 66px; margin-right: -1px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    border: 1px solid transparent; border-radius: 0; background: var(--surface); color: var(--muted);
+    font-size: 11px; line-height: 1.5; transition: color 0.2s var(--ease), background-color 0.25s var(--ease);
   }
-  .shapes svg { width: 26px; height: 26px; fill: currentColor; stroke: currentColor; }
-  .shapes button:hover { color: var(--ink); border-color: var(--muted); }
-  .shapes button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-  .maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px; }
-  .maps button { border: 0; background: none; padding: 0; text-align: left; color: var(--muted); font-size: 11px; }
-  .maps .swatch {
-    display: block; height: 18px; border-radius: 4px; margin-bottom: 3px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: transform 0.2s var(--ease), box-shadow 0.2s;
+  .shapes button:last-child { margin-right: 0; }
+  .shapes svg { width: 24px; height: 24px; fill: currentColor; stroke: currentColor; }
+  .shapes button:hover { color: var(--ink); }
+  .shapes button[aria-pressed="true"] { position: relative; background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .maps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 5.5px; }
+  .maps button {
+    display: grid; gap: 5px; border: 0; background: none; padding: 0; text-align: left;
+    color: var(--muted); font-size: 10px; line-height: 12px; transition: color 0.2s var(--ease);
   }
-  .maps button:hover .swatch { transform: scaleY(1.2); }
+  .maps .swatch { display: block; height: 18px; transition: transform 0.2s var(--ease), box-shadow 0.2s; }
+  .maps button:hover { color: var(--ink); }
+  .maps button:hover .swatch { transform: scaleY(1.15); }
   .maps button[aria-pressed="true"] { color: var(--ink); }
   .maps button[aria-pressed="true"] .swatch { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--ink); }
-  .amount { display: grid; gap: 6px; margin-top: 10px; font-size: 13px; }
-  .amount output { color: var(--ink); font-weight: 500; margin-left: 4px; }
-  .amount input { width: 100%; accent-color: var(--accent); }
-  .readout { margin: 0; font-size: 12px; color: var(--muted); }
-  .credit { margin: 4px 0 0; font-size: 11px; color: var(--muted); }
+  /* Works: a label and value, then a slim slider whose filled part is ink. */
+  .amount { display: grid; gap: 16px; font-size: 12px; line-height: 1.5; color: var(--ink); }
+  .amount output { font-size: 13px; font-weight: 500; margin-left: 6px; }
+  .amount input {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 16px; margin: 0; background: none; cursor: pointer;
+    --fill: linear-gradient(var(--ink), var(--ink)) 0 / var(--pct, 25%) 100% no-repeat, var(--line);
+  }
+  .amount input::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--fill); }
+  .amount input::-moz-range-track { height: 4px; border-radius: 2px; background: var(--fill); }
+  .amount input::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border: 0; border-radius: 50%; background: var(--ink);
+    transition: transform 0.2s var(--ease);
+  }
+  .amount input::-moz-range-thumb { width: 16px; height: 16px; border: 0; border-radius: 50%; background: var(--ink); }
+  .amount input:active::-webkit-slider-thumb { transform: scale(1.15); }
+  .readout { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+  .credit { margin-top: 12px; font-size: 11px; line-height: 1.5; color: var(--muted); }
+  .credit:hover { color: var(--ink); }
   .card { z-index: 4; }
   @media (max-width: 720px) {
     .picker { top: auto; left: 16px; width: auto; height: 42%; }
@@ -218,6 +236,10 @@ const icons: Record<string, string> = {
     const amount = root.querySelector<HTMLInputElement>("[data-amount]")!;
     const amountLabel = root.querySelector("[data-amount-label]")!;
     amount.value = String(state.n);
+    // The slider's filled part runs up to the thumb.
+    const fillSlider = () => amount.style.setProperty("--pct",
+      `${((Number(amount.value) - Number(amount.min)) / (Number(amount.max) - Number(amount.min))) * 100}%`);
+    fillSlider();
 
     // Matching takes up to a second, so it runs in a worker and the page stays
     // responsive (on the main thread if workers aren't available).
@@ -269,7 +291,7 @@ const icons: Record<string, string> = {
       b.addEventListener("click", () => { state.shape = b.dataset.shape as ShapeKey; apply(); }));
     root.querySelectorAll<HTMLButtonElement>("[data-map]").forEach((b) =>
       b.addEventListener("click", () => { state.map = b.dataset.map!; apply(); }));
-    amount.addEventListener("input", () => { amountLabel.textContent = Number(amount.value).toLocaleString(); });
+    amount.addEventListener("input", () => { amountLabel.textContent = Number(amount.value).toLocaleString(); fillSlider(); });
     amount.addEventListener("change", () => { state.n = Number(amount.value); apply(); });
     root.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) =>
       b.addEventListener("click", () => view!.flyTo({ s: view!.cam.s * Number(b.dataset.zoom) }, 350)));

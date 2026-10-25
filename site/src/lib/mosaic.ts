@@ -41,6 +41,9 @@ export interface Layout {
   labels?: { text: string; x: number; y: number; size?: number; level?: number }[];
   /** Ambient life (Constellation): distant tiles glint now and then. */
   twinkle?: boolean;
+  /** Fit the view to all but this share of tiles at each edge (0–0.5), so a sparse halo
+   *  of outliers doesn't shrink the whole (Constellation). Default 0: every tile. */
+  fitTrim?: number;
   /** Responsive (Constellation): tiles the pointer brushes past are knocked aside and
    *  spring back, each in its own way, and the area around it is lit; selecting a
    *  work knocks its neighbours out and back, and dims all but it and its links. */
@@ -626,6 +629,12 @@ export class MosaicView {
       const r = shaped ? Math.max(layout.w![i], layout.h![i]) / 2 : 0.5;
       x0 = Math.min(x0, centreX(i) - r); y0 = Math.min(y0, centreY(i) - r);
       x1 = Math.max(x1, centreX(i) + r); y1 = Math.max(y1, centreY(i) + r);
+    }
+    if (layout.fitTrim) { // the extent of all but the outermost few, along each axis
+      const n = layout.rows.length, lo = Math.floor(layout.fitTrim * n), hi = Math.max(lo, n - 1 - lo);
+      const xs = Float32Array.from({ length: n }, (_, i) => centreX(i)).sort();
+      const ys = Float32Array.from({ length: n }, (_, i) => centreY(i)).sort();
+      [x0, x1, y0, y1] = [xs[lo] - 0.5, xs[hi] + 0.5, ys[lo] - 0.5, ys[hi] + 0.5];
     }
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     this.bounds = { x0: x0 - cx, y0: y0 - cy, x1: x1 - cx, y1: y1 - cy };

@@ -1,0 +1,22 @@
+---
+// The Explore views' camera controls, bottom left: zoom in and out, fit the whole
+// thing, and jump to a random work.
+import minusIcon from "../icons/minus.svg";
+import plusIcon from "../icons/plus.svg";
+
+interface Props {
+  fitLabel: string;
+}
+const { fitLabel } = Astro.props;
+---
+
+<div class="bottom-left controls">
+  <button type="button" class="icon-btn" data-zoom="1.8" aria-label="Zoom in" title="Zoom in">
+    <img src={plusIcon.src} width="12" height="12" alt="" />
+  </button>
+  <button type="button" class="icon-btn" data-zoom="0.55" aria-label="Zoom out" title="Zoom out">
+    <img src={minusIcon.src} width="12" height="12" alt="" />
+  </button>
+  <button type="button" class="chip" data-fit>{fitLabel}</button>
+  <button type="button" class="chip" data-surprise>Surprise me</button>
+</div>

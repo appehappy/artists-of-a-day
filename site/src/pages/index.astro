@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 import { artists, colours, disciplines, regions } from "../lib/data";
 import { ERAS } from "../lib/eras";
 import shuffleIcon from "../icons/shuffle.svg";
-import clearIcon from "../icons/rotate-cw.svg";
+import clearIcon from "../icons/x.svg";
 ---
 
 <Base>
@@ -97,13 +97,6 @@ import clearIcon from "../icons/rotate-cw.svg";
     padding: 2px 8px; margin: 0 -8px; /* a wider column to hover and click in */
   }
   .wall-actions { position: sticky; bottom: 24px; display: flex; flex-direction: column; gap: 8px; }
-  .icon-btn {
-    display: grid; place-items: center; width: 24px; height: 24px; padding: 0;
-    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
-    transition: border-color 0.2s var(--ease), opacity 0.3s var(--ease);
-  }
-  .icon-btn:hover { border-color: var(--muted); }
-  .icon-btn:disabled { opacity: 0.35; cursor: default; border-color: var(--line); }
   .icon-btn img { transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
   .icon-btn.jiggle img { animation: jiggle 0.45s var(--ease); } /* Reshuffle: a shake of the deck */
   @keyframes jiggle { 25% { transform: translateX(-2px) rotate(-8deg); } 60% { transform: translateX(2px) rotate(8deg); } }
@@ -396,8 +389,8 @@ import clearIcon from "../icons/rotate-cw.svg";
     });
     let clearTurns = 0;
     clearBtn.addEventListener("click", () => {
-      clearTurns++; // Clear: its arrow takes one more turn, back to the start
-      clearBtn.querySelector("img")!.style.transform = `rotate(${clearTurns * 360}deg)`;
+      clearTurns++; // Clear: its × gives a quarter turn
+      clearBtn.querySelector("img")!.style.transform = `rotate(${clearTurns * 90}deg)`;
       Object.assign(state, { disc: [], era: null, region: null, colour: null });
       reset();
     });
