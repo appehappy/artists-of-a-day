@@ -166,7 +166,8 @@ import clearIcon from "../icons/rotate-cw.svg";
     const swatchCol = document.querySelector<HTMLElement>(".swatches")!;
     const swatches = liquid(swatchCol, [...swatchCol.querySelectorAll<HTMLElement>(".swatch")], {
       axis: getComputedStyle(swatchCol).flexDirection === "row" ? "x" : "y",
-      joined: 3, apart: 9, nudge: 5.5, blur: 4.2, outline: true, intro: !restoring, // the goo lets go past ~6.5px
+      // The goo lets go past ~6.5px: hovered and chosen dots pinch off into clean circles.
+      joined: 3, apart: 12, nudge: 9, blur: 4.2, outline: true, intro: !restoring,
       isApart: (el) => el.getAttribute("aria-pressed") === "true",
       fill: (el) => el.dataset.hex!,
     });

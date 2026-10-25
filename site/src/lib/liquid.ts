@@ -2,21 +2,22 @@
 // item gets a blob in an SVG behind it, and a "goo" filter (blur, then a hard alpha
 // threshold) merges blobs that come within a few pixels, so neighbours join with soft
 // waists and colours run into each other at the joins. The gaps between items are
-// springs: an item marked apart (the current page, the chosen colour) stretches away
-// until its neck pinches off; a hovered one eases a little apart, still joined. A
+// springs, played out as sub-pixel transforms (layout stays put, so nothing steps a
+// pixel at a time or reflows): an item marked apart (the current page, the chosen
+// colour) stretches away until its neck pinches off; a hovered one eases apart too. A
 // faint glow follows the pointer, masked by the same merged shape so it flows over
 // the joins. Used by the header nav and the Wall's colour column.
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const SVG = "http://www.w3.org/2000/svg";
-const STIFFNESS = 80, DAMPING = 10.5; // a little under critical: a soft overshoot
+const STIFFNESS = 170, DAMPING = 20; // brisk, just under critical: a hint of overshoot
 let instances = 0;
 
 export interface LiquidOptions {
   axis: "x" | "y";
   joined: number; // px between neighbours at rest
   apart: number; // either side of an item marked apart (the goo lets go past ~4.5)
-  nudge: number; // either side of a hovered item: stretched, but still joined
+  nudge: number; // either side of a hovered item (under the goo's reach, it stays joined)
   isApart: (el: HTMLElement) => boolean;
   fill: (el: HTMLElement) => string; // a CSS colour for its blob
   blur?: number; // the goo's blur (px, default 3): blobs join while closer than ~1.5x this
@@ -56,8 +57,10 @@ export function liquid(root: HTMLElement, items: HTMLElement[], o: LiquidOptions
   const masks = [...svg.querySelectorAll<SVGRectElement>("mask rect")];
   const glow = svg.querySelector<SVGCircleElement>(".liquid-glow")!;
 
-  // gaps[k] sits between items k and k + 1: that item's left (or top) margin.
+  // gaps[k] sits between items k and k + 1. In layout every gap is `joined` (a margin);
+  // the springs' differences from that are played out as transforms.
   const gaps: Gap[] = items.slice(1).map(() => ({ at: o.joined, v: 0, to: o.joined, delay: 0 }));
+  items.slice(1).forEach((el) => { el.style[x ? "marginLeft" : "marginTop"] = `${o.joined}px`; });
   let hovered: HTMLElement | null = null;
   const retarget = () => {
     const apart = items.filter(o.isApart);
@@ -96,15 +99,22 @@ export function liquid(root: HTMLElement, items: HTMLElement[], o: LiquidOptions
     frame = moving ? requestAnimationFrame(step) : 0;
   }
   function draw() {
-    gaps.forEach((g, k) => { items[k + 1].style[x ? "marginLeft" : "marginTop"] = `${g.at.toFixed(2)}px`; });
+    let shift = 0;
     items.forEach((el, i) => {
-      const h = el.offsetHeight, w = el.offsetWidth;
+      if (i) shift += gaps[i - 1].at - o.joined;
+      el.style.transform = shift ? `translate${x ? "X" : "Y"}(${shift.toFixed(3)}px)` : "";
+    });
+    const r = root.getBoundingClientRect();
+    const k = root.offsetWidth / r.width || 1; // screen px to the SVG's own (if anything's scaled)
+    items.forEach((el, i) => {
+      const b = el.getBoundingClientRect(); // where it is now, transform included
+      const w = b.width * k, h = b.height * k;
       for (const rect of [blobs[i], masks[i]]) {
-        rect.setAttribute("x", String(el.offsetLeft));
-        rect.setAttribute("y", String(el.offsetTop));
-        rect.setAttribute("width", String(w));
-        rect.setAttribute("height", String(h));
-        rect.setAttribute("rx", String(Math.min(w, h) / 2));
+        rect.setAttribute("x", ((b.left - r.left) * k).toFixed(3));
+        rect.setAttribute("y", ((b.top - r.top) * k).toFixed(3));
+        rect.setAttribute("width", w.toFixed(3));
+        rect.setAttribute("height", h.toFixed(3));
+        rect.setAttribute("rx", (Math.min(w, h) / 2).toFixed(3));
       }
     });
   }
@@ -114,16 +124,16 @@ export function liquid(root: HTMLElement, items: HTMLElement[], o: LiquidOptions
   // nearer — otherwise a neighbour sliding under the pointer would take over, and on.
   const STICK = 5; // px
   const along = (el: HTMLElement, at: number) => {
-    const start = x ? el.offsetLeft : el.offsetTop, end = start + (x ? el.offsetWidth : el.offsetHeight);
+    const b = el.getBoundingClientRect();
+    const start = x ? b.left : b.top, end = x ? b.right : b.bottom;
     return Math.max(start - at, 0, at - end);
   };
   root.addEventListener("pointermove", (e) => {
-    const r = root.getBoundingClientRect();
-    const px = e.clientX - r.left, py = e.clientY - r.top;
-    glow.setAttribute("cx", String(px));
-    glow.setAttribute("cy", String(py));
+    const r = root.getBoundingClientRect(), k = root.offsetWidth / r.width || 1;
+    glow.setAttribute("cx", String((e.clientX - r.left) * k));
+    glow.setAttribute("cy", String((e.clientY - r.top) * k));
     glow.classList.add("on");
-    const at = x ? px : py;
+    const at = x ? e.clientX : e.clientY;
     const nearest = items.reduce((a, b) => (along(b, at) < along(a, at) ? b : a));
     if (nearest !== hovered && (!hovered || along(nearest, at) + STICK < along(hovered, at))) {
       hovered = nearest;
