@@ -455,6 +455,8 @@ export class MosaicView {
     if (!gl) throw new Error("WebGL2 is not available");
     this.gl = gl;
     this.overlay = top.getContext("2d")!;
+    // Names are measured once and cached; measure again once the web fonts arrive.
+    document.fonts?.ready.then(() => { this.textWidths.clear(); this.invalidate(); });
     this.n = atlas.count;
     this.from = new Float32Array(this.n * 3);
     this.to = new Float32Array(this.n * 3);
@@ -1519,8 +1521,8 @@ export class MosaicView {
       if (x < -300 || y < -60 || x > this.w + 300 || y > this.h + 60) continue;
       const size = level === 0 ? Math.round(Math.min(22, 12 + Math.sqrt(l.size ?? 400) / 10)) : 11;
       const text = level === 0 ? l.text : l.text.toUpperCase();
-      ctx.font = level === 0 ? `400 ${size}px "Instrument Serif", Georgia, serif`
-                             : `600 ${size}px Inter, system-ui, sans-serif`;
+      ctx.font = level === 0 ? `400 ${size}px Imbue, Georgia, serif`
+                             : `600 ${size}px "Google Sans", system-ui, sans-serif`;
       ctx.letterSpacing = level === 0 ? "0px" : "1.2px";
       const ty = level === 0 ? y - Math.max(14, 1.7 * this.cam.s + 12) : y; // a system's name sits above its brightest star
       const key = `${ctx.font}|${ctx.letterSpacing}|${text}`;

@@ -52,7 +52,7 @@ export function overflowRow(row: HTMLElement, label: string) {
   document.addEventListener("keydown", onKey);
   wide.addEventListener("change", fit);
   fit();
-  document.fonts?.ready.then(fit); // widths change once Inter arrives
+  document.fonts?.ready.then(fit); // widths change once the web font arrives
 
   return {
     fit,

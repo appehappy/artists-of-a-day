@@ -7,8 +7,8 @@
   --accent: #c8432a;
   --tile: #e7e2d7;
   --overlay: rgba(20, 18, 15, 0.72);
-  --serif: "Instrument Serif", "Iowan Old Style", Georgia, serif;
-  --sans: "Inter", system-ui, -apple-system, sans-serif;
+  --serif: "Imbue", "Iowan Old Style", Georgia, serif;
+  --sans: "Google Sans", system-ui, -apple-system, sans-serif;
   --gutter: clamp(16px, 3vw, 40px);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --header-h: 80px;
