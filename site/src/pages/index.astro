@@ -70,7 +70,8 @@ import clearIcon from "../icons/rotate-cw.svg";
      the chosen colour standing apart. */
   .swatches {
     position: sticky; top: calc(var(--header-h) + 16px);
-    display: flex; flex-direction: column; align-items: flex-start; padding: 2px 0;
+    display: flex; flex-direction: column; align-items: flex-start;
+    padding: 2px 8px; margin: 0 -8px; /* a wider column to hover and click in */
   }
   .wall-actions { position: sticky; bottom: 24px; display: flex; flex-direction: column; gap: 8px; }
   .icon-btn {
@@ -165,7 +166,7 @@ import clearIcon from "../icons/rotate-cw.svg";
     const swatchCol = document.querySelector<HTMLElement>(".swatches")!;
     const swatches = liquid(swatchCol, [...swatchCol.querySelectorAll<HTMLElement>(".swatch")], {
       axis: getComputedStyle(swatchCol).flexDirection === "row" ? "x" : "y",
-      joined: 1, apart: 6, nudge: 3.5, outline: true, intro: !restoring,
+      joined: 3, apart: 9, nudge: 5.5, blur: 4.2, outline: true, intro: !restoring, // the goo lets go past ~6.5px
       isApart: (el) => el.getAttribute("aria-pressed") === "true",
       fill: (el) => el.dataset.hex!,
     });

@@ -19,6 +19,7 @@ export interface LiquidOptions {
   nudge: number; // either side of a hovered item: stretched, but still joined
   isApart: (el: HTMLElement) => boolean;
   fill: (el: HTMLElement) => string; // a CSS colour for its blob
+  blur?: number; // the goo's blur (px, default 3): blobs join while closer than ~1.5x this
   outline?: boolean; // a hairline (--line) round the whole shape, for dark fills
   intro?: boolean; // first time: each blob buds out of the one before it
 }
@@ -42,7 +43,7 @@ export function liquid(root: HTMLElement, items: HTMLElement[], o: LiquidOptions
   svg.innerHTML = `
     <defs>
       <filter id="${id}-goo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
-        <feGaussianBlur in="SourceGraphic" stdDeviation="3" />
+        <feGaussianBlur in="SourceGraphic" stdDeviation="${o.blur ?? 3}" />
         <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 16 -7" result="goo" />${edge}
       </filter>
       <radialGradient id="${id}-glow" class="liquid-glow-fill"><stop offset="0" /><stop offset="1" /></radialGradient>
@@ -108,18 +109,40 @@ export function liquid(root: HTMLElement, items: HTMLElement[], o: LiquidOptions
     });
   }
 
-  for (const el of items) el.addEventListener("pointerenter", () => { hovered = el; retarget(); });
+  // Hover: the item nearest the pointer, along the row. Hovering moves things (the
+  // hovered item eases apart), so stick with the current one until another is clearly
+  // nearer — otherwise a neighbour sliding under the pointer would take over, and on.
+  const STICK = 5; // px
+  const along = (el: HTMLElement, at: number) => {
+    const start = x ? el.offsetLeft : el.offsetTop, end = start + (x ? el.offsetWidth : el.offsetHeight);
+    return Math.max(start - at, 0, at - end);
+  };
+  root.addEventListener("pointermove", (e) => {
+    const r = root.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    glow.setAttribute("cx", String(px));
+    glow.setAttribute("cy", String(py));
+    glow.classList.add("on");
+    const at = x ? px : py;
+    const nearest = items.reduce((a, b) => (along(b, at) < along(a, at) ? b : a));
+    if (nearest !== hovered && (!hovered || along(nearest, at) + STICK < along(hovered, at))) {
+      hovered = nearest;
+      retarget();
+    }
+  });
   root.addEventListener("pointerleave", () => {
     hovered = null;
     retarget();
     glow.classList.remove("on");
   });
-  root.addEventListener("pointermove", (e) => {
-    const r = root.getBoundingClientRect();
-    glow.setAttribute("cx", String(e.clientX - r.left));
-    glow.setAttribute("cy", String(e.clientY - r.top));
-    glow.classList.add("on");
-  });
+  // A click goes to the item that's showing as hovered, gaps between items included
+  // (keyboard presses, detail 0, go where the focus is).
+  root.addEventListener("click", (e) => {
+    if (!hovered || e.detail === 0 || hovered.contains(e.target as Node)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    hovered.click();
+  }, true);
   const onResize = () => draw();
   addEventListener("resize", onResize);
   draw();
