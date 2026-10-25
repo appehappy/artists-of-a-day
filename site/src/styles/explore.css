@@ -38,7 +38,7 @@
   position: absolute; z-index: 3; pointer-events: none; max-width: 260px;
   background: var(--ink); color: var(--bg); padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.35;
 }
-.tip b { display: block; margin-bottom: 2px; font: 15px/1.2 var(--serif); font-weight: 400; }
+.tip b { display: block; margin-bottom: 2px; font: 500 13px/1.25 var(--sans); }
 
 .card {
   position: absolute; z-index: 3; top: 16px; right: 16px; bottom: 16px; width: min(360px, calc(100% - 32px));
@@ -51,7 +51,7 @@
 .card-close { position: absolute; top: 8px; right: 10px; border: 0; background: none; font-size: 24px; color: var(--muted); }
 .card-img { border-radius: 8px; overflow: hidden; background: var(--tile); margin: 18px 0 14px; }
 .card-img img { width: 100%; max-height: 52vh; object-fit: contain; display: block; }
-.card-artist { display: block; font-size: 30px; line-height: 1.05; text-decoration: none; }
+.card-artist { display: block; font: 400 22px/1.15 var(--sans); letter-spacing: -0.01em; text-decoration: none; }
 .card-meta { margin: 6px 0 10px; color: var(--muted); font-size: 14px; }
 .card-open { color: var(--accent); text-decoration: none; font-size: 14px; }
 .card h3 { font: 12px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; }

@@ -454,7 +454,9 @@ export class MosaicView {
 
   constructor(private canvas: HTMLCanvasElement, private top: HTMLCanvasElement, base: string,
               atlas: AtlasInfo, uvs: Float32Array, private opts: MosaicOptions) {
-    const gl = canvas.getContext("webgl2", { antialias: false, premultipliedAlpha: true });
+    // ?capture keeps the drawn frame readable, so a page capture (e.g. into Figma) gets it.
+    const keep = new URLSearchParams(location.search).has("capture");
+    const gl = canvas.getContext("webgl2", { antialias: false, premultipliedAlpha: true, preserveDrawingBuffer: keep });
     if (!gl) throw new Error("WebGL2 is not available");
     this.gl = gl;
     this.overlay = top.getContext("2d")!;
@@ -1528,10 +1530,11 @@ export class MosaicView {
       const [x, y] = this.screen(...this.turned(l.x, l.y));
       const lit = this.dim(x, y);
       if (x < -300 || y < -60 || x > this.w + 300 || y > this.h + 60) continue;
-      const size = level === 0 ? Math.round(Math.min(22, 12 + Math.sqrt(l.size ?? 400) / 10)) : 11;
+      // Systems in light Google Sans (bigger ones still win where names would crowd);
+      // the regions within them in small caps.
+      const size = level === 0 ? 12 : 11;
       const text = level === 0 ? l.text : l.text.toUpperCase();
-      ctx.font = level === 0 ? `400 ${size}px Imbue, Georgia, serif`
-                             : `600 ${size}px "Google Sans", system-ui, sans-serif`;
+      ctx.font = `${level === 0 ? 300 : 600} ${size}px "Google Sans", system-ui, sans-serif`;
       ctx.letterSpacing = level === 0 ? "0px" : "1.2px";
       const ty = level === 0 ? y - Math.max(14, 1.7 * this.cam.s + 12) : y; // a system's name sits above its brightest star
       const key = `${ctx.font}|${ctx.letterSpacing}|${text}`;
@@ -1544,8 +1547,8 @@ export class MosaicView {
       if (placed.some((p) => box[0] < p[2] && box[2] > p[0] && box[1] < p[3] && box[3] > p[1])) continue;
       placed.push(box);
       ctx.globalAlpha = alpha * lit;
-      ctx.lineWidth = level === 0 ? 5 : 4;
-      ctx.strokeStyle = "rgba(0,0,0,0.65)";
+      ctx.lineWidth = 3; // a soft dark edge keeps names legible over bright stars
+      ctx.strokeStyle = "rgba(0,0,0,0.5)";
       ctx.strokeText(text, x, ty);
       ctx.fillStyle = "#fff";
       ctx.fillText(text, x, ty);
