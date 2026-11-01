@@ -9,7 +9,7 @@ const { title } = Astro.props;
 const path = Astro.url.pathname;
 const nav = [
   { href: "/", label: "Wall", match: (p: string) => p === "/" },
-  { href: "/explore/constellation", label: "Explore", match: (p: string) => p.startsWith("/explore") },
+  { href: "/explore/colour", label: "Explore", match: (p: string) => p.startsWith("/explore") },
   { href: "/today", label: "On this day", match: (p: string) => p === "/today" },
 ];
 

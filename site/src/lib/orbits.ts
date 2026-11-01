@@ -1,4 +1,4 @@
-// Orbits: the Colour Field, after Alma Thomas — a dark sun at the centre, ringed by
+// Orbits: the Colour Field, after Alma Thomas — an open centre, ringed by
 // pills of the archive's most colourful works, hue changing ring by ring from green
 // and teal at the centre through blue, purple, red and orange to yellow at the edge.
 // Every pill is the same size, evenly spaced along its ring. Works are placed by their
@@ -24,7 +24,6 @@ export function oklabToRgb(L: number, a: number, b: number): [number, number, nu
 
 const START_HUE = 122; // OKLab hue (degrees) of the innermost ring: green, so the
 // sequence ends on yellow at the edge
-const SUN = oklabToRgb(0.24, -0.015, -0.045); // deep blue-black, as in Thomas's "The Eclipse"
 const PILL_W = 1.6; // cells, along the ring
 const PILL_H = 1; // cells, across it
 const SPACING = 0.18; // cells between pills along a ring
@@ -109,7 +108,8 @@ export function orbitLayout(sig: Float32Array, count: number): Layout {
     }
   });
   return {
-    ...layout, disc: { x: 0, y: 0, r: geo.sun, rgb: SUN }, stagger: 2400, enter: "spiral",
+    // The open centre is undrawn: it only places the loading clock and the drift's pivot.
+    ...layout, disc: { x: 0, y: 0, r: geo.sun, rgb: null }, stagger: 2400, enter: "spiral",
     // A selection: the rest dimmed to 88%, fine white lines to its look-alikes,
     // a small dot at each end rather than circles.
     focusDim: 0.88, linkColour: "rgba(255, 255, 255, 0.88)", linkWidth: 0.8, linkRings: false,

@@ -100,19 +100,19 @@ its neck pinches off while the old one flows back in; hovering eases a pill apar
 faint glow follows the pointer; on first load each pill buds out of the one before.
 Shuffle shuffles its letters before it picks an artist.
 
-Explore (prototypes) has three views:
+Explore (prototypes) opens on the Colour Field; its three views, in tab order:
 
 **Colour Field** (after Alma Thomas) shows the archive's 12,000 most colourful works as
-pills in concentric rings around a dark sun, green at the centre through blue, purple,
+pills in concentric rings around an open centre, green at the centre through blue, purple,
 red and orange to yellow at the edge. Works are placed by their signature colour: their
 tile's strongest hue among coloured pixels (from `build_colourmaps.py`), so a
 red-and-white poster counts as red, and every hue gets rings in proportion to the square
 root of how common it is. Every pill is the same size and evenly spaced along its ring.
-The rings appear at once in flat colour and spiral out from the sun while the sprite
-sheets load (a clock round the sun's rim shows progress); images fade in as each sheet
+The rings appear at once in flat colour and spiral out from the centre while the sprite
+sheets load (a clock round the open centre shows progress); images fade in as each sheet
 arrives. After a few idle seconds the rings drift, alternate rings turning opposite
 ways and slower close up; any input stops them. Selecting a work dims everything else
-to 88% (the sun too), leaving it and its look-alikes lit and joined by fine white lines with a small dot at each end.
+to 88%, leaving it and its look-alikes lit and joined by fine white lines with a small dot at each end.
 
 **Constellation** is a galaxy of visual likeness, every work a star (built by
 `build_fields.py` into `site/public/fields/constellation/`, not part of `refresh.py`
