@@ -175,8 +175,17 @@ The site is hosted at **archive.appppe.com/experiments/artists-of-a-day/**:
 - **The pages** are their own Netlify site. `npm run build:archive` builds them under
   that path (`SITE_BASE`), one `.html` file per page so Netlify serves them without
   redirects. `site/netlify.toml` sets caching.
-- **The images** live in a Cloudflare R2 bucket; the build points `/img` and `/thumbs`
-  at it (`PUBLIC_IMAGE_BASE`). `scripts/upload_images.sh` uploads new ones (rclone).
+- **The images** live in a Bunny storage zone, served through its pull zone; the build
+  points `/img` and `/thumbs` at it (`PUBLIC_IMAGE_BASE`). The pull zone caches them for
+  a year and sends CORS headers (Explore draws thumbnails into WebGL).
+  `scripts/upload_images.sh` uploads new ones (rclone), through the zone's S3 API. The
+  rclone remote, once (the secret is the zone's password, Storage → Access → S3):
+
+  ```bash
+  rclone config create bunny s3 provider=Other access_key_id=artists-of-a-day \
+    endpoint=https://de-s3.storage.bunnycdn.com region=de no_check_bucket=true
+  read -rs "key?Bunny storage password: " && echo && rclone config update bunny secret_access_key="$key"; unset key
+  ```
 - **The archive site** serves the path by proxying it to this one. In its
   `netlify.toml`:
 
@@ -197,6 +206,6 @@ The site is hosted at **archive.appppe.com/experiments/artists-of-a-day/**:
 
   ```bash
   cp scripts/deploy.env.example scripts/deploy.env   # then fill it in, once
-  scripts/upload_images.sh                           # new images to R2
+  scripts/upload_images.sh                           # new images to Bunny
   scripts/deploy_archive.sh                          # build and deploy the pages
   ```
