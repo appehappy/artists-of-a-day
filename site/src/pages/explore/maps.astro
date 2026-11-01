@@ -143,6 +143,7 @@ const icons: Record<string, string> = {
   import { loadArtworks, loadSite, onPage } from "../../lib/client";
   import { makeShape, match, SHAPES, type ColourMap, type Match, type ShapeKey } from "../../lib/colourmaps";
   import { loadMosaicData, MosaicView } from "../../lib/mosaic";
+  import { at } from "../../lib/paths";
   import { imgUrl, thumbUrl } from "../../lib/types";
 
   let view: MosaicView | null = null;
@@ -154,7 +155,7 @@ const icons: Record<string, string> = {
     try {
       [site, rows, data, maps] = await Promise.all([
         loadSite(), loadArtworks(), loadMosaicData(),
-        fetch("/fields/maps/maps.json").then((r) => { if (!r.ok) throw new Error(); return r.json(); }).then((d) => d.maps),
+        fetch(at("fields/maps/maps.json")).then((r) => { if (!r.ok) throw new Error(); return r.json(); }).then((d) => d.maps),
       ]);
     } catch {
       loading.textContent = "Colour map data isn't built yet. Run scripts/build_colourmaps.py, then reload.";
@@ -167,7 +168,7 @@ const icons: Record<string, string> = {
       const [pi, file, , , year, title] = rows[row];
       const post = site.posts[pi];
       const artist = post.artist ? bySlug.get(post.artist) : undefined;
-      const href = `${artist ? `/artist/${artist.slug}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}`;
+      const href = `${at(artist ? `artist/${artist.slug}` : `post/${post.id}`)}?art=${encodeURIComponent(file)}`;
       return { post, file, artist, href, name: artist?.name ?? post.subject ?? "",
                work: [title, year].filter(Boolean).join(", ") };
     };

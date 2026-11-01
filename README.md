@@ -83,7 +83,7 @@ title/year, image kind) are heuristics; raw titles, labels and captions are kept
 beside them. Wikidata replaces parsed life dates where it has a birth year. Posts
 needing a human look are listed in `data/review/flagged_posts.csv`.
 
-## Site (local only)
+## Site
 
 An Astro site in `site/`: the Wall (shuffled masonry of every artwork, filterable by
 discipline, era and region (each a single row from tablet width up, with a "…" menu
@@ -157,12 +157,46 @@ and back; "More like this" hops between works inside the viewer; pages rise in.
 All motion respects `prefers-reduced-motion`.
 
 ```bash
-ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/originals site/public/img
-ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/thumbs site/public/thumbs
+mkdir -p site/media
+ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/originals site/media/img
+ln -sfn ~/Dropbox/ArtistOfTheDayArchive/images/thumbs site/media/thumbs
 npm --prefix site install
 npm --prefix site run dev             # http://localhost:4321
 ```
 
-Only `npm run dev` is supported for now: `astro build` would copy the image symlinks
-into `dist/`. Publishing needs an image host first. The site shows factual metadata
+The images (`site/media`, ~13 GB) sit outside `public/`, so a build never copies them;
+the dev server serves them at `/img` and `/thumbs`. The site shows factual metadata
 and captions only, never the author's post text.
+
+### Hosting
+
+The site is hosted at **archive.appppe.com/experiments/artists-of-a-day/**:
+
+- **The pages** are their own Netlify site. `npm run build:archive` builds them under
+  that path (`SITE_BASE`), one `.html` file per page so Netlify serves them without
+  redirects. `site/netlify.toml` sets caching.
+- **The images** live in a Cloudflare R2 bucket; the build points `/img` and `/thumbs`
+  at it (`PUBLIC_IMAGE_BASE`). `scripts/upload_images.sh` uploads new ones (rclone).
+- **The archive site** serves the path by proxying it to this one. In its
+  `netlify.toml`:
+
+  ```toml
+  [[redirects]]
+    from = "/experiments/artists-of-a-day"
+    to = "/experiments/artists-of-a-day/"
+    status = 301
+
+  [[redirects]]
+    from = "/experiments/artists-of-a-day/*"
+    to = "https://YOUR-SITE.netlify.app/:splat"
+    status = 200
+    force = true
+  ```
+
+- **Deploying**: the generated data isn't in git, so deploys go from this Mac:
+
+  ```bash
+  cp scripts/deploy.env.example scripts/deploy.env   # then fill it in, once
+  scripts/upload_images.sh                           # new images to R2
+  scripts/deploy_archive.sh                          # build and deploy the pages
+  ```

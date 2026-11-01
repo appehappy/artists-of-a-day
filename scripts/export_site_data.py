@@ -4,7 +4,7 @@ Writes site/public/data/site.json (posts, artists, disciplines, regions, colours
 site/public/data/artworks.json (compact rows for the Wall) and
 site/public/data/similar/<post index>.json (similar works, loaded on demand).
 An image's URL is /img/<post dir>/<file> and its thumbnail /thumbs/<post dir>/<stem>.webp;
-site/public/img and site/public/thumbs are symlinks into the Dropbox images folder.
+site/media/img and site/media/thumbs are symlinks into the Dropbox images folder.
 
 The author's prose is never exported — only factual metadata and captions.
 

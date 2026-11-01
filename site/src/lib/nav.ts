@@ -8,11 +8,14 @@
 import { navigate } from "astro:transitions/client";
 import { loadSite } from "./client";
 import { liquid } from "./liquid";
+import { at, route } from "./paths";
 
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const isCurrent = (href: string, path: string) =>
-  href === "/" ? path === "/" : path.startsWith(href.replace(/\/[^/]*$/, "") || href);
+const isCurrent = (href: string, path: string) => {
+  [href, path] = [route(href), route(path)];
+  return href === "/" ? path === "/" : path.startsWith(href.replace(/\/[^/]*$/, "") || href);
+};
 
 let shape: ReturnType<typeof liquid> | null = null;
 
@@ -43,7 +46,7 @@ export function mountNav(nav: HTMLElement) {
   shuffle.addEventListener("click", async () => {
     const pick = loadSite().then(({ artists }) => artists[Math.floor(Math.random() * artists.length)].slug);
     if (!reducedMotion()) await scramble(shuffle);
-    navigate(`/artist/${await pick}`);
+    navigate(at(`artist/${await pick}`));
   });
 }
 

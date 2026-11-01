@@ -49,6 +49,7 @@ import nextIcon from "../icons/chevron-right.svg";
 
 <script>
   import { loadSite, onPage } from "../lib/client";
+  import { at } from "../lib/paths";
   import { thumbUrl } from "../lib/types";
 
   const LEAP_YEAR = 2024; // any leap year, so Feb 29 is reachable
@@ -77,7 +78,7 @@ import nextIcon from "../icons/chevron-right.svg";
       years.replaceChildren(...hits.map((p, n) => {
         const a = document.createElement("a");
         a.className = "card";
-        a.href = p.artist ? `/artist/${p.artist}` : `/post/${p.id}`;
+        a.href = at(p.artist ? `artist/${p.artist}` : `post/${p.id}`);
         a.style.animationDelay = `${n * 50}ms`;
         const yr = document.createElement("span");
         yr.className = "yr";

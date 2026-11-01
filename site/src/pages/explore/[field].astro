@@ -59,6 +59,7 @@ const { title, blurb, orbits } = Astro.props;
   import { mountTuner } from "../../lib/tuner";
   import { loadMosaicData, MosaicView } from "../../lib/mosaic";
   import { orbitLayout } from "../../lib/orbits";
+  import { at } from "../../lib/paths";
   import { imgUrl, thumbUrl, type SimilarMap } from "../../lib/types";
 
   const ORBIT_WORKS = 12000;
@@ -98,7 +99,7 @@ const { title, blurb, orbits } = Astro.props;
       if (row === null) { card.hidden = true; return; }
       const { post, artist, name: who, work } = describe(row);
       const [pi, file] = rows[row];
-      const href = `${artist ? `/artist/${artist.slug}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}`;
+      const href = `${at(artist ? `artist/${artist.slug}` : `post/${post.id}`)}?art=${encodeURIComponent(file)}`;
       cardImg.src = thumb(row);
       const full = new Image();
       full.onload = () => { if (cardImg.dataset.row === String(row)) cardImg.src = full.src; };
@@ -113,7 +114,7 @@ const { title, blurb, orbits } = Astro.props;
       card.hidden = false;
 
       if (!similarCache.has(pi)) {
-        similarCache.set(pi, fetch(`/data/similar/${pi}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+        similarCache.set(pi, fetch(at(`data/similar/${pi}.json`)).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
       }
       const similar = (await similarCache.get(pi)!)[file] ?? [];
       if (cardImg.dataset.row !== String(row)) return;

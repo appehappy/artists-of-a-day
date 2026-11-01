@@ -1,0 +1,23 @@
+# The Artists of a Day site on Netlify, deployed with scripts/deploy_archive.sh and
+# served at archive.appppe.com/experiments/artists-of-a-day/ through a proxy rule on
+# the archive site (README, Hosting). Its files sit at this site's root; their links
+# carry the /experiments/artists-of-a-day/ prefix the proxy strips.
+
+[build]
+  publish = "dist"
+
+# Hashed build assets never change.
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Generated data and image sheets change with each refresh: cache for a day.
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+[[headers]]
+  for = "/fields/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"

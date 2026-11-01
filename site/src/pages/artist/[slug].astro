@@ -3,6 +3,7 @@ import ArtworkGrid, { type Item } from "../../components/ArtworkGrid.astro";
 import Feature from "../../components/Feature.astro";
 import Base from "../../layouts/Base.astro";
 import { artistBySlug, artists, artworksByPost, disciplineLabel, posts } from "../../lib/data";
+import { at } from "../../lib/paths";
 import { formatDate, imgUrl, lifeDates, thumbUrl, type Artist } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -70,7 +71,7 @@ const neighbours = artist.neighbours.map((s) => artistBySlug.get(s)!).map((n) =>
       <h2 class="serif section-title">Nearby in the archive</h2>
       <div class="neighbours">
         {neighbours.map((n) => (
-          <a class="nb" href={`/artist/${n.slug}`}>
+          <a class="nb" href={at(`artist/${n.slug}`)}>
             <span class="nb-img">{n.img && <img class="fade" src={n.img} alt="" loading="lazy" />}</span>
             <b>{n.name}</b>
             <span class="muted">{[lifeDates(n), n.nationality].filter(Boolean).join(" · ")}</span>

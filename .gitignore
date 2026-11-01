@@ -13,7 +13,9 @@ site/node_modules/
 site/dist/
 site/.astro/
 site/public/data/
-site/public/img
+site/media/
 site/public/review/
-site/public/thumbs
 site/public/fields/
+
+# Hosting: image host and Netlify site IDs (see scripts/deploy.env.example)
+scripts/deploy.env

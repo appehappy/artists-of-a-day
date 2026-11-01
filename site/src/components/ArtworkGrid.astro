@@ -75,13 +75,14 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
 
 <script>
   import { loadArtworks, loadSite, onPage } from "../lib/client";
+  import { at } from "../lib/paths";
   import { imgUrl, thumbUrl, type SimilarMap } from "../lib/types";
 
   const motion = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
   const similarCache = new Map<string, Promise<SimilarMap>>();
   const loadSimilar = (post: string) => {
     if (!similarCache.has(post)) {
-      similarCache.set(post, fetch(`/data/similar/${post}.json`)
+      similarCache.set(post, fetch(at(`data/similar/${post}.json`))
         .then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
     }
     return similarCache.get(post)!;
@@ -173,7 +174,7 @@ const caption = (it: Item) => [it.title, it.year].filter(Boolean).join(", ");
       const next: Shown = {
         post: String(pi), file, thumb: thumbUrl(post, file), src: imgUrl(post, file),
         caption: r ? [r[5], r[4]].filter(Boolean).join(", ") || "Untitled" : "Untitled",
-        artist: { name, href: `${post.artist ? `/artist/${post.artist}` : `/post/${post.id}`}?art=${encodeURIComponent(file)}` },
+        artist: { name, href: `${at(post.artist ? `artist/${post.artist}` : `post/${post.id}`)}?art=${encodeURIComponent(file)}` },
       };
       thumb.style.viewTransitionName = "lb-art";
       img.style.viewTransitionName = "";

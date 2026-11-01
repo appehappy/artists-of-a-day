@@ -1,5 +1,7 @@
 // Shapes of site/public/data/*.json, written by scripts/export_site_data.py.
 
+import { image } from "./paths";
+
 export interface Post {
   id: string;
   date: string; // YYYY-MM-DD the post was featured
@@ -49,9 +51,9 @@ export type ArtworkRow = [number, string, number, number, number | null, string 
 // Similar works for one post, from /data/similar/<post index>.json
 export type SimilarMap = Record<string, [number, string][]>;
 
-export const imgUrl = (post: Post, file: string) => `/img/${post.dir}/${file}`;
+export const imgUrl = (post: Post, file: string) => image(`img/${post.dir}/${file}`);
 export const thumbUrl = (post: Post, file: string) =>
-  `/thumbs/${post.dir}/${file.replace(/\.[a-z]+$/i, ".webp")}`;
+  image(`thumbs/${post.dir}/${file.replace(/\.[a-z]+$/i, ".webp")}`);
 
 export function lifeDates(a: Pick<Artist, "birth" | "death">): string {
   if (a.birth && a.death) return `${a.birth}–${a.death}`;

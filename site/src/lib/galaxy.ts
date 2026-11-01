@@ -6,6 +6,7 @@
 
 import type { Layout } from "./mosaic";
 import { oklabToRgb } from "./orbits";
+import { at } from "./paths";
 
 export interface Galaxy {
   stars: Float32Array; // x, y, size, t per artwork
@@ -13,7 +14,7 @@ export interface Galaxy {
   links: NonNullable<Layout["links"]>;
 }
 
-export async function loadGalaxy(base = "/fields/constellation"): Promise<Galaxy> {
+export async function loadGalaxy(base = at("fields/constellation")): Promise<Galaxy> {
   const ok = (r: Response) => { if (!r.ok) throw new Error(r.url); return r; };
   const [stars, meta] = await Promise.all([
     fetch(`${base}/stars.bin`).then(ok).then((r) => r.arrayBuffer()).then((b) => new Float32Array(b)),

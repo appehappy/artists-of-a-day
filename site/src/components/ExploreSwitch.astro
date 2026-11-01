@@ -1,5 +1,6 @@
 ---
 // Tabs between the Explore views.
+import { at } from "../lib/paths";
 interface Props {
   current: string;
 }
@@ -13,6 +14,6 @@ const views = [
 
 <nav class="switch" aria-label="Views">
   {views.map((v) => (
-    <a href={`/explore/${v.key}`} aria-current={v.key === current ? "page" : undefined}>{v.label}</a>
+    <a href={at(`explore/${v.key}`)} aria-current={v.key === current ? "page" : undefined}>{v.label}</a>
   ))}
 </nav>

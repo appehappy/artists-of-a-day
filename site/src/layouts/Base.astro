@@ -1,16 +1,17 @@
 ---
 import { ClientRouter } from "astro:transitions";
 import "../styles/global.css";
+import { at, route } from "../lib/paths";
 
 interface Props {
   title?: string;
 }
 const { title } = Astro.props;
-const path = Astro.url.pathname;
+const path = route(Astro.url.pathname);
 const nav = [
-  { href: "/", label: "Wall", match: (p: string) => p === "/" },
-  { href: "/explore/colour", label: "Explore", match: (p: string) => p.startsWith("/explore") },
-  { href: "/today", label: "On this day", match: (p: string) => p === "/today" },
+  { href: at(""), label: "Wall", match: (p: string) => p === "/" },
+  { href: at("explore/colour"), label: "Explore", match: (p: string) => p.startsWith("/explore") },
+  { href: at("today"), label: "On this day", match: (p: string) => p === "/today" },
 ];
 
 // Page changes: the old page drifts up and fades, the new one rises into place.
@@ -43,7 +44,7 @@ const pageMotion = {
   <body>
     <header class="site-header" transition:persist="site-header" transition:animate="none">
       <div class="header-left">
-        <a class="wordmark" href="/"><b>Artists of a Day</b></a>
+        <a class="wordmark" href={at("")}><b>Artists of a Day</b></a>
         <nav class="site-nav">
           {nav.map((n, i) => (
             <a href={n.href} style={`--i:${i}`} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>
@@ -64,6 +65,7 @@ const pageMotion = {
       import { navigate } from "astro:transitions/client";
       import { loadSite } from "../lib/client";
       import { mountNav } from "../lib/nav";
+      import { at } from "../lib/paths";
 
       const fold = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
       const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -115,7 +117,7 @@ const pageMotion = {
             .slice(0, 10);
           active = -1;
           list.innerHTML = hits.length
-            ? hits.map(({ a }) => `<li><a href="/artist/${a.slug}">${esc(a.name)}<small>${esc([a.nationality, a.roles.slice(0, 2).join(", ")].filter(Boolean).join(" · "))}</small></a></li>`).join("")
+            ? hits.map(({ a }) => `<li><a href="${at(`artist/${a.slug}`)}">${esc(a.name)}<small>${esc([a.nationality, a.roles.slice(0, 2).join(", ")].filter(Boolean).join(" · "))}</small></a></li>`).join("")
             : `<li class="muted" style="padding:8px 10px">No artists match</li>`;
           list.hidden = false;
         };

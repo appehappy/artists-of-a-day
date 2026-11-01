@@ -1,17 +1,18 @@
 // Browser-side data loading, shared by every page. Module state survives
 // client-side navigation, so each file is fetched once per visit.
+import { at } from "./paths";
 import type { ArtworkRow, SiteData } from "./types";
 
 let sitePromise: Promise<SiteData> | null = null;
 let artworksPromise: Promise<ArtworkRow[]> | null = null;
 
 export function loadSite(): Promise<SiteData> {
-  sitePromise ??= fetch("/data/site.json").then((r) => r.json());
+  sitePromise ??= fetch(at("data/site.json")).then((r) => r.json());
   return sitePromise;
 }
 
 export function loadArtworks(): Promise<ArtworkRow[]> {
-  artworksPromise ??= fetch("/data/artworks.json").then((r) => r.json()).then((d) => d.rows);
+  artworksPromise ??= fetch(at("data/artworks.json")).then((r) => r.json()).then((d) => d.rows);
   return artworksPromise;
 }
 

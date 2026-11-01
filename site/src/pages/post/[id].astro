@@ -4,6 +4,7 @@ import ArtworkGrid, { type Item } from "../../components/ArtworkGrid.astro";
 import Feature from "../../components/Feature.astro";
 import Base from "../../layouts/Base.astro";
 import { artworksByPost, posts } from "../../lib/data";
+import { at } from "../../lib/paths";
 import { formatDate, imgUrl, thumbUrl, type Post } from "../../lib/types";
 
 export function getStaticPaths() {
@@ -24,7 +25,7 @@ const intro = post.intro ? imgUrl(post, post.intro) : items[0]?.src ?? null;
       <p class="kicker muted">{post.kind === "theme" ? "Theme" : "Feature"} · {formatDate(post.date)}</p>
       <h1 class="serif">{post.subject}</h1>
       {post.descriptor && <p class="meta">{post.descriptor}</p>}
-      {post.artist && <p><a href={`/artist/${post.artist}`}>View artist page →</a></p>}
+      {post.artist && <p><a href={at(`artist/${post.artist}`)}>View artist page →</a></p>}
       <p><a class="orig" href={post.url} target="_blank" rel="noopener">Read the original post ↗</a></p>
       <p class="muted small">{items.length} works</p>
     </div>

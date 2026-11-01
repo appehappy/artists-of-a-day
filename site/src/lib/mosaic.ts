@@ -10,6 +10,7 @@
 // swap to sharper copies of the real thumbnails, and close up a 2D overlay draws the
 // thumbnails themselves.
 
+import { at } from "./paths";
 import { tintAmount } from "./tint";
 
 export interface AtlasInfo {
@@ -77,7 +78,7 @@ interface Cam { x: number; y: number; s: number } // centre in cells; CSS px per
 /** Sprite sheet layout, each tile's texture coordinates, and each work's colour as
  *  OKLab (scripts/build_colourmaps.py): `colour.bin` (mean) or `signature.bin`
  *  (strongest hue, with its share). Throws if the data hasn't been built. */
-export async function loadMosaicData(base = "/fields/maps", colours = "colour.bin") {
+export async function loadMosaicData(base = at("fields/maps"), colours = "colour.bin") {
   const ok = (r: Response) => { if (!r.ok) throw new Error(r.url); return r; };
   const [atlas, lab]: [AtlasInfo, Float32Array] = await Promise.all([
     fetch(`${base}/atlas.json`).then(ok).then((r) => r.json()),

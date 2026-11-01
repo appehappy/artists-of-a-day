@@ -139,6 +139,7 @@ import clearIcon from "../icons/x.svg";
   import { loadArtworks, loadSite, mulberry32, onPage, shuffleInPlace } from "../lib/client";
   import { liquid } from "../lib/liquid";
   import { overflowRow } from "../lib/overflow";
+  import { at } from "../lib/paths";
   import { eraOf } from "../lib/eras";
   import { artworkHasColour, thumbUrl, type ArtworkRow, type Post } from "../lib/types";
 
@@ -297,7 +298,7 @@ import clearIcon from "../icons/x.svg";
       const a = document.createElement("a");
       a.className = "tile";
       const art = `?art=${encodeURIComponent(file)}&p=${pi}`;
-      a.href = artist ? `/artist/${artist.slug}${art}` : `/post/${post.id}${art}`;
+      a.href = at(artist ? `artist/${artist.slug}` : `post/${post.id}`) + art;
       a.style.aspectRatio = `${w} / ${h}`;
       a.dataset.ratio = String(h / w);
       const img = document.createElement("img");
