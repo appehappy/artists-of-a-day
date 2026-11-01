@@ -101,9 +101,9 @@ faint glow follows the pointer; on first load each pill buds out of the one befo
 Shuffle shuffles its letters before it picks an artist.
 
 Explore (prototypes) opens on the Colour Field; its three views, in tab order (the
-Colour Field and Constellation have a **Gravity** slider: lower it and works drift out
-from the centre, the outer ones furthest while the core stays close, and the view
-widens to keep it all in frame):
+Colour Field and Constellation have a **Gravity** slider: lower it and works scatter
+out into the far reaches of the canvas, each by its own amount and swirled a little,
+the outer ones furthest while the core stays close and dense; the view stays put):
 
 **Colour Field** (after Alma Thomas) shows the archive's 12,000 most colourful works as
 pills in concentric rings around an open centre, green at the centre through blue, purple,
