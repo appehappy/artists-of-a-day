@@ -158,6 +158,11 @@ const SLOT_LAYERS = 6; // 6 × 256 = 1,536 high-res tiles
 const MAX_LOADING = 16;
 const OVERLAY_FROM = 150; // device px per tile above which the full thumbnail is drawn
 const MAX_SCALE = 360;
+// Gravity (setGravity): at full strength works sit where their layout puts them; as it
+// weakens they drift out from the centre, each by (spread) × (core + (1 − core) × its
+// share of the radius²), so the core stays close and the edges go furthest.
+const GRAVITY_SPREAD = 1.2; // at zero gravity, the outermost works sit 2.2× as far out
+const GRAVITY_CORE = 0.2; // the share of that spread even the centre gets
 /** Two repeatable numbers in [0, 1] per work (a PCG hash; the same in the shader). */
 const jitter = (row: number): [number, number] => {
   let h = (Math.imul(row, 747796405) + 2891336453) >>> 0;
@@ -199,6 +204,7 @@ uniform float u_tileUv;   // tile size in uv units
 uniform float u_slotUv;   // high-res tile size in uv units
 uniform float u_drift;    // seconds of drift so far
 uniform vec2 u_pivot;     // centre of the drift, cells
+uniform vec4 u_warp;      // gravity: centre x, y (cells), radius (cells), spread (0 = none)
 uniform float u_sheetFade[16]; // 0 until a sheet's images arrive, then up to 1
 uniform float u_clock;    // seconds, for twinkling
 uniform float u_twinkle;  // how bright a glint is (0 = none)
@@ -235,6 +241,11 @@ void main() {
   float tc = cos(turn), ts = sin(turn);
   vec2 q0 = p - u_pivot;
   p = u_pivot + vec2(q0.x * tc - q0.y * ts, q0.x * ts + q0.y * tc) + a_offset;
+  if (u_warp.w > 0.0) { // gravity weakened: drift out from the centre, the outer works furthest
+    vec2 wd = p - u_warp.xy;
+    float wr = dot(wd, wd) / (u_warp.z * u_warp.z);
+    p = u_warp.xy + wd * (1.0 + u_warp.w * (${GRAVITY_CORE.toFixed(3)} + ${(1 - GRAVITY_CORE).toFixed(3)} * wr));
+  }
   float alpha = mix(a_from.z, a_to.z, e);
   v_alpha = alpha;
   // Hidden tiles (most of the archive in Orbits and Colour maps) skip the rest.
@@ -363,6 +374,13 @@ export class MosaicView {
   private lastInput = 0;
   private lastFrame = 0;
   private hashDrift = 0; // the drift the hit-test hash was built at
+  private hashWarp = 0; // and the gravity spread
+  private gravity = 1; // 0–1, easing towards gravityTo
+  private gravityTo = 1;
+  private gravityAt = 0;
+  private warpR = 1; // the layout's radius, cells
+  private warpS = 0; // GRAVITY_SPREAD × (1 − gravity)
+  private fitted = false; // the camera is at the whole-layout fit (so it follows gravity)
   // When every tile turns alike (or none do), the hash keeps their resting places
   // and lookups turn the query back instead of rebuilding it as tiles move.
   private uniformSpin: number | null = 0;
@@ -476,7 +494,7 @@ export class MosaicView {
     this.thumbs = new ImageCache(400, () => this.invalidate());
 
     this.prog = this.program();
-    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_sheetFade", "u_clock", "u_twinkle",
+    for (const name of ["u_view", "u_cam", "u_time", "u_duration", "u_gap", "u_tileUv", "u_slotUv", "u_tintAmt", "u_atlas", "u_hi", "u_drift", "u_pivot", "u_warp", "u_sheetFade", "u_clock", "u_twinkle",
                       "u_mouse", "u_focus", "u_focusCount", "u_focusAmt",
                       "u_waves", "u_waveDirs", "u_waveCount", "u_wave", "u_look", "u_depth"]) {
       this.u[name] = gl.getUniformLocation(this.prog, name);
@@ -576,6 +594,7 @@ export class MosaicView {
       this.stepDrift(now);
       this.stepLively(now);
       this.stepFocus(now);
+      this.stepGravity(now);
       if (now - this.lastUpgrade > 120) { this.lastUpgrade = now; this.upgrade(); }
       // Ambient life (twinkling) needs frames, but ~30 a second is plenty.
       const ambient = this.twinkle && !reducedMotion() && now - this.lastAmbient > 33;
@@ -640,6 +659,7 @@ export class MosaicView {
     }
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     this.bounds = { x0: x0 - cx, y0: y0 - cy, x1: x1 - cx, y1: y1 - cy };
+    this.warpR = Math.max(1, (x1 - x0) / 2, (y1 - y0) / 2); // gravity's reference radius
     this.disc = layout.disc ? { ...layout.disc, x: layout.disc.x - cx, y: layout.disc.y - cy } : null;
     this.gradient = layout.gradient ?? null;
     // Labels in order of drawing priority (systems first, bigger first), and links,
@@ -775,15 +795,15 @@ export class MosaicView {
   // ── camera ────────────────────────────────────────────────────────────────
 
   private scaleFor(left: number) {
-    const { x0, y0, x1, y1 } = this.bounds;
-    return Math.min((this.w - left - this.insetRight) / (x1 - x0 + 16), this.h / (y1 - y0 + 16));
+    const { x0, y0, x1, y1 } = this.bounds, k = 1 + this.warpS; // gravity spreads the edges this far
+    return Math.min((this.w - left - this.insetRight) / ((x1 - x0) * k + 16), this.h / ((y1 - y0) * k + 16));
   }
 
   /** The left inset to fit around: none if the shape, fitted without it, passes
    *  beneath the left panel. */
   private leftInset() {
     if (!this.insetLeft) return 0;
-    const top = this.h / 2 + this.bounds.y0 * this.scaleFor(0); // shapes are centred on y = 0
+    const top = this.h / 2 + this.bounds.y0 * (1 + this.warpS) * this.scaleFor(0); // shapes are centred on y = 0
     return top >= this.insetLeftBottom + 12 ? 0 : this.insetLeft;
   }
 
@@ -794,6 +814,25 @@ export class MosaicView {
     const left = this.leftInset();
     const s = this.scaleFor(left);
     this.flyTo({ x: (this.insetRight - left) / (2 * s), y: 0, s }, animate ? 900 : 0);
+    this.fitted = true;
+  }
+
+  /** Gravity at the layout's centre, 0–1 (1: as laid out). Lower, works drift outward,
+   *  the outer ones furthest; the view follows while it's showing the whole layout. */
+  setGravity(g: number) {
+    this.gravityTo = Math.max(0, Math.min(1, g));
+    this.invalidate();
+  }
+
+  private stepGravity(now: number) {
+    const dt = Math.max(0, Math.min(100, now - (this.gravityAt || now)));
+    this.gravityAt = now;
+    if (this.gravity === this.gravityTo) return;
+    this.gravity += (this.gravityTo - this.gravity) * (reducedMotion() ? 1 : Math.min(1, dt / 180));
+    if (Math.abs(this.gravity - this.gravityTo) < 0.001) this.gravity = this.gravityTo;
+    this.warpS = GRAVITY_SPREAD * (1 - this.gravity);
+    if (this.fitted && !this.anim) this.fit(false);
+    this.dirty = true;
   }
 
   /** Keep a panel `px` wide (reaching `bottom` px down the canvas) clear on the left. */
@@ -804,6 +843,7 @@ export class MosaicView {
   }
 
   flyTo(to: Partial<Cam>, ms = 700) {
+    this.fitted = false;
     const target = { ...this.cam, ...to };
     target.s = Math.min(MAX_SCALE, Math.max(this.fitScale() * 0.5, target.s));
     if (ms === 0 || reducedMotion()) { Object.assign(this.cam, target); this.invalidate(); return; }
@@ -837,6 +877,7 @@ export class MosaicView {
     const [fx, fy] = this.toField(sx, sy);
     const s = Math.min(MAX_SCALE, Math.max(this.fitScale() * 0.5, this.cam.s * f));
     this.anim = null;
+    this.fitted = false;
     this.cam.x = fx - (sx - this.w / 2) / s;
     this.cam.y = fy - (sy - this.h / 2) / s;
     this.cam.s = s;
@@ -859,16 +900,36 @@ export class MosaicView {
     return [this.cam.x + (sx - this.w / 2) / this.cam.s, this.cam.y + (sy - this.h / 2) / this.cam.s];
   }
 
-  /** Where an artwork's tile has settled, including any drift: centre and rotation. */
+  /** Where an artwork's tile has settled, including any drift and gravity: centre and rotation. */
   private centre(row: number): [number, number, number] {
     const x = this.to[row * 3], y = this.to[row * 3 + 1], rot = this.shape[row * 4 + 2];
     const ox = this.offset[row * 2], oy = this.offset[row * 2 + 1];
     const turn = this.spin[row] * this.drift;
-    if (turn === 0) return [x + ox, y + oy, rot];
+    if (turn === 0) return [...this.warp(x + ox, y + oy), rot];
     const t = this.turnCache;
     if (turn !== t.turn) { t.turn = turn; t.cos = Math.cos(turn); t.sin = Math.sin(turn); }
     const dx = x - this.pivot.x, dy = y - this.pivot.y;
-    return [this.pivot.x + dx * t.cos - dy * t.sin + ox, this.pivot.y + dx * t.sin + dy * t.cos + oy, rot + turn];
+    return [...this.warp(this.pivot.x + dx * t.cos - dy * t.sin + ox, this.pivot.y + dx * t.sin + dy * t.cos + oy), rot + turn];
+  }
+
+  /** A field point moved out from the centre as gravity weakens (as in the shader). */
+  private warp(x: number, y: number): [number, number] {
+    if (this.warpS === 0) return [x, y];
+    const dx = x - this.pivot.x, dy = y - this.pivot.y;
+    const f = 1 + this.warpS * (GRAVITY_CORE + (1 - GRAVITY_CORE) * (dx * dx + dy * dy) / (this.warpR * this.warpR));
+    return [this.pivot.x + dx * f, this.pivot.y + dy * f];
+  }
+
+  /** The point that warp() moves to (x, y): r(1 + s(c + (1 − c)r²/R²)) = r' solved by
+   *  Newton's method (it's monotonic, so a few steps settle it). */
+  private unwarp(x: number, y: number): [number, number] {
+    if (this.warpS === 0) return [x, y];
+    const dx = x - this.pivot.x, dy = y - this.pivot.y, target = Math.hypot(dx, dy);
+    if (target === 0) return [x, y];
+    const s = this.warpS, c = GRAVITY_CORE, k = (1 - c) / (this.warpR * this.warpR);
+    let r = target / (1 + s);
+    for (let i = 0; i < 6; i++) r -= (r * (1 + s * (c + k * r * r)) - target) / (1 + s * (c + 3 * k * r * r));
+    return [this.pivot.x + (dx * r) / target, this.pivot.y + (dy * r) / target];
   }
 
   /** Is field point (fx, fy) inside this artwork's (possibly rotated) tile? */
@@ -883,10 +944,11 @@ export class MosaicView {
 
   /** A field point turned back to where tiles rest, for looking up the hash. */
   private atRest(fx: number, fy: number): [number, number] {
-    if (this.uniformSpin === null) {
-      if (this.drift !== this.hashDrift) this.rehash(); // tiles turn differently: track them
+    if (this.uniformSpin === null) { // tiles turn differently: the hash tracks them, gravity and all
+      if (this.drift !== this.hashDrift || this.warpS !== this.hashWarp) this.rehash();
       return [fx, fy];
     }
+    [fx, fy] = this.unwarp(fx, fy); // (a radial move about the pivot commutes with turning about it)
     const turn = this.uniformSpin * this.drift;
     return turn ? turnAbout(fx, fy, this.pivot, -turn) : [fx, fy];
   }
@@ -895,7 +957,10 @@ export class MosaicView {
    *  that's fewer to look at than every work, else by checking them all. */
   private visible(fx0: number, fy0: number, fx1: number, fy1: number): number[] {
     const out: number[] = [];
-    const corners = [[fx0, fy0], [fx1, fy0], [fx0, fy1], [fx1, fy1]].map(([x, y]) => this.atRest(x, y));
+    // Corners and edge midpoints: under gravity the rectangle's pre-image bulges.
+    const mx = (fx0 + fx1) / 2, my = (fy0 + fy1) / 2;
+    const corners = [[fx0, fy0], [fx1, fy0], [fx0, fy1], [fx1, fy1], [mx, fy0], [mx, fy1], [fx0, my], [fx1, my]]
+      .map(([x, y]) => this.atRest(x, y));
     const pad = 1 + this.maxSize / 2 + tune.brushMax / this.cam.s; // tiles nudged off their cell
     const bx0 = Math.floor(Math.min(...corners.map((c) => c[0])) - pad), bx1 = Math.floor(Math.max(...corners.map((c) => c[0])) + pad);
     const by0 = Math.floor(Math.min(...corners.map((c) => c[1])) - pad), by1 = Math.floor(Math.max(...corners.map((c) => c[1])) + pad);
@@ -956,6 +1021,7 @@ export class MosaicView {
       if (bucket) bucket.push(row); else this.hash.set(key, [row]);
     }
     this.hashDrift = this.drift;
+    this.hashWarp = this.warpS;
   }
 
   randomRow(): number | null {
@@ -1136,6 +1202,7 @@ export class MosaicView {
     gl.uniform1f(this.u.u_tintAmt, tintAmount(this.cam.s));
     gl.uniform1f(this.u.u_drift, this.drift);
     gl.uniform2f(this.u.u_pivot, this.pivot.x, this.pivot.y);
+    gl.uniform4f(this.u.u_warp, this.pivot.x, this.pivot.y, this.warpR, this.warpS);
     const now = performance.now();
     const fade = new Float32Array(16);
     this.sheetAt.forEach((t, s) => { fade[s] = Math.min(1, Math.max(0, (now - t) / FADE)); });
@@ -1483,7 +1550,7 @@ export class MosaicView {
 
   /** A field point as the whole layout has turned while idle (names and links). */
   private turned(x: number, y: number): [number, number] {
-    return this.rotate ? turnAbout(x, y, this.pivot, this.rotate * this.drift) : [x, y];
+    return this.warp(...(this.rotate ? turnAbout(x, y, this.pivot, this.rotate * this.drift) : [x, y]));
   }
 
   /** Lines from the selected work to the works it's linked to (its look-alikes). */
@@ -1630,6 +1697,7 @@ export class MosaicView {
         if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
         this.cam.x -= dx / this.cam.s;
         this.cam.y -= dy / this.cam.s;
+        this.fitted = false;
         drag.x = e.clientX;
         drag.y = e.clientY;
         this.invalidate();
@@ -1666,6 +1734,7 @@ export class MosaicView {
         this.zoomBy(Math.exp(-Math.sign(e.deltaY) * 0.25), sx, sy);
       } else {
         this.anim = null;
+        this.fitted = false;
         this.cam.x += e.deltaX / this.cam.s;
         this.cam.y += e.deltaY / this.cam.s;
         this.invalidate();

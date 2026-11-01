@@ -1,16 +1,24 @@
 ---
-// The Explore views' camera controls, bottom left: zoom in and out, fit the whole
-// thing, and jump to a random work.
+// The Explore views' camera controls, bottom left: optionally gravity (how tightly the
+// layout's centre holds its works), zoom in and out, fit the whole thing, and jump to
+// a random work.
 import minusIcon from "../icons/minus.svg";
 import plusIcon from "../icons/plus.svg";
 
 interface Props {
   fitLabel: string;
+  gravity?: boolean;
 }
-const { fitLabel } = Astro.props;
+const { fitLabel, gravity = false } = Astro.props;
 ---
 
 <div class="bottom-left controls">
+  {gravity && (
+    <label class="gravity" title="Gravity: lower it and works drift out from the centre">
+      <span>Gravity</span>
+      <input type="range" min="0" max="100" step="1" value="100" data-gravity aria-label="Gravity" />
+    </label>
+  )}
   <button type="button" class="icon-btn" data-zoom="1.8" aria-label="Zoom in" title="Zoom in">
     <img src={plusIcon.src} width="12" height="12" alt="" />
   </button>

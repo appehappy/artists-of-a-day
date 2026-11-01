@@ -20,6 +20,25 @@
 .blurb { margin: 0 0 8px; font-size: 14px; line-height: 1.5; }
 .hint { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
 /* Camera controls (ExploreControls.astro): a column of round buttons and chips, no panel. */
+.gravity {
+  display: inline-flex; align-items: center; gap: 10px; height: 28px; padding: 0 12px 0 10px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+  font-size: 12px; line-height: 1; color: var(--muted); cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.gravity:hover { border-color: var(--muted); color: var(--ink); }
+.gravity input {
+  -webkit-appearance: none; appearance: none; width: 120px; height: 12px; margin: 0; background: none; cursor: pointer;
+  --fill: linear-gradient(var(--ink), var(--ink)) 0 / var(--pct, 100%) 100% no-repeat, var(--line);
+}
+.gravity input::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--fill); }
+.gravity input::-moz-range-track { height: 3px; border-radius: 2px; background: var(--fill); }
+.gravity input::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4.5px; border: 0; border-radius: 50%;
+  background: var(--ink); transition: transform 0.2s var(--ease);
+}
+.gravity input::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--ink); }
+.gravity input:active::-webkit-slider-thumb { transform: scale(1.2); }
 .bottom-left {
   position: absolute; z-index: 2; bottom: 16px; left: 16px;
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;

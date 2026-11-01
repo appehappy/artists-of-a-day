@@ -35,7 +35,7 @@ const { title, blurb, orbits } = Astro.props;
       <p class="hint">Drag to move · pinch or ⌘-scroll to zoom · click a work</p>
     </div>
 
-    <ExploreControls fitLabel="Whole field" />
+    <ExploreControls fitLabel="Whole field" gravity />
 
     <div class="loading" data-loading>{orbits ? "Gathering colours…" : "Gathering 89,000 stars…"}</div>
     <div class="tip" hidden></div>
@@ -190,6 +190,14 @@ const { title, blurb, orbits } = Astro.props;
     root.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) =>
       b.addEventListener("click", () => view!.flyTo({ s: view!.cam.s * Number(b.dataset.zoom) }, 350)));
     root.querySelector("[data-fit]")!.addEventListener("click", () => view!.fit());
+    // Gravity: the slider's filled part runs up to the thumb.
+    const gravity = root.querySelector<HTMLInputElement>("[data-gravity]")!;
+    const setGravity = () => {
+      gravity.style.setProperty("--pct", `${gravity.value}%`);
+      view?.setGravity(Number(gravity.value) / 100);
+    };
+    gravity.addEventListener("input", setGravity);
+    setGravity();
     root.querySelector("[data-surprise]")!.addEventListener("click", () => {
       const row = view!.randomRow();
       if (row === null) return;
