@@ -35,7 +35,9 @@ import nextIcon from "../icons/chevron-right.svg";
   .day-nav { display: flex; align-items: center; gap: 8px; }
   .day-nav .chip { padding-inline: 16px; }
   .years { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 28px 22px; margin-top: 32px; }
-  .years :global(.card) { text-decoration: none; display: grid; gap: 6px; animation: rise 0.5s var(--ease) both; }
+  /* align-content: start, so a card shorter than its row (no descriptor) keeps its
+     image and name level with its neighbours' rather than spreading out. */
+  .years :global(.card) { text-decoration: none; display: grid; align-content: start; gap: 6px; animation: rise 0.5s var(--ease) both; }
   .years :global(.card .yr) { font: 15px/1 var(--sans); font-weight: 600; letter-spacing: 0.08em; color: var(--accent); }
   .years :global(.card .img) { aspect-ratio: 4 / 5; background: var(--tile); border-radius: 4px; overflow: hidden; }
   .years :global(.card img) { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
