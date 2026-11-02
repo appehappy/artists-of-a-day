@@ -19,3 +19,6 @@ site/public/fields/
 
 # Hosting: image host and Netlify site IDs (see scripts/deploy.env.example)
 scripts/deploy.env
+
+# Local Netlify folder
+.netlify
