@@ -12,5 +12,5 @@ source scripts/deploy.env
 cd site
 PUBLIC_IMAGE_BASE="$PUBLIC_IMAGE_BASE" npm run build:archive
 rm -rf dist/review # a local review page, not for the public site
-npx --yes netlify-cli@latest deploy --prod --dir dist --site "$NETLIFY_SITE_ID" \
+npx --yes netlify-cli@latest deploy --prod --no-build --dir dist --site "$NETLIFY_SITE_ID" \
   --message "Artists of a Day $(git rev-parse --short HEAD)"
