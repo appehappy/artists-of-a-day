@@ -187,17 +187,12 @@ The site is hosted at **archive.appppe.com/experiments/artists-of-a-day/**:
   read -rs "key?Bunny storage password: " && echo && rclone config update bunny secret_access_key="$key"; unset key
   ```
 - **The archive site** serves the path by proxying it to this one. In its
-  `netlify.toml`:
+  `netlify.toml` (it also matches the path without a trailing slash):
 
   ```toml
   [[redirects]]
-    from = "/experiments/artists-of-a-day"
-    to = "/experiments/artists-of-a-day/"
-    status = 301
-
-  [[redirects]]
     from = "/experiments/artists-of-a-day/*"
-    to = "https://YOUR-SITE.netlify.app/:splat"
+    to = "https://appppe-artists-of-a-day.netlify.app/:splat"
     status = 200
     force = true
   ```

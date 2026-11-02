@@ -1078,6 +1078,7 @@ export class MosaicView {
   private loadHi(row: number) {
     this.loadingRows.add(row);
     const img = new Image();
+    img.crossOrigin = "anonymous"; // the image host is another origin; WebGL needs CORS
     img.src = this.opts.thumbUrl(row);
     img.decode().then(() => {
       if (this.destroyed) return;
