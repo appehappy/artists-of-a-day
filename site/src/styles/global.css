@@ -61,9 +61,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--bg);
   backdrop-filter: blur(7px);
 }
-.header-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
-.wordmark { display: flex; flex: none; color: var(--ink); }
-.wordmark svg { display: block; width: auto; height: 24px; fill: currentColor; }
+.header-left { display: flex; align-items: center; gap: 32px; min-width: 0; }
+/* The logo: 20px tall, centred in a 24px box (Figma: Site header › Wordmark) */
+.wordmark { display: flex; align-items: center; flex: none; height: 24px; color: var(--ink); }
+.wordmark svg { display: block; width: auto; height: 20px; fill: currentColor; }
 .wordmark .wordmark-o { fill: var(--accent); }
 
 /* Liquid shapes (lib/liquid.ts): the SVG of blobs behind a row of controls. */
