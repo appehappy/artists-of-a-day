@@ -62,8 +62,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   backdrop-filter: blur(7px);
 }
 .header-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
-.wordmark { text-decoration: none; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
-.wordmark b { font: 26px/1 var(--serif); font-weight: 400; }
+.wordmark { display: flex; flex: none; color: var(--ink); }
+.wordmark svg { display: block; width: auto; height: 24px; fill: currentColor; }
+.wordmark .wordmark-o { fill: var(--accent); }
 
 /* Liquid shapes (lib/liquid.ts): the SVG of blobs behind a row of controls. */
 .liquid { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
@@ -80,7 +81,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .site-nav > a, .site-nav > button {
   position: relative; z-index: 1; flex: none;
   border: 0; background: none; text-decoration: none; white-space: nowrap;
-  padding: 6px 12px; border-radius: 999px; font-size: 14px; color: var(--muted);
+  padding: 6px 12px; border-radius: 999px; font-size: 14px; line-height: 20px; color: var(--muted); /* 32px tall */
   transition: color 0.3s var(--ease);
 }
 .site-nav > a:hover, .site-nav > button:hover { color: var(--ink); }

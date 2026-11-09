@@ -33,6 +33,8 @@ const pageMotion = {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title ? `${title} · Artist of the Day Archive` : "Artist of the Day Archive"}</title>
+    <link rel="icon" href={at("favicon.svg")} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={at("apple-touch-icon.png")} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -44,7 +46,15 @@ const pageMotion = {
   <body>
     <header class="site-header" transition:persist="site-header" transition:animate="none">
       <div class="header-left">
-        <a class="wordmark" href={at("")}><b>Artists of a Day</b></a>
+        <a class="wordmark" href={at("")} aria-label="Artists of a Day">
+          <!-- AoaD: A, o, a, D on a 40-unit grid, one baseline (Figma: "AoaD wordmark") -->
+          <svg viewBox="0 0 148 40" aria-hidden="true">
+            <path d="M40 0V40H0Z" />
+            <circle class="wordmark-o" cx="60" cy="28" r="12" />
+            <path d="M100 16V40H76Z" />
+            <path d="M108 0H128C139.046 0 148 8.954 148 20C148 31.046 139.046 40 128 40H108Z" />
+          </svg>
+        </a>
         <nav class="site-nav">
           {nav.map((n, i) => (
             <a href={n.href} style={`--i:${i}`} aria-current={n.match(path) ? "page" : undefined}>{n.label}</a>

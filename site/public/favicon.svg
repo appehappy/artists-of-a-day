@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88">
+  <!-- AoaD icon: A and o over a and D on a 40-unit grid (Figma: "AoaD icon") -->
+  <style>
+    .ink { fill: #1c1a17; } .accent { fill: #c8432a; }
+    @media (prefers-color-scheme: dark) { .ink { fill: #eeeae2; } .accent { fill: #ef6a4c; } }
+  </style>
+  <path class="ink" d="M40 0V40H0Z" />
+  <circle class="accent" cx="60" cy="28" r="12" />
+  <path class="ink" d="M40 64V88H16Z" />
+  <path class="ink" d="M48 48H68C79.046 48 88 56.954 88 68C88 79.046 79.046 88 68 88H48Z" />
+</svg>
