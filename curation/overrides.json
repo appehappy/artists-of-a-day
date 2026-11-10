@@ -25,5 +25,8 @@
   },
   "image_year": {
     "_doc": "\"post id/url_hash\" -> when the work was made: \"1965\", \"c.1965\", \"1960-65\", \"1950s\"; \"\" marks it undated"
+  },
+  "image_medium": {
+    "_doc": "\"post id/url_hash\" -> painting | drawing | print | sculpture | ceramics | media | photography | graphic | design | exclude (aotd/media.py)"
   }
 }

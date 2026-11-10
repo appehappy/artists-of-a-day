@@ -6,7 +6,7 @@ done, so a run with a few new posts takes minutes:
 
   fetch_feed --since → build_db → download_images → make_thumbs → extract_colors
   → embed_images → match_wikidata → match_artwork_years → build_db (merge) → analyze_embeddings
-  → build_db (merge) → export_site_data
+  → classify_media → build_db (merge) → export_site_data
 
 Usage: .venv/bin/python scripts/refresh.py [--force]   (--force: rebuild even with no new posts)
 """
@@ -69,6 +69,7 @@ def main():
     run("match_artwork_years.py")     # Wikidata dates for new artists' works
     run("build_db.py")               # merge Wikidata facts, artwork dates, colours
     run("analyze_embeddings.py")     # needs the merged db for image kinds and posts
+    run("classify_media.py")         # medium per artwork, from the same embeddings
     run("build_db.py")               # merge new image kinds and similar works
     run("export_site_data.py")
 

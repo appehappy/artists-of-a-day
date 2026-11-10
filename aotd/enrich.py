@@ -7,7 +7,10 @@ Inputs (all optional, so a build works before enrichment has run):
   derived/similar.jsonl          nearest artworks per image
   derived/wikidata_artists.json  facts for matched artists, keyed by slug
   curation/artwork_years.csv     artwork dates from Wikidata and research (aotd/dates.py)
+  derived/artwork_media.jsonl    medium per artwork from CLIP (scripts/classify_media.py)
+  curation/media_sample.csv      hand-labelled media (also the classifier's test set)
 """
+import csv
 import json
 from collections import Counter
 
@@ -16,15 +19,17 @@ from aotd.config import CURATION_DIR, DERIVED_DIR
 from aotd.wikidata import fold
 
 OVERRIDES = CURATION_DIR / "overrides.json"
+MEDIA_SAMPLE = CURATION_DIR / "media_sample.csv"
 
 
 def load_overrides():
     """{post_kind: {post_id: kind}, post_subject: {post_id: name},
     image_kind: {"post_id/url_hash": kind}, artist_merge: {slug: canonical slug},
-    image_year: {"post_id/url_hash": "c.1965"}}"""
+    image_year: {"post_id/url_hash": "c.1965"}, image_medium: {"post_id/url_hash": "print"}}"""
     o = json.loads(OVERRIDES.read_text()) if OVERRIDES.exists() else {}
     return {k: {kk: vv for kk, vv in o.get(k, {}).items() if not kk.startswith("_")}
-            for k in ("post_kind", "post_subject", "image_kind", "artist_merge", "image_year")}
+            for k in ("post_kind", "post_subject", "image_kind", "artist_merge", "image_year",
+                      "image_medium")}
 
 
 def jsonl(path):
@@ -99,6 +104,28 @@ def merge(db, overrides):
             stats["regions from nationality"] += 1
 
     stats.update(dates.apply(db, overrides))
+    stats.update(apply_media(db, overrides))
+    return stats
+
+
+def apply_media(db, overrides):
+    """Medium per artwork: CLIP's, then hand labels (the test sample, then overrides)."""
+    stats = Counter()
+    rows = [(r["medium"], r["p"], r["post_id"], r["url_hash"])
+            for r in jsonl(DERIVED_DIR / "artwork_media.jsonl")]
+    db.executemany("UPDATE images SET medium = ?, medium_p = ?, medium_source = 'clip' "
+                   "WHERE post_id = ? AND url_hash = ?", rows)
+    stats["artworks with a medium"] = len(rows)
+    manual = {}
+    if MEDIA_SAMPLE.exists():
+        with open(MEDIA_SAMPLE) as f:
+            manual = {f'{r["post_id"]}/{r["url_hash"]}': r["medium"] for r in csv.DictReader(f) if r["medium"]}
+    manual.update(overrides["image_medium"])
+    for key, medium in manual.items():
+        post_id, url_hash = key.split("/")
+        cur = db.execute("UPDATE images SET medium = ?, medium_p = NULL, medium_source = 'manual' "
+                         "WHERE post_id = ? AND url_hash = ?", (medium, post_id, url_hash))
+        stats["manual media"] += cur.rowcount
     return stats
 
 

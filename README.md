@@ -24,6 +24,7 @@ derived/colors.jsonl            5-colour palette per image
 derived/clip/                   CLIP image embeddings (float16) + keys
 derived/image_kinds.jsonl       artworks CLIP re-classified as artist portraits
 derived/similar.jsonl           12 most similar artworks (other posts) per artwork
+derived/artwork_media.jsonl     medium per artwork: painting, print, sculpture… (CLIP + artist prior)
 derived/wikidata_artists.json   Wikidata facts for matched artists
 ```
 
@@ -33,7 +34,10 @@ edit `needs_review` rows to `confirmed` (fixing `qid` if needed) or `wrong`.
 artist merges, artwork dates). `curation/artwork_years.csv` holds artwork dates found
 by `match_artwork_years.py` (Wikidata) and `research_artwork_years.py` (web research,
 each with its source URL); set `needs_review` rows to `confirmed` (fixing `year` if
-needed) or `wrong`. Everything is keyed by stable ids (post id, image `url_hash`, artist
+needed) or `wrong`. `curation/media_sample.csv` holds hand-labelled media for a sample
+of artworks: it is the test set `classify_media.py` reports its accuracy on, and those labels
+win over CLIP's; correct any other artwork's medium in `overrides.json` (`image_medium`).
+Everything is keyed by stable ids (post id, image `url_hash`, artist
 slug), never by database row ids.
 
 ## Pipeline
@@ -58,6 +62,7 @@ python3 scripts/match_wikidata.py           #          Wikidata matching
 python3 scripts/match_artwork_years.py      #          artwork dates from Wikidata
 python3 scripts/build_db.py                 #          merge enrichment
 .venv/bin/python scripts/analyze_embeddings.py  #      image kinds + similar works
+.venv/bin/python scripts/classify_media.py  #          medium per artwork (CLIP)
 python3 scripts/build_db.py                 #          merge again
 python3 scripts/export_site_data.py         # site JSON
 .venv/bin/python scripts/build_fields.py    # Constellation: the galaxy layout (~1 min)

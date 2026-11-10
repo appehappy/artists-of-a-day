@@ -111,7 +111,12 @@ CREATE TABLE images (
     year_note     TEXT,               -- nd (caption says undated) | after_post:<year>
                                       --   (a completion or model year, not when it was made)
     kind          TEXT NOT NULL,      -- artwork | intro | portrait | other
-    kind_source   TEXT NOT NULL       -- heuristic (phase 1); later: clip, manual
+    kind_source   TEXT NOT NULL,      -- heuristic (phase 1); later: clip, manual
+    -- What the artwork physically is (aotd/media.py): painting | drawing | print |
+    -- sculpture | ceramics | media | photography | graphic | design | exclude.
+    medium        TEXT,
+    medium_p      REAL,               -- classifier confidence, 0–1; NULL when set by hand
+    medium_source TEXT                -- clip | manual
 );
 
 CREATE INDEX images_post ON images(post_id, position);
