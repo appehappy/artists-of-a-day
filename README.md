@@ -15,6 +15,7 @@ in Dropbox (`~/Dropbox/ArtistOfTheDayArchive`, override with `AOTD_ARCHIVE_ROOT`
 raw/feed/<YYYY-MM-DD>/          full Blogger JSON feed snapshot + manifest.json
 raw/feed/<timestamp>-inc/       incremental snapshots: posts updated since the last run
 raw/wikidata/                   cached Wikidata responses
+raw/research/                   cached web-research answers (artwork dates)
 images/originals/<YYYY>/<YYYY-MM-DD>_<post id>/<position>_<url hash>.<ext>
                                 full-resolution images as uploaded to the blog (~9 GB)
 images/thumbs/…/<position>_<url hash>.webp   480px thumbnails (~4 GB)
@@ -29,7 +30,10 @@ derived/wikidata_artists.json   Wikidata facts for matched artists
 In the repo, `curation/wikidata_matches.csv` records each artist's Wikidata match;
 edit `needs_review` rows to `confirmed` (fixing `qid` if needed) or `wrong`.
 `curation/overrides.json` holds manual fixes (post kind, subject name, image kind,
-artist merges). Everything is keyed by stable ids (post id, image `url_hash`, artist
+artist merges, artwork dates). `curation/artwork_years.csv` holds artwork dates found
+by `match_artwork_years.py` (Wikidata) and `research_artwork_years.py` (web research,
+each with its source URL); set `needs_review` rows to `confirmed` (fixing `year` if
+needed) or `wrong`. Everything is keyed by stable ids (post id, image `url_hash`, artist
 slug), never by database row ids.
 
 ## Pipeline
@@ -51,6 +55,7 @@ python3 scripts/download_images.py          # phase 2: images -> Dropbox
 .venv/bin/python scripts/extract_colors.py  #          colour palettes
 .venv/bin/python scripts/embed_images.py    #          CLIP embeddings (Apple GPU)
 python3 scripts/match_wikidata.py           #          Wikidata matching
+python3 scripts/match_artwork_years.py      #          artwork dates from Wikidata
 python3 scripts/build_db.py                 #          merge enrichment
 .venv/bin/python scripts/analyze_embeddings.py  #      image kinds + similar works
 python3 scripts/build_db.py                 #          merge again
@@ -80,7 +85,12 @@ launchctl kickstart gui/$(id -u)/local.aotd-archive.refresh
 `data/aotd.sqlite` is derived and rebuilt from scratch each run (schema in
 `aotd/schema.sql`). Parsed fields (subject, nationality, roles, life dates, artwork
 title/year, image kind) are heuristics; raw titles, labels and captions are kept
-beside them. Wikidata replaces parsed life dates where it has a birth year. Posts
+beside them. Each artwork's date records its source (`year_source`: caption, filename,
+manual, wikidata, research or propagated) and a span for timelines (`year_lo`/`year_hi`).
+Undated artworks get an estimated span instead, with a best guess (`year_est`) and what it
+rests on (`year_basis`): the dated works beside it in its post, the artist's other dated
+works, dated look-alikes, or the artist's life. How the sources combine, and how well each
+estimate held up against works whose dates are known, is in `aotd/dates.py`. Wikidata replaces parsed life dates where it has a birth year. Posts
 needing a human look are listed in `data/review/flagged_posts.csv`.
 
 ## Site

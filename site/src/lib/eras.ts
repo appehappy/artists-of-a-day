@@ -1,6 +1,6 @@
 // Era buckets for an artwork's year, used by the Wall filters.
 export const ERAS = [
-  { key: "early", label: "Before 1800", from: 0, to: 1799 },
+  { key: "early", label: "Before 1800", from: -100000, to: 1799 }, // BC years are negative
   { key: "1800s", label: "1800s", from: 1800, to: 1899 },
   { key: "1900", label: "1900–1945", from: 1900, to: 1945 },
   { key: "1946", label: "1946–1979", from: 1946, to: 1979 },

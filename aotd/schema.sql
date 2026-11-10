@@ -97,9 +97,19 @@ CREATE TABLE images (
     caption_raw   TEXT,
     caption_source TEXT,              -- caption | filename | NULL
     title         TEXT,               -- parsed artwork title
+    -- When the work was made (aotd/dates.py). year_start/end/circa are the date as stated
+    -- by its source; NULL when no source dates it.
     year_start    INTEGER,
     year_end      INTEGER,
     circa         INTEGER NOT NULL DEFAULT 0,
+    year_source   TEXT,               -- caption | filename | manual | wikidata | research | propagated
+    year_lo       INTEGER,            -- span it was made in, for timelines: the stated date,
+    year_hi       INTEGER,            --   widened for circa, or an undated work's estimate
+    year_est      INTEGER,            -- undated artworks: best guess inside that span
+    year_basis    TEXT,               -- undated artworks: what the estimate rests on, strongest
+                                      --   first: siblings | artist | likeness | life | post
+    year_note     TEXT,               -- nd (caption says undated) | after_post:<year>
+                                      --   (a completion or model year, not when it was made)
     kind          TEXT NOT NULL,      -- artwork | intro | portrait | other
     kind_source   TEXT NOT NULL       -- heuristic (phase 1); later: clip, manual
 );

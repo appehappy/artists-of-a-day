@@ -11,3 +11,5 @@ scikit-learn==1.9.1
 numba==0.68.0
 # Colour maps explorer (scripts/build_colourmaps.py); Scientific Colour Maps, MIT licence
 cmcrameri==1.10
+# Artwork dates by web research (scripts/research_artwork_years.py)
+anthropic==2.6.0

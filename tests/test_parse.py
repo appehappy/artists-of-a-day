@@ -143,6 +143,30 @@ class CaptionTests(unittest.TestCase):
         self.assertEqual(parse_caption("Seaweed, 1927 © Georgia O'Keeffe Museum 2017"), ("Seaweed", 1927, None, False))
         self.assertEqual(parse_caption("Balancing Act. Photo: © Félix Morlá"), ("Balancing Act", None, None, False))
 
+    def test_decades(self):
+        self.assertEqual(parse_caption("1960's table lamp"), ("table lamp", 1960, 1969, False))
+        self.assertEqual(parse_caption("Vacation For Victory - At Lake Placid, 1930s"),
+                         ("Vacation For Victory - At Lake Placid", 1930, 1939, False))
+        self.assertEqual(parse_caption("King Petar I. Karadjordjevic, c.1920s"),
+                         ("King Petar I. Karadjordjevic", 1920, 1929, True))
+        self.assertEqual(parse_caption("Sideboard, late 1970s")[1:3], (1975, 1979))
+        # a year beats a decade named in the title
+        self.assertEqual(parse_caption("The 1970s Collection, 1981")[1], 1981)
+
+    def test_undated_and_catalogue_numbers(self):
+        self.assertEqual(parse_caption("Deux Amis n.d."), ("Deux Amis", None, None, False))
+        self.assertEqual(parse_caption("Untitled, undated"), ("Untitled", None, None, False))
+        self.assertIsNone(parse_caption("№. 2029, Golden heart cake")[1])
+        self.assertIsNone(parse_caption("Nº. 2315")[1])
+        self.assertIsNone(parse_caption("Golden cake No. 2029")[1])
+
+    def test_bc(self):
+        self.assertEqual(parse_caption("Scarab. 1980 BC")[1:3], (-1980, None))
+        self.assertEqual(parse_caption("Pectoral of Princess Sithathoriunet. 1887–1813 BC")[1:3], (-1887, -1813))
+        self.assertEqual(parse_caption("Stele, 1500 B.C.")[1], -1500)
+        # British Columbia, not BC
+        self.assertEqual(parse_caption("The Skeena River – B.C., circa 1927")[1], 1927)
+
     def test_filename_fallback(self):
         self.assertEqual(filename_caption("0 1893 The Scream, 1893.jpg"), "1893 The Scream, 1893")
         self.assertEqual(parse_caption(filename_caption("0 1893 The Scream, 1893.jpg"))[:2], ("The Scream", 1893))

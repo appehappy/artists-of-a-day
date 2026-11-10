@@ -6,10 +6,12 @@ Inputs (all optional, so a build works before enrichment has run):
   derived/colors.jsonl           palettes per image
   derived/similar.jsonl          nearest artworks per image
   derived/wikidata_artists.json  facts for matched artists, keyed by slug
+  curation/artwork_years.csv     artwork dates from Wikidata and research (aotd/dates.py)
 """
 import json
 from collections import Counter
 
+from aotd import dates
 from aotd.config import CURATION_DIR, DERIVED_DIR
 from aotd.wikidata import fold
 
@@ -18,10 +20,11 @@ OVERRIDES = CURATION_DIR / "overrides.json"
 
 def load_overrides():
     """{post_kind: {post_id: kind}, post_subject: {post_id: name},
-    image_kind: {"post_id/url_hash": kind}, artist_merge: {slug: canonical slug}}"""
+    image_kind: {"post_id/url_hash": kind}, artist_merge: {slug: canonical slug},
+    image_year: {"post_id/url_hash": "c.1965"}}"""
     o = json.loads(OVERRIDES.read_text()) if OVERRIDES.exists() else {}
     return {k: {kk: vv for kk, vv in o.get(k, {}).items() if not kk.startswith("_")}
-            for k in ("post_kind", "post_subject", "image_kind", "artist_merge")}
+            for k in ("post_kind", "post_subject", "image_kind", "artist_merge", "image_year")}
 
 
 def jsonl(path):
@@ -94,6 +97,8 @@ def merge(db, overrides):
         if region:
             db.execute("UPDATE artists SET region = ? WHERE id = ?", (region, aid))
             stats["regions from nationality"] += 1
+
+    stats.update(dates.apply(db, overrides))
     return stats
 
 

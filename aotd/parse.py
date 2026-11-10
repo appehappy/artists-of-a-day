@@ -51,6 +51,15 @@ CAPTION_TRAILING_YEAR = re.compile(
     r"^(?P<rest>.*?)[\s,(]+" + CIRCA + YEAR_RANGE + r"(?![\d'\"s])\s*\)?\s*\.?$", re.I | re.S)
 CAPTION_ANY_YEAR = re.compile(r"(?<!\d)" + CIRCA + YEAR_RANGE + r"(?![\d'\"s])", re.I)
 COPYRIGHT = re.compile(r"^\s*©|all rights reserved", re.I)
+# "1950s", "1960's", "late-1960s", "c.1920s"
+CAPTION_DECADE = re.compile(
+    r"(?<![\w-])(?:(early|mid|late)[\s-]*)?" + CIRCA + r"(1[2-9]\d0|20[0-3]0)['’]?s\b", re.I)
+DECADE_PART = {None: (0, 9), "early": (0, 4), "mid": (3, 7), "late": (5, 9)}
+# A caption that says the work is undated: "Deux Amis n.d.", "Untitled, undated"
+CAPTION_UNDATED = re.compile(r"(?<!\w)(?:n\.\s?d\.?|undated|no date)(?!\w)", re.I)
+CAPTION_BC_AFTER = re.compile(r"\s*(?:BCE?|B\.\s?C\.(?:E\.)?)(?![A-Za-z])")
+# "№. 2029, Golden heart cake" is a catalogue number, not a year
+CATALOGUE_BEFORE = re.compile(r"(?:№|Nº|N°|\bNo|#)\.?\s*$", re.I)
 
 LIFE_DATES = re.compile(
     r"\(\s*[^()\d]{0,15}?\s*(?:b\.|born)?\s*(\d{4})\s*(?:(?:[-–—]|to)\s*(\d{2,4})?)?\s*\)")
@@ -316,24 +325,41 @@ def parse_caption(caption):
     caption = re.sub(r"\s*(?:Photo(?:graph)?\s*(?:by|:)?\s*)?©.*$", "", caption, flags=re.I | re.S)
     if not caption.strip() or COPYRIGHT.search(caption):
         return None, None, None, False
+    caption = CAPTION_UNDATED.sub(" ", caption)
+
+    def catalogue(m, group):
+        return bool(CATALOGUE_BEFORE.search(caption[:m.start(group)]))
+
+    def years(m, g):
+        """(start, end) from groups g (start) and g + 1 (end); BC years are negative."""
+        start, end = int(m.group(g)), m.group(g + 1)
+        if CAPTION_BC_AFTER.match(caption, m.end(g + 1) if end else m.end(g)):
+            # "1887–1813 BC": BC ranges count down
+            return -start, (-int(end) if end and len(end) == 4 and int(end) < start else None)
+        return start, _expand_end(start, end)
+
     m = CAPTION_LEADING_YEAR.match(caption)
     if m:
-        start = int(m.group(2))
+        start, end = years(m, 2)
         rest = m.group("rest")
         # Filenames often repeat the year at the end: "2006 Souvenir, 2006"
-        rest = re.sub(r"[\s,]+" + str(start) + r"\s*$", "", rest)
-        return _clean_title(rest), start, _expand_end(start, m.group(3)), bool(m.group(1))
+        rest = re.sub(r"[\s,]+" + str(abs(start)) + r"\s*$", "", rest)
+        return _clean_title(rest), start, end, bool(m.group(1))
     m = CAPTION_TRAILING_YEAR.match(caption)
+    if m and not catalogue(m, 3):
+        return (_clean_title(m.group("rest")), *years(m, 3), bool(m.group(2)))
+    m = next((m for m in CAPTION_ANY_YEAR.finditer(caption) if not catalogue(m, 2)), None)
     if m:
-        start = int(m.group(3))
-        return (_clean_title(m.group("rest")), start, _expand_end(start, m.group(4)),
-                bool(m.group(2)))
-    m = CAPTION_ANY_YEAR.search(caption)
-    if m:
-        start = int(m.group(2))
+        start, end = years(m, 2)
         if re.fullmatch(r"\s*" + re.escape(m.group(0)) + r"\s*", caption):
-            return None, start, _expand_end(start, m.group(3)), bool(m.group(1))
-        return _clean_title(caption), start, _expand_end(start, m.group(3)), bool(m.group(1))
+            return None, start, end, bool(m.group(1))
+        return _clean_title(caption), start, end, bool(m.group(1))
+    m = CAPTION_DECADE.search(caption)
+    if m:
+        decade = int(m.group(3))
+        lo, hi = DECADE_PART[(m.group(1) or "").lower() or None]
+        rest = caption[:m.start()] + " " + caption[m.end():]
+        return _clean_title(rest), decade + lo, decade + hi, bool(m.group(2))
     return _clean_title(caption), None, None, False
 
 

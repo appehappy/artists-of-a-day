@@ -1,0 +1,364 @@
+post_id,url_hash,artist,title,status,year,source,evidence,note
+4371808667720358160,2d844cf23c,al-hirschfeld,Elvis,auto,1993,wikidata,Q76440270,
+3412652675779044029,10d7995f49,alex-chinneck,A bullet from a shooting star,auto,2015,wikidata,Q87749333,
+3412652675779044029,784b7df2ae,alex-chinneck,A bullet from a shooting star,auto,2015,wikidata,Q87749333,
+3412652675779044029,d3a6807d0f,alex-chinneck,A bullet from a shooting star,auto,2015,wikidata,Q87749333,
+3412652675779044029,d7ece860a6,alex-chinneck,From the knees of my nose to the belly of my toes,auto,2014,wikidata,Q54817784,
+3412652675779044029,1d656768d7,alex-chinneck,From the knees of my nose to the belly of my toes,auto,2014,wikidata,Q54817784,
+3412652675779044029,468cecfb7f,alex-chinneck,From the knees of my nose to the belly of my toes,auto,2014,wikidata,Q54817784,
+1011642684464913177,8962f1ddb2,alexander-archipenko,King Solomon,auto,1963,wikidata,Q122873400 Q122874250,
+2605992105032399946,86bb0c6664,amedeo-modigliani,Alice,auto,c.1918,wikidata,Q4062416,
+9174447565747701611,35d18786af,andre-derain,Houses on the Waterfront,auto,1910,wikidata,Q21727869,
+5245474119562315119,2643232b27,andre-lhote,Femme assise,auto,c.1925,wikidata,Q122680819,
+4635525432444429797,4828e8c486,andrea-del-sarto,Holy Family,needs_review,,wikidata,Q29917998 Q3944457,"Wikidata works disagree: 1528, 1605"
+4635525432444429797,d072c8b60c,andrea-del-sarto,Lamentation of Christ,auto,c.1519-1520,wikidata,Q27978350,
+4635525432444429797,0845226560,andrea-del-sarto,Madonna Of The Harpies,auto,1517,wikidata,Q1235695 Q125691757,
+4635525432444429797,e36ae39cfe,andrea-del-sarto,Pieta with Saints,auto,1523,wikidata,Q3904409,
+4635525432444429797,3008c9214d,andrea-del-sarto,Portrait Of A Woman In Yellow,auto,c.1529-1530,wikidata,Q28035523,
+9183682727145267681,11f7db5142,andy-scott,Lomondgate Stag,auto,2012,wikidata,Q136918501,
+9183682727145267681,4be9b32e6d,andy-scott,Lomondgate Stag,auto,2012,wikidata,Q136918501,
+9183682727145267681,4220cd6ae8,andy-scott,Lomondgate Stag,auto,2012,wikidata,Q136918501,
+9183682727145267681,cc10f9b17e,andy-scott,Lomondgate Stag,auto,2012,wikidata,Q136918501,
+4361101980598650195,0a9a92bd27,antonio-canova,Perseus Triumphant,needs_review,,wikidata,Q29383614,"Wikidata works disagree: 1801, 1804"
+2701283724820515005,a42516e64f,arjen,Summertime,needs_review,2021,research,https://www.artsy.net/artist/arjen,"high: Artsy lists 'Summertime', 2021. The artist's site file name is also Summertime2021."
+2701283724820515005,477cdd492e,arjen,The Other Side Of The Black Hole,needs_review,2023,research,https://www.richardhellergallery.com/artists/arjen,"high: Richard Heller Gallery: 'The Other Side of the Black Hole', 2023, oil on linen, 120x105 cm."
+2873919496885338626,09cac8e38d,arne-jacobsen,AJ Wall lamp,needs_review,1957,research,https://arnejacobsen.com/life/timeline/,high: Official timeline lists AJ Lamp 1957 (wall version part of AJ family for SAS Royal Hotel); some retailers give 1960.
+2873919496885338626,c91752fcc9,arne-jacobsen,"Ant chair, 3101 Lacquered veneer",needs_review,1952,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,778485970c,arne-jacobsen,"Christianeum, Grammar School Hamburg Hamburg, Germany",needs_review,1971,research,https://divisare.com/projects/438888-arne-jacobsen-dorfmuller-klier-christianeum-grammar-school-hamburg,medium: Wikipedia: construction began 1968; occupied 1971.
+2873919496885338626,1ec614c051,arne-jacobsen,Cylinda line classic,needs_review,1967,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,c0d5479827,arne-jacobsen,"Dot series, Stool",needs_review,1954,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,3ff07c4c81,arne-jacobsen,Egg chair Series,needs_review,1958,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,16e3401efb,arne-jacobsen,"Egg chair, 3316 Leather",needs_review,1958,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,e27169762d,arne-jacobsen,"Grand Prix 4130, Clear lacquer",needs_review,1957,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,557b293c18,arne-jacobsen,Lily chair,needs_review,1968,research,https://arnejacobsen.com/life/timeline/,high: Architizer gives 1970 launch.
+2873919496885338626,d40c97f90a,arne-jacobsen,"Lily chair, 3208 clear lacquer",needs_review,1968,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,b4bffe28a9,arne-jacobsen,"Lily chair, 50th Anniversary",needs_review,1968,research,https://arnejacobsen.com/life/timeline/,medium: Original Lily design 1968 per official timeline (Architizer says 1970 launch); anniversary edition is a later reissue.
+2873919496885338626,c22820a65f,arne-jacobsen,"Munkegaard School Gentofte, Denmark",needs_review,1957,research,https://arnejacobsen.com/life/timeline/,high: Year of completion per timeline.
+2873919496885338626,ace33c47f0,arne-jacobsen,"Oxford Classic chair, 3271C leather",needs_review,1965,research,https://arnejacobsen.com/life/timeline/,high: Some sources give 1963.
+2873919496885338626,f96fc3e7a1,arne-jacobsen,"Oxford Premiumchair, 3 271P, Textile",needs_review,1965,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,13561a57ac,arne-jacobsen,"Series 3300, 3302, Textile",needs_review,1956,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,143ad72488,arne-jacobsen,"Series 7 chair 3207, Fully upholstered, Leather",needs_review,1955,research,https://arnejacobsen.com/life/timeline/,high: Series 7 design year; fully upholstered variant later.
+2873919496885338626,38ffef10c4,arne-jacobsen,"Series 7 chair, 3107 Lacquered veneer",needs_review,1955,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,1cd1056796,arne-jacobsen,"St. Catherine's College Oxford, United Kingdom",needs_review,1964,research,https://arnejacobsen.com/life/timeline/,high: Timeline dates completion 1964; other sources give 1966.
+2873919496885338626,b214f1ebf5,arne-jacobsen,"Swan Chair, 3320, Textile",needs_review,1958,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,f2ba0a47e9,arne-jacobsen,"Swan Sofa, 3321, 2-seater",needs_review,1958,research,https://klassik.dk/en/blogs/designers/arne-jacobsen,"high: Swan 1958, as chair and sofa."
+2873919496885338626,ad3634fe08,arne-jacobsen,"Swanchair 3320, Textile",needs_review,1958,research,https://arnejacobsen.com/life/timeline/,high
+2873919496885338626,9c031bf385,arne-jacobsen,The Banker’s Clock,needs_review,1970,research,https://arnejacobsen.com/life/timeline/,high: Listed as 'Bankers' 1970.
+2873919496885338626,3b1a4df027,arne-jacobsen,The buildings in Klampenborg,needs_review,1932-1938,research,https://arnejacobsen.com/life/timeline/,"low: Assumed to mean the Bellevue complex (Bellavista 1934, Bellevue Theatre 1936, etc.); title ambiguous."
+2873919496885338626,8908186b14,arne-jacobsen,"c Series 3300 chair, Textile",needs_review,1956,research,https://arnejacobsen.com/life/timeline/,high
+4374562082392922239,4052876404,banksy,Follow your dreams,auto,2010,wikidata,Q95098936,
+799551812178176355,ed716da49c,benjamin-west,Benjamin Franklin Drawing Electricity from the shy,needs_review,c.1816,research,https://en.wikipedia.org/wiki/Benjamin_Franklin_Drawing_Electricity_from_the_Sky,"medium: The Wikipedia page contradicts itself: the infobox says completed 1816, the text says c.1805. Philadelphia Museum of Art. Needs checking against the PMA record."
+799551812178176355,4dd3bfe025,benjamin-west,Death of Chatham,needs_review,1778,research,https://en.wikipedia.org/wiki/Benjamin_West,medium: From the list of works on Wikipedia's West page. Not checked against the museum record.
+799551812178176355,f6b4880261,benjamin-west,Gentlemen Fishing,needs_review,1794,research,https://en.wikipedia.org/wiki/Gentlemen_Fishing,"high: Yale Center for British Art, oil on slate."
+799551812178176355,058fa20b57,benjamin-west,Helen Brought to Paris,needs_review,1776,research,https://americanart.si.edu/artwork/helen-brought-paris-27555,high: Smithsonian American Art Museum.
+799551812178176355,5adabba6a6,benjamin-west,Helen Brought to Paris detail,needs_review,1776,research,https://americanart.si.edu/artwork/helen-brought-paris-27555,high: Detail of work 8.
+799551812178176355,6d913a8df2,benjamin-west,Isaacs servant tying the bracelet on Rebeccas arm,needs_review,1775,research,https://www.arthistoryproject.com/artists/benjamin-west/isaacs-servant-tying-the-bracelet-on-rebeccas-arm/,high: Yale Center for British Art. Wikimedia Commons also gives 1775.
+799551812178176355,9e74eeeb62,benjamin-west,"Isaacs servant tying the bracelet on Rebeccas arm, detail",needs_review,1775,research,https://www.arthistoryproject.com/artists/benjamin-west/isaacs-servant-tying-the-bracelet-on-rebeccas-arm/,high: Detail of work 3.
+799551812178176355,6fa44f8712,benjamin-west,John Eardley Wilmot,needs_review,1812,research,https://en.wikipedia.org/wiki/Benjamin_West,"medium: From the list of works on Wikipedia's West page: John Eardley Wilmot, 1812, with the Loyalists picture in the background. Not checked against the museum record."
+799551812178176355,c58993ec95,benjamin-west,Miss Elizabeth Milward,needs_review,1770,research,https://www.wikidata.org/wiki/Q28777913,medium: The year comes from the Wikidata 'inception' field seen in a search snippet. A Meisterdrucke print page also gives 1770.
+799551812178176355,70bca55924,benjamin-west,Mrs Benjamin West II with her son Benjamin West III,needs_review,1805,research,https://artuk.org/discover/artworks/mrs-benjamin-west-ii-with-her-son-benjamin-west-iii-200414,high: Dulwich Picture Gallery; signed and dated 1805.
+799551812178176355,e341d987e8,benjamin-west,Pylades and Orestes Brought as Victims before Iphigenia,needs_review,1766,research,https://www.tate.org.uk/art/artworks/west-pylades-and-orestes-brought-as-victims-before-iphigenia-n00126,high: Tate N00126.
+799551812178176355,097bc5d40c,benjamin-west,Queen Charlotte,needs_review,1779,research,https://en.wikipedia.org/wiki/Portrait_of_Queen_Charlotte_(West),high: West painted more than one portrait of Queen Charlotte; I took this to be the well-known 1779 Royal Collection portrait.
+799551812178176355,4d2f19df84,benjamin-west,"Queen Charlotte, detail",needs_review,1779,research,https://en.wikipedia.org/wiki/Portrait_of_Queen_Charlotte_(West),high: Detail of work 1.
+799551812178176355,48923f53f1,benjamin-west,Romeo and Juliet,needs_review,1778,research,https://artsandculture.google.com/asset/romeo-and-juliet-benjamin-west/eAH2JBnT-ZzH5Q?hl=en,"medium: Google Arts & Culture gives 'Date Created: 1778'. Another Romeo and Juliet, attributed to West and his studio, is dated c.1792 elsewhere, so I can't be sure which version the blog shows."
+799551812178176355,2d078eeb86,benjamin-west,The Death of Nelson,needs_review,1806,research,https://en.wikipedia.org/wiki/The_Death_of_Nelson_(West_painting),"high: There is also a different painting, 'Death of Lord Nelson in the Cockpit of the Victory' (1808), so the blog's image could be that one."
+799551812178176355,fedf9fb2f8,benjamin-west,Woodcutters in Windsor Park,needs_review,1795,research,https://en.wikipedia.org/wiki/Benjamin_West,medium: From the list of works on Wikipedia's West page.
+5920991414431950698,a7d5b09dbc,brian-jungen,Prototype For A New Understanding Nº 5,needs_review,1999,research,https://catrionajeffries.com/artists/brian-jungen/works/brian-jungen-prototype-for-new-understanding-5-1999,high: Catriona Jeffries (artist's gallery)
+2897631036890784466,07a3d439a2,carl-andre,Equivalent VIII,auto,1966,wikidata,Q5384716,
+2373135595568583096,767588197c,carlo-crivelli,Saint Peter Martyr ( detail ),auto,c.1476,wikidata,Q26706552,
+8784701339087131034,c89cb75868,cayce-zavaglia,Annie in Her Mom's Winter Hat verso,needs_review,2017,research,https://www.caycezavaglia.com/embroideries,high: Verso of 'Annie in Her Mom's Winter Hat'. The artist's site dates the work 2017.
+8784701339087131034,d96c868be6,cayce-zavaglia,Bruce verso,needs_review,2018,research,http://www.artnet.com/artists/cayce-zavaglia/bruce-a-HqmVMPfeMEb5Bro7H1pDDQ2,"medium: Verso of Bruce, 2018."
+8784701339087131034,1eadfb6ad3,cayce-zavaglia,Dad verso,needs_review,2007,research,https://www.shearburngallery.com/artists/cayce-zavaglia,medium: The Shearburn page dates Dad to 2007. It is assumed the verso belongs to this embroidery.
+8784701339087131034,84c56c7c0f,cayce-zavaglia,Emmylou verso,needs_review,2019,research,https://www.shearburngallery.com/exhibitions/cayce-zavaglia-unseen,"medium: Emmylou, 2019, is confirmed by the artist's site and the Shearburn gallery. It is assumed the verso belongs to this embroidery."
+8784701339087131034,97bb9b4ea6,cayce-zavaglia,Florence Verso,needs_review,2014,research,https://www.caycezavaglia.com/embroideries,medium: The artist's site and the elhurgador blog date Florence to 2014. It is assumed the verso belongs to this embroidery.
+8784701339087131034,f8d0b7d646,cayce-zavaglia,Julie verso,needs_review,2018,research,https://www.caycezavaglia.com/embroideries,medium: The artist's site dates Julie to 2018. It is assumed the verso belongs to this embroidery.
+8784701339087131034,0b9fc38bfe,cayce-zavaglia,Matt Verso,needs_review,2018,research,https://www.caycezavaglia.com/embroideries,medium: The artist's site dates Matt to 2018. It is assumed the verso belongs to this embroidery.
+8784701339087131034,0eb9ead478,cayce-zavaglia,Raphaella in her Winter Coat (After Alex) close up,needs_review,2015,research,https://www.caycezavaglia.com/embroideries,high: Close-up of the 2015 work.
+8784701339087131034,146db0685e,cayce-zavaglia,Raphaella in her Winter Coat (After Alex) verso,needs_review,2015,research,https://www.studiointernational.com/index.php/cayce-zavaglia-interview-about-face-lyons-wier-gallery-new-york,high: Studio International captions this verso 2015.
+8784701339087131034,e48a0b8b1a,cayce-zavaglia,Raphaella verso,needs_review,2011,research,https://elhurgador.blogspot.com/2015/04/cayce-zavaglia-bordado-pintura.html,"medium: The elhurgador blog shows 'Raphaella' front and back, 2011. This entry is assumed to be that work rather than the Winter Coat piece, which is listed separately."
+8784701339087131034,e269a4048c,cayce-zavaglia,Uncle Angelo verso,needs_review,2015,research,https://www.caycezavaglia.com/embroideries,"medium: Verso of Uncle Angelo, 2015."
+4789921692059815595,287af07d9a,charles-angrand,Feeding The Chickens,auto,1884,wikidata,Q138416646,
+1430903618373843649,9ca538dc45,charlotte-mayer,"Ascent, Barbican, London",needs_review,1990,research,https://rupertharris.com/products/ascent,"medium: Rupert Harris Conservation and Wikimedia Commons say 1990, but Wikipedia says 1991."
+1430903618373843649,539ebed793,charlotte-mayer,"Sea Circle, Liverpool",needs_review,1984,research,https://artuk.org/discover/artworks/sea-circle-331001,high: Art UK and the plaque both give 1984; liverpoolmonuments.co.uk agrees.
+3258015410404423859,5d8cc031e8,chen-yifei,A memory of Xun Yang,needs_review,1991,research,https://www.wikiart.org/en/yifei-chen/xunyang-legacy-rhyme-1991,"medium: Year comes from a WikiArt search snippet, not a page I read. Assumes the caption means WikiArt's 'Xunyang Legacy Rhyme' (浔阳遗韵), which it dates 1991. Another source lists a separate 'Reminiscence of Xunyang' (忆浔阳), so the match isn't certain."
+3258015410404423859,ab7a9538b8,chen-yifei,Bridge of Light,needs_review,1990-2000,research,https://www.artsy.net/artwork/chen-yifei-bridge-of-light,"low: Year comes from an Artsy search snippet, not a page I read. It dates a 'Bridge of light' lithograph sold by a dealer to 1990–2000. An oil on canvas with this title also exists (Invaluable) and is undated, so the match is uncertain."
+1611880884032353880,0bdb2fac39,christi-belcourt,New Beginnings,needs_review,2014,research,https://artgalleryofguelph.ca/exhibition/uprising-christi-belcourt/,high: Made with Isaac Murdoch. CBC and MacKenzie Art Gallery also date it 2014.
+1611880884032353880,cca6f48615,christi-belcourt,Portrait of Gabriel Dumont,needs_review,2010,research,https://christibelcourt.com/gabriel-dumont-institute-collection/,"low: Probably the Gabriel Dumont Institute portrait titled 'Can I Get a Picture With You Gabe?'. The artist's site dates it 2010, but the Métis Museum (metismuseum.ca/resource.php/15026) gives 'Date: 2008' and AWARE gives 2014. The sources disagree."
+1611880884032353880,bef884bfef,christi-belcourt,Portrait of Rose Fleury,needs_review,2012,research,https://christibelcourt.com/gabriel-dumont-institute-collection/,high
+1611880884032353880,63ac0226b0,christi-belcourt,Revolution of Love,needs_review,2018,research,https://mackenzie.art/exhibition/uprising-the-power-of-mother-earth-christi-belcourt/,"medium: The MacKenzie Art Gallery caption reads 'Revolution of Love,' 2018."
+1682563303953830696,79b48ed230,clark-orr-codc-studio,Brockmire for IFC Channel,needs_review,2016,research,https://www.clarkorr.com/brockmire-ifc-channel,medium: The CODC page says that in 2016 IFC was getting ready to launch Brockmire and came to the studio for the show's logo. This comes from a search snippet; I couldn't fetch the full page.
+1682563303953830696,e96c5711e9,clark-orr-codc-studio,Edgewood Tattoo logo,needs_review,2019,research,https://www.clarkorr.com/edgewood-tattoo/,"medium: The page says Edgewood Tattoo opened in 2019 and needed graphics for promotional materials and apparel. The work most likely dates from then, but the page doesn't say so outright."
+1682563303953830696,6ff7969269,clark-orr-codc-studio,Lowdrag Gum Font,needs_review,2019,research,https://www.clarkorr.com/lowdrag-1/,"high: The artist's page says that in 2019 he decided to make the font, then released it with Fort Foundry. The page shows the 'Gum' specimen."
+9152151391551252903,1dcf06ebba,clifford-possum-tjapaltjarri,Love Story,auto,1972,wikidata,Q50729343,
+152354197739003683,41b7b51559,dan-stiles,Sonic Youth at the Moore Theater,needs_review,2006,research,https://originalconcertposters.org/2016/10/sonic-youth-seattle-original-concert-poster-2006-dan-stiles-silkscreen/,"high: Moore Theatre, Seattle; the listing gives the date as 2006. Other listings give the show as June 30, 2006."
+5384828573981866011,179f0dcf43,dorrit-black,Black Swans,needs_review,1937,research,https://www.agsa.sa.gov.au/collection-publications/collection/works/black-swans/24884/,high: AGSA colour linocut 1937.
+5384828573981866011,2d5eb57fb1,dorrit-black,In the foothills,needs_review,1942,research,https://collection.qagoma.qld.gov.au/objects/10504/,"high: QAGOMA, oil on canvas board."
+5384828573981866011,98d5d504d1,dorrit-black,The Castle Taormina,needs_review,c.1928-1929,research,https://www.agsa.sa.gov.au/education/resources-educators/resources-educators-australian-art/australian-history-the-past-and-present-and-its-connection-with-a-diverse-world/,high: AGSA colour linocut c.1928-29 (Bonhams agrees).
+5384828573981866011,9cbdc85892,dorrit-black,The Double Basses,auto,c.1950,wikidata,Q104247211,
+5384828573981866011,89628751fa,dorrit-black,The Paris Hat,needs_review,1938,research,https://www.diggins.com.au/artworks/the-paris-hat/,"high: Colour linocut, 1938."
+5384828573981866011,d047da9660,dorrit-black,The Windmill,needs_review,1927-1928,research,https://www.deutscherandhackett.com/auctions/58-important-australian-international-fine-art/,"medium: Identified as the linocut Bush Wind Mill, 1927–28 (Deutscher and Hackett). In the lot notes another impression was exhibited as 'The Windmill' (AGSA 2014). Some other sources date it c.1930."
+2742482470593107258,e51cb840bf,dorte-mandrup,Babyn Yar Holocaust Memorial Center Ukraine,needs_review,2019,research,https://dortemandrup.dk/work/babyn-yar-holocaust-memorial-center-ukraine,"medium: Unbuilt competition entry. Firm's site says 'Competition, summer 2019, 2nd prize'."
+2742482470593107258,b31e52d54a,dorte-mandrup,Babyn Yar Holocaust Memorial Center Ukraine,needs_review,2019,research,https://dortemandrup.dk/work/babyn-yar-holocaust-memorial-center-ukraine,"medium: Unbuilt competition entry. Firm's site says 'Competition, summer 2019, 2nd prize'."
+2742482470593107258,7bbea505b0,dorte-mandrup,Sailing Tower Denmark,needs_review,2015,research,https://dortemandrup.dk/work/salling-tower-denmark,"high: Firm's site calls it Salling Tower, Aarhus: 'Status Completed, 2015'."
+2742482470593107258,ab53298da4,dorte-mandrup,Sailing Tower Denmark,needs_review,2015,research,https://dortemandrup.dk/work/salling-tower-denmark,"high: Firm's site calls it Salling Tower, Aarhus: 'Status Completed, 2015'."
+2742482470593107258,e2464b20f6,dorte-mandrup,The Wadden Sea Centre Denmark,needs_review,2017-2024,research,https://dortemandrup.dk/work/wadden-sea-centre-denmark,"high: Firm's site says completed 2017 (phase 1), 2021 (phase 2) and 2024 (phase 3)."
+2742482470593107258,16148d4d4b,dorte-mandrup,Trilateral Wadden Sea World Heritage Partnership Center Germany,needs_review,2018,research,https://dortemandrup.dk/work/trilateral-wadden-sea-world-heritage-partnership-center-germany,"medium: Firm's site says 'Competition won 2018'. That is the design or competition year, not a completion date."
+2404786626519228627,a2df64eb56,edward-alexander-wadsworth,"Le havre, france",auto,1939,wikidata,Q119266076,
+719964912504332499,6718a8488b,elaine-de-kooning,Aristedemos Kaldis,needs_review,1976,research,https://npg.si.edu/object/npg_EXH.EK.46,"medium: NPG Catalog of American Portraits: 'Aristodimos Kaldis' (sitter spelled 'Aristodemos Kaldis'), charcoal on paper, 1976. The Asheville Art Museum also dates its charcoal 'Portrait of Aristodimos Kaldis' to 1976. She made many Kaldis portraits (e.g. 1969, 1978), so it is uncertain which one the caption means."
+719964912504332499,279ee6cbfe,elaine-de-kooning,FRANK O'HARA,needs_review,1962,research,https://npg.si.edu/object/npg_EXH.EK.22,"medium: NPG Catalog of American Portraits: 'Frank O'Hara', oil on canvas, 93 x 42 in, 1962. She painted other O'Hara portraits as well."
+719964912504332499,d159694ecd,elaine-de-kooning,Harold Rosenberg #1,needs_review,1967,research,https://www.apex-internet.com/portfolio/bamatmsu/figurative.html,"high: Montana State University collection: 'Harold Rosenberg 1, 1967', oil on canvas, 28 x 22 in. A different Rosenberg portrait is dated 1956."
+719964912504332499,1e637508c3,elaine-de-kooning,Portrait of a Young Man 1,needs_review,1975,research,https://www.pinterest.com/pin/365495326005749412/,"low: Weak source: a Pinterest pin of an artnet Auctions listing, titled 'Portrait of a Young Man by Elaine de Kooning, 1975'. It is not clear this is the same work as '#1'. The 1stDibs listing (Lilac Gallery) gives no year."
+719964912504332499,7226f77efe,elaine-de-kooning,Quedado,needs_review,1959,research,https://www.emilyfriedmanfineart.com/elaine-de-kooning,"high: Emily Friedman Fine Art: Quedado, 1959, oil on canvas, 31 x 35 in."
+719964912504332499,b63b69488c,elaine-de-kooning,portrait of John Glykos,needs_review,1973,research,https://www.art.salon/artwork/elaine-de-kooning_john-glykos_AID1047880,"high: Phillips lot: signed and dated 'E de K 73', 'Painted in 1973'. 1stDibs also gives 1973."
+6379430535305146657,8af11c313a,elisabetta-sirani,Circe,auto,1664,wikidata,Q120257763,
+6379430535305146657,deedd47d30,elisabetta-sirani,Cleopatra,auto,1664,wikidata,Q118782632,
+6379430535305146657,7da445ff24,elisabetta-sirani,Saint Jérôme,auto,1661,wikidata,Q120968815,
+6813658262774718528,9fcecf88c6,emile-claus,Journée ensoleillée (?),needs_review,1899,research,https://www.mskgent.be/en/collection/1904-x,"high: MSK Ghent, Sunny Day / Journée ensoleillée, inv. 1904-X"
+6813658262774718528,3238de51bc,emile-claus,Meule de foin (?),needs_review,1909,research,https://artworkculture.com/collections/emile-claus/products/meule-de-foin-emile-claus,"low: Only print sellers give 1909. WikiArt dates a different 'Hay stacks' to 1905, so I'm not sure this is the same work"
+82655698532452887,89e8e1a106,emile-friant,Autoportrait en gris clair,auto,1887,wikidata,Q51756590,
+1680653135795399632,0844340735,emiliano-di-cavalcanti,Mulher Deitada com Peixes e Frutas,needs_review,1956,research,https://www.artnet.com/artists/emiliano-di-cavalcanti/mulher-deitada-com-peixes-e-frutas-whAkO5_zF-M-FNZuDvfSlQ2,"medium: An artnet auction record dates a work of this title to 1956. WikiArt gives no date. I couldn't open the artnet page, so the year comes from its search-result summary, and I couldn't confirm it's the same image."
+5245632146970277040,da46780fbf,erik-spiekermann,FF Meta,auto,1991,wikidata,Q368188,
+2077856330075070462,3906d6d523,ettore-tito,Love and the Fates,auto,1909,wikidata,Q116898752,
+606063827093300487,27aec32dc3,fermin-revueltas,Alegoría a la Virgen de Guadalupe,auto,1923,wikidata,Q130719958,
+906166956937729590,e7a272dbfe,fernand-khnopff,Memories,auto,1889,wikidata,Q4126317,
+6209395572025150673,710a2078e9,fernand-khnopff,Still water,auto,1894,wikidata,Q28007521,
+8933331673690433005,0ae17092e2,filippino-lippi,Portrait of an old man,auto,1485,wikidata,Q3937767,
+867587230207011705,d0a2e71b8c,filippino-lippi,The Annunciation,needs_review,,wikidata,Q21723145 Q3618174,"Wikidata works disagree: 1460, 1490"
+721521821392705312,f5f378cd72,frits-thaulow,Village on the Bank of a Stream,auto,c.1897,wikidata,Q18748519,
+7411579700148042780,c773e9aacd,gary-kelley,"Blue Kind of Blue, Blue Series",needs_review,2017,research,https://www.1stdibs.com/buy/gary-kelley/,"medium: 1stDibs lists 'Kind of Blue', pastel on paper (Miles Davis, John Coltrane), 2017. It probably belongs to the Blue Series."
+7411579700148042780,262cf50dda,gary-kelley,Sleepy Hollow book illustration,needs_review,1990,research,https://www.cedarfalls.com/1342/Virtual-GalleryLegend-of-Sleepy-Hollow,medium: The Hearst Center collection dates every original pastel illustration for The Legend of Sleepy Hollow to 1990. I couldn't tell which illustration the blog showed.
+4476069443877591635,c2384b49f2,george-lance,Fruit,needs_review,,wikidata,Q119064587 Q119073003,"Wikidata works disagree: 1843, 1848"
+4476069443877591635,03ee9ee29b,george-lance,Fruit,needs_review,,wikidata,Q119064587 Q119073003,"Wikidata works disagree: 1843, 1848"
+4476069443877591635,1b058b4f07,george-lance,Fruit,needs_review,,wikidata,Q119064587 Q119073003,"Wikidata works disagree: 1843, 1848"
+4476069443877591635,6bcdc08215,george-lance,Fruit,needs_review,,wikidata,Q119064587 Q119073003,"Wikidata works disagree: 1843, 1848"
+4476069443877591635,9c5461af09,george-lance,Fruit,needs_review,,wikidata,Q119064587 Q119073003,"Wikidata works disagree: 1843, 1848"
+4476069443877591635,2ad83a4e81,george-lance,Fruit (The Autumn Gift ),needs_review,,wikidata,Q119064587 Q119073003 Q28540625,"Wikidata works disagree: 1834, 1843, 1848"
+4476069443877591635,90c8752aff,george-lance,Fruit Piece,auto,c.1845,wikidata,Q119060460,
+4476069443877591635,ff550d8575,george-lance,Fruit Piece,auto,c.1845,wikidata,Q119060460,
+4476069443877591635,3c8707073c,george-lance,Fruit Piece,auto,c.1845,wikidata,Q119060460,
+4476069443877591635,f8eb25a673,george-lance,Grandmother's Blessing,auto,1844,wikidata,Q119065846,
+4476069443877591635,cd22adc659,george-lance,Melanchthon's First Misgivings of the Church,auto,1837,wikidata,Q119053261,
+4476069443877591635,bc8f9fbcca,george-lance,Ready for Cutting,auto,1860,wikidata,Q119083556,
+4476069443877591635,a2cece8048,george-lance,Still Life with Fruit,needs_review,,wikidata,Q119070791 Q119081363,"Wikidata works disagree: 1847, 1855"
+4476069443877591635,4c84cf348c,george-lance,Still Life with Fruit and Flowers,auto,1855,wikidata,Q119081891,
+4476069443877591635,c9a0362761,george-lance,"Still Life with Monkey, Sparrow and Fruit",auto,c.1850,wikidata,Q119744170,
+4476069443877591635,bcb96625ad,george-lance,Still Life with a Golden Peacock,auto,1857,wikidata,Q119082787,
+4476069443877591635,d1758ea5c2,george-lance,Still life with fruit,needs_review,,wikidata,Q119070791 Q119081363,"Wikidata works disagree: 1847, 1855"
+4476069443877591635,c8a2d97bb4,george-lance,The Maréchal Biron Conspiracy,auto,1845,wikidata,Q119068568,
+4476069443877591635,abc8ea2879,george-lance,The Red Cap,auto,c.1847,wikidata,Q104248385 Q28540775,
+4476069443877591635,6b4f531392,george-lance,Thomas Duncan,auto,1840,wikidata,Q119057950,
+3821815503306508456,fa4b9a1b04,gustav-klimt,Die Umarmung ( The Embrace),auto,1905-1909,wikidata,Q3818154,
+3821815503306508456,a1c2ef8e93,gustav-klimt,Sonja Knips,auto,1898,wikidata,Q28002801,
+5118058925305251325,f2aeaf8c1c,guy-pene-du-bois,Portrait of a Woman,auto,1932,wikidata,Q64517998,
+9111556437692881426,31d7d995f8,harold-edgerton,Bullet through Banana,needs_review,1964,research,https://whitney.org/collection/works/10932,high
+9111556437692881426,f123d0e9ca,harold-edgerton,Drum majorette,needs_review,1953,research,https://emuseum.mfah.org/objects/59422/drum-majorette,"low: MFAH dates 'Drum Majorette' to 1953. Getty has a different drum majorette image dated about 1948, so it's unclear which one is meant."
+9111556437692881426,b2c4ddd3ed,harold-edgerton,Football Kick,needs_review,1938,research,https://whitney.org/collection/works/10927,high
+9111556437692881426,c10681c509,harold-edgerton,Golf,needs_review,1938,research,https://www.artic.edu/artworks/146007/golf-swing-multiflash,"medium: Assumed to be the Densmore Shute golf multiflash (1938, per AIC, NGA, SAAM). Edgerton made other golf images."
+9111556437692881426,899c21a25b,harold-edgerton,Golf,needs_review,1938,research,https://www.artic.edu/artworks/146007/golf-swing-multiflash,"medium: Assumed to be the Densmore Shute golf multiflash (1938, per AIC, NGA, SAAM). Edgerton made other golf images."
+9111556437692881426,553a7260d8,harold-edgerton,Hammer and Glass,needs_review,1933,research,https://whitney.org/collection/works/10916,"high: Hammer Breaking Glass, 1933."
+9111556437692881426,7f48cc6a88,harold-edgerton,Moving Skip Rope,needs_review,1952,research,https://whitney.org/collection/works/10872,high
+9111556437692881426,a2d7e0bf3c,harold-edgerton,Nuclear explosion,needs_review,1946-1952,research,https://www.metmuseum.org/art/collection/search/281914,medium: Met [Atomic Bomb Explosion] is dated 1946–52; the specific image is uncertain.
+9111556437692881426,e2f2180c36,harold-edgerton,Nuclear explosion,needs_review,1946-1952,research,https://www.metmuseum.org/art/collection/search/281914,medium: Met [Atomic Bomb Explosion] is dated 1946–52; the specific image is uncertain.
+9111556437692881426,4fc67c0ebb,harold-edgerton,Propeller Cavitation,needs_review,1938,research,https://spencerart.ku.edu/art/collections-online/object/15691,"medium: Spencer Museum gives 'Propeller Cavitation', 1938. Michael Hoppen lists a 'Cavitation Study', 1940."
+9111556437692881426,631228a280,harold-edgerton,Watertap,needs_review,1932,research,https://www.metmuseum.org/art/collection/search/281952,"medium: Matched to [Water Falling from Faucet], 1932 (also MIT Museum 'Water from a faucet - 1932')."
+943569297119711438,730669cd10,henri-de-toulouse-lautrec,Dance At The Moulin Rouge,needs_review,1890,research,"https://en.wikipedia.org/wiki/At_the_Moulin_Rouge,_The_Dance","high: At the Moulin Rouge, The Dance; Philadelphia Museum of Art."
+943569297119711438,b6a850cdde,henri-de-toulouse-lautrec,The Artist's Dog Fleche,needs_review,c.1881,research,https://www.nga.gov/collection/art-object-page.52228.html,"high: National Gallery of Art, Washington, 1970.17.84."
+943569297119711438,b6a850cdde,henri-de-toulouse-lautrec,The Artist's Dog Fleche,auto,c.1881,wikidata,Q20188878,
+4631308253365033510,d2018d5d93,henry-van-de-velde,"Ietzsche-Archiv, Weimar",needs_review,1902-1903,research,https://www.klassik-stiftung.de/en/about-us/our-profile/construction-projects/translate-to-english-nietzsche-archiv/,high: Klassik Stiftung says the ground floor was redesigned in 1902/03. WGA gives 1902.
+4631308253365033510,89dc593961,henry-van-de-velde,Train Bench,needs_review,1934-1935,research,https://www.designmuseumgent.be/agenda/collectie-in-progress,low: The auction listing for 'Train Bench' gives no date. Design Museum Gent dates the matching train-compartment design for the Belgian Railways to 1934-35.
+7328446085269977880,cb821d2e97,horace-pippin,Asleep,auto,1943,wikidata,Q19921243,
+7328446085269977880,9aa3939ba7,horace-pippin,Family Supper ( Saying Grace ),auto,1946,wikidata,Q19918009,
+7328446085269977880,57c981f42d,horace-pippin,Table and two chairs,auto,1946,wikidata,Q19922174,
+325758046288081914,fabf4926f6,humphrey-ocean,Paul McCartney,auto,1983,wikidata,Q28052090,
+6530121913761444771,52fbbb8ede,isidor-kaufmann,Friday Evening,auto,c.1920,wikidata,Q28796719,
+6530121913761444771,d683ae8ae3,isidor-kaufmann,Man With Fur Hat,auto,c.1910,wikidata,Q28797791,
+6530121913761444771,bb65e5709b,isidor-kaufmann,Portrait of Isidor Gewitsch,auto,c.1900,wikidata,Q28797793,
+6530121913761444771,34ebc88851,isidor-kaufmann,Portrait of a Boy,auto,c.1895,wikidata,Q28797792,
+6530121913761444771,6830108b6f,isidor-kaufmann,Portrait of a boy,auto,c.1895,wikidata,Q28797792,
+6530121913761444771,a99d9f72db,isidor-kaufmann,The Kabbalist,auto,c.1910-1920,wikidata,Q101208209,
+6530121913761444771,37d102fa20,isidor-kaufmann,portrait of a sephardic jew,auto,c.1900,wikidata,Q104527792,
+5364053663499058223,405beb741c,jack-vettriano,dance me to the end of love,needs_review,1998,research,https://en.wikipedia.org/wiki/Jack_Vettriano,"medium: Wikipedia and eateggs.com give 1998, and the official site shows it at the Between Darkness and Dawn exhibition (June 1998). But one obituary says 1997, and an Artsy print listing says 1999."
+5364053663499058223,9aa28d3088,jack-vettriano,singing butler,needs_review,1992,research,https://www.jackvettriano.com/the-singing-butler-3/,high: The artist's official site says 'Painted in 1992'. Wikipedia agrees.
+1762888745608915293,815d416894,jacques-lipchitz,Study for Return of the Child,auto,1941,wikidata,Q76629020,
+2224091244601177829,a2cdbbd16d,jaroslav-vesin,A hunter taking refreshment,auto,1892,wikidata,Q106683573,
+7892843356949346852,8188b233b9,jean-beraud,Femme en Priere,auto,c.1885,wikidata,Q104371843,
+7892843356949346852,d27261ef7e,jean-beraud,Les Coulisses de l'Opéra,auto,1889,wikidata,Q104370156,
+7892843356949346852,0b7090d993,jean-beraud,Les Halles,auto,1879,wikidata,Q86471843,
+7892843356949346852,9eb2c852a2,jean-beraud,Paris Kiosk,auto,1880-1884,wikidata,Q18748937,
+7892843356949346852,f93d93a769,jean-beraud,Sur le boulevard,needs_review,,wikidata,Q104371844 Q86471849,"Wikidata works disagree: 1880, 1888"
+7284749698183852966,940432d407,jean-paul-lemieux,La Mort par un clair matin,auto,1963,wikidata,Q59546122,
+6341831252648647873,92de8c199a,jean-tinguely,Narva,auto,1961,wikidata,Q98843239,
+564774895156921304,84d73c75b8,john-james-audubon,Otter Caught in a Trap,auto,1826,wikidata,Q119038466,
+564774895156921304,84f1190f04,john-james-audubon,Snowy Heron Or White Egret,auto,c.1830,wikidata,Q37171442,
+564774895156921304,f68aab5065,john-james-audubon,Washington Sea Eagle,auto,c.1836-1839,wikidata,Q20528723,
+564774895156921304,4ee915226a,john-james-audubon,"Wild Turkey, Cock, Hen and Young",auto,1826,wikidata,Q103961440,
+9033895210984022553,bbc7770205,jonathan-leahey,Bend,needs_review,2013,research,https://leahey.work/leahey,medium: The artist's CV lists it under Public Commissions as '2013 Bend Darlington Point Murrumbidgee Shire Council'. That is the commission year.
+9033895210984022553,00b5f76bd1,jonathan-leahey,Bend,needs_review,2013,research,https://leahey.work/leahey,medium: The artist's CV lists it under Public Commissions as '2013 Bend Darlington Point Murrumbidgee Shire Council'. That is the commission year.
+9033895210984022553,6dccb6df94,jonathan-leahey,DNA detail,needs_review,2009,research,https://leahey.work/leahey,"medium: The CV lists DNA as '2009 DNA, Arts ACT Canberra (installed)'. The site also has a separate work called DNA+."
+9033895210984022553,ccf86bb49c,jonathan-leahey,Flock,needs_review,2014,research,https://leahey.work/leahey,medium: The CV lists it as '2014 The Flock Hookey Park City of Yarra Ranges'. That is the commission year.
+9033895210984022553,965230ac95,jonathan-leahey,Flock,needs_review,2014,research,https://leahey.work/leahey,medium: The CV lists it as '2014 The Flock Hookey Park City of Yarra Ranges'. That is the commission year.
+9033895210984022553,b86a932d37,jonathan-leahey,Flock,needs_review,2014,research,https://leahey.work/leahey,medium: The CV lists it as '2014 The Flock Hookey Park City of Yarra Ranges'. That is the commission year.
+9033895210984022553,277272d8e5,jonathan-leahey,Grow,needs_review,2010,research,https://leahey.work/leahey,"medium: The CV lists it as '2010 Grow, Hobson Bay City Council (installed)'."
+9033895210984022553,42cb4be5d9,jonathan-leahey,Grow,needs_review,2010,research,https://leahey.work/leahey,"medium: The CV lists it as '2010 Grow, Hobson Bay City Council (installed)'."
+9033895210984022553,b3a95ff2f6,jonathan-leahey,Landed,needs_review,2010,research,https://leahey.work/leahey,"medium: The CV lists it as '2010 Landed, Quadwest developments Perth CBD (installed)'."
+9033895210984022553,a7dcff9a4a,jonathan-leahey,Landed,needs_review,2010,research,https://leahey.work/leahey,"medium: The CV lists it as '2010 Landed, Quadwest developments Perth CBD (installed)'."
+9033895210984022553,15d875e52b,jonathan-leahey,Prospect,needs_review,2010,research,https://leahey.work/leahey,"medium: The CV lists it as '2010 Prospect, Lismore City council (installed)'."
+9033895210984022553,5562fd65b9,jonathan-leahey,The installation of Prospect,needs_review,2010,research,https://leahey.work/leahey,"low: This is a photo of Prospect being installed. The CV says Prospect was installed in 2010, but the photo itself isn't dated."
+9033895210984022553,c98a0ed86c,jonathan-leahey,eXert,needs_review,2016,research,https://leahey.work/leahey,medium: The CV lists it under Public Commissions as '2016 eXert Carlisle Park Reserve City of Casey'. That is the commission year.
+9033895210984022553,525c613c0d,jonathan-leahey,eXert,needs_review,2016,research,https://leahey.work/leahey,medium: The CV lists it under Public Commissions as '2016 eXert Carlisle Park Reserve City of Casey'. That is the commission year.
+4014551753976615927,2d47237db7,julien-dupre,Dans un pâturage,auto,c.1900,wikidata,Q105468767,
+4014551753976615927,7528865737,julien-dupre,Jeune paysanne avec deux vaches,auto,1800-1809,wikidata,Q115237820,
+4014551753976615927,cec31a8c1f,julien-dupre,La récolte des foins,auto,1881,wikidata,Q112263269,
+6148217891567977304,be6d1a4738,karl-blossfeldt,Abutilon,needs_review,1928,research,https://www.nga.gov/artworks/225771-abutilon,"medium: NGA dates its 'Abutilon' photogravure 1928, from Urformen der Kunst. That is the date of the photogravure; the negative may be earlier."
+6148217891567977304,8272b6b73d,karl-blossfeldt,Passion Flower,needs_review,1898-1932,research,https://www.moma.org/collection/works/83720,"low: MoMA dates its 'Passiflora' gelatin silver print 1898–1932. Blossfeldt photographed passion flowers more than once, so the match is uncertain."
+6148217891567977304,074b73120b,karl-blossfeldt,Pflanzenformen II,needs_review,1920s,research,https://www.lempertz.com/de/kataloge/lot/1109-1/58-karl-blossfeldt-1.html,medium: A portfolio of 6 prints made in 2016 from original negatives. Lempertz dates the negatives to the 1920s; Griffelkunst gives the individual plates as 1895/1930. The Van Ham date of 2016 is when the prints were made.
+6148217891567977304,8ed2afe0a2,karl-blossfeldt,Thorned Bulbous Plant,needs_review,1928-1932,research,https://artsandculture.google.com/asset/thorned-bulbous-plant-karl-blossfeldt/RwE7pHjNgjeFnA,"high: J. Paul Getty Museum, via Google Arts & Culture: Date Created 1928–1932."
+9185076988961772624,89d369b410,kenojuak-ashevak,Enchanted owl,auto,1960,wikidata,Q135338807,
+3550054325132010547,553069ebe0,kerry-james-marshall,Our Town,auto,1995,wikidata,Q104023789,
+5270523841043726030,bd7fa6c08c,krzysztof-domaradzki,"Poster, TheThing",needs_review,2017,research,https://studiokxx.com/The-Thing,"high: The artist's own site says 'Year: 2017'. It was made for The Thing Art Book (Printed in Blood). Note: the stated life dates (1945–2020) look wrong for this designer, whose studio site runs from 2006 to the present."
+117485193987744072,78b3e977e6,leonardo-da-vinci,The Virgin and Child with St Anne and St John the Baptist,auto,c.1506-1508,wikidata,Q2471531,
+7146426929426249656,ff398940bf,leonardo-nierman,Bird in Flight,auto,1997,wikidata,Q117478042,
+4373468023636871417,20b65aed35,lilias-torrance-newton,Portrait d'Edwin Holgate,auto,c.1937,wikidata,Q59508734,
+4373468023636871417,9b10a463a5,lilias-torrance-newton,Portrait d'Ethel Southam ( Mme F.H. Toller ),auto,1938,wikidata,Q59497217,
+234499531047899088,2e0beef034,lindsay-daen,La Rogativa,auto,1971,wikidata,Q103331794,
+234499531047899088,976b7a96a8,lindsay-daen,The Lovers,auto,1964,wikidata,Q7749050,
+234499531047899088,e5a51f20ad,lindsay-daen,The Lovers,auto,1964,wikidata,Q7749050,
+234499531047899088,fbafc0aaf3,lindsay-daen,The Lovers,auto,1964,wikidata,Q7749050,
+9066430726590174678,65d908631a,llew-summers,Butterfly,auto,2007,wikidata,Q124712013,
+9066430726590174678,a0f89ef817,llew-summers,To the end of love,auto,2015,wikidata,Q123186871,
+4642274729748900747,f5ae6388c5,lyle-london,Soaring,auto,2006,wikidata,Q7391982,
+2372745553163644260,da44f4c75c,lyonel-feininger,Barfüsserkirche II (Church of the Minorites II ),auto,1926,wikidata,Q111797891,
+3388459841959224262,7895a7502f,lyonel-feininger,Church of the Minorites II,auto,1926,wikidata,Q111797891,
+3980835540067867560,05df16368a,lysippos,Athlete with a scraper (Apoxyomenos),auto,-330--321,wikidata,Q431029,
+3980835540067867560,058b87a100,lysippos,The Man Scraping Himself (Apoxyomenos),auto,-330--321,wikidata,Q431029,
+3980835540067867560,0181b596bf,lysippos,The Scraper,auto,-330--321,wikidata,Q431029,
+8715142801204476044,e0e7f0a870,marie-guillemine-benoist,"Portrait of Louis Joseph, Dauphin of France",auto,c.1784,wikidata,Q111259285,
+8715142801204476044,6d7b54d538,marie-guillemine-benoist,Portrait of René Delaville-Leroulx,auto,c.1784,wikidata,Q111235760,
+8715142801204476044,92fb50cdee,marie-guillemine-benoist,Two young children with a bird nest,auto,c.1806,wikidata,Q111270046,
+1349040875637222102,27be261ba3,mark-english,Sabina and the Herd,needs_review,1966,research,https://www.artnet.com/artists/mark-english/,"medium: An artnet search snippet lists 'Sabina and the herd (illus. for story by...), 1966' (the story is by Louis Auchincloss). I could not open the artnet page, and the year may be the publication year."
+7919530678607807322,2e39937ab1,martin-maher-zebra,Bjets,needs_review,2007,research,https://the-brandidentity.com/interview/zebra,medium: Maher says in 2007 he and Michelle Tranter were at Brand Union Singapore working on BJETS branding (before founding Zebra).
+7919530678607807322,bc170a460e,martin-maher-zebra,Bjets,needs_review,2007,research,https://the-brandidentity.com/interview/zebra,medium: Maher says in 2007 he and Michelle Tranter were at Brand Union Singapore working on BJETS branding (before founding Zebra).
+7919530678607807322,cb98b3aa73,martin-maher-zebra,Bjets,needs_review,2007,research,https://the-brandidentity.com/interview/zebra,medium: Maher says in 2007 he and Michelle Tranter were at Brand Union Singapore working on BJETS branding (before founding Zebra).
+1114274891342070749,927bbf66f2,miles-newlyn,Arla logo,needs_review,2020,research,https://miles.newlyn.com/work,"low: Portfolio lists 'Arla logo 2020', but the fandom wiki gives 2008 for Arla Foods. The 2020 may be a posting date."
+1114274891342070749,e233a117ed,miles-newlyn,Beeline logo,needs_review,2004,research,https://miles.newlyn.com/work,"high: Portfolio: 'Beeline logo 2004'. Fandom wiki gives 2005, probably the launch date."
+1114274891342070749,ffcd7d10a3,miles-newlyn,Coutts logo,needs_review,2020,research,https://miles.newlyn.com/work,"low: Portfolio lists 'Coutts Private Bank logo 2020'. Several entries on the site are dated 2020, which may be posting dates."
+1114274891342070749,f0d2ace315,miles-newlyn,Dupont logo,needs_review,2018,research,https://miles.newlyn.com/work,high: Artist's portfolio lists 'Dupont logo 2018'.
+1114274891342070749,1e48b2a152,miles-newlyn,EE logo,needs_review,2012,research,https://miles.newlyn.com/work,high: Portfolio: 'EE logo 2012'; fandom wiki agrees.
+1114274891342070749,66c895583d,miles-newlyn,Honda logo,needs_review,2000,research,https://miles.newlyn.com/work,high: Portfolio: 'Honda logo 2000'.
+1114274891342070749,dde379c1af,miles-newlyn,Land-Rover logo,needs_review,2011,research,https://miles.newlyn.com/work,high: Portfolio: 'Land Rover logo 2011'.
+1114274891342070749,451f6a85c9,miles-newlyn,Ono logo,needs_review,1998,research,https://miles.newlyn.com/work,high: Portfolio: 'Ono logo 1998'; fandom wiki agrees.
+1114274891342070749,e483616a0e,miles-newlyn,Premier League logo,needs_review,2015,research,https://miles.newlyn.com/work,"medium: Portfolio index lists 'Premier League logo 2015'; a related-works box on the Sky logo page shows 2000 beside the same item, so the portfolio's years may be inconsistent."
+1114274891342070749,7d7a834efa,miles-newlyn,PwC logo,needs_review,2008,research,https://miles.newlyn.com/work,"high: Portfolio: 'PwC logo 2008'. Fandom wiki gives 2010, probably the launch date."
+1114274891342070749,ecac7381c2,miles-newlyn,Skittles logo,needs_review,2008,research,https://miles.newlyn.com/work,high: Portfolio: 'Skittles logo 2008'.
+1114274891342070749,95ea8397c9,miles-newlyn,Sky Logo for Venture3,needs_review,2009,research,https://miles.newlyn.com/work,medium: Portfolio: 'Sky logo 2009' (fandom wiki also gives 2009 for Sky Group). It is unconfirmed that this is the Venture Three project.
+1114274891342070749,c021f6a7bd,miles-newlyn,Société Générale Logo,needs_review,2005,research,https://miles.newlyn.com/work,high: Portfolio: 'Société Générale S.A. logo 2005'; fandom wiki agrees.
+1114274891342070749,45a5b7c969,miles-newlyn,Sunglass Hut logo,needs_review,2006,research,https://miles.newlyn.com/work,"high: Portfolio: 'Sunglass Hut logo 2006'. Logos fandom wiki gives 2007, probably the launch date."
+1114274891342070749,76299462eb,miles-newlyn,Superdrug logo,needs_review,2003,research,https://miles.newlyn.com/work,"high: Portfolio: 'Superdrug logo 2003'. Fandom wiki gives 2004, probably the launch date."
+1114274891342070749,73dc8bfe24,miles-newlyn,Tate Modern logo,needs_review,2020,research,https://miles.newlyn.com/work,"low: Portfolio lists 'Tate Gallery logo 2020'. This doesn't fit the well-known 2000 Wolff Olins Tate identity, so 2020 may be when it was posted. Treat with caution."
+1114274891342070749,c82c3e0243,miles-newlyn,Three logo,needs_review,2002,research,https://miles.newlyn.com/work,"high: Portfolio: '3 / Three logo 2002'. Fandom wiki gives 2003, probably the launch date."
+1114274891342070749,82722f54b9,miles-newlyn,Very Logo,needs_review,2009,research,https://logos.fandom.com/wiki/Miles_Newlyn,low: Only source is the Logos fandom wiki (a user-edited site): 'Very for Wolff Olins' 2009. This may be the launch year.
+1114274891342070749,a5565972c6,miles-newlyn,ish logo,needs_review,2000,research,https://miles.newlyn.com/work,high: Portfolio: 'Ish logo 2000'. Fandom wiki gives 2001.
+3432974965871477489,79205dbd81,neil-dawson,Throwback (Unknown date),auto,1992,wikidata,Q121011179,
+8490456588861167106,15c40e46e7,niki-de-saint-phalle,Coming Together,auto,2001,wikidata,Q19952169,
+8490456588861167106,ea73010304,niki-de-saint-phalle,L'Ange Protecteur,auto,1997,wikidata,Q19481112,
+8490456588861167106,8537d58945,niki-de-saint-phalle,Serpent Tree,auto,1992,wikidata,Q16303805,
+8490456588861167106,6f067071a7,niki-de-saint-phalle,Skull (Meditation Room),auto,1990,wikidata,Q20468286,
+8490456588861167106,4a08ceadd6,niki-de-saint-phalle,Tarot Garden,auto,1979,wikidata,Q949846,
+4887861512537698523,aa941cd8d5,nikolaos-gyzis,Oriental Warrior,auto,1842,wikidata,Q112669131,
+3209963981764151910,4345deb1e1,olivier-strebelle,Le Bon Génie,needs_review,1965-1966,research,https://www.wikiwand.com/fr/articles/Olivier_Strebelle,medium: French Wikipedia lists 'Le Bon Génie I' for the University of Jerusalem as 1965–1966. The Invaluable auction listing gives 'Le Bon Génie I (1965)'. I assumed the blog caption means the Jerusalem work.
+3209963981764151910,4f29b2c597,olivier-strebelle,The Abduction of Europa sculpture,needs_review,2002,research,https://art-collection.europarl.europa.eu/en/artists/olivier-strebelle/,"low: The European Parliament's artist page lists 'Enlèvement d'Europe (2002)' in Moscow. Wikipedia says it has stood on Europe Square in Moscow since September 2002. So 2002 may be the installation date, not when the work was made."
+3209963981764151910,c463cdaae1,olivier-strebelle,The Abduction of Europa sculpture,needs_review,2002,research,https://art-collection.europarl.europa.eu/en/artists/olivier-strebelle/,"low: The European Parliament's artist page lists 'Enlèvement d'Europe (2002)' in Moscow. Wikipedia says it has stood on Europe Square in Moscow since September 2002. So 2002 may be the installation date, not when the work was made."
+5522258917358043053,58167f4a05,olson-kundig,"Chemin Byron Geneva, Switzerland",needs_review,2017,research,https://www.archdaily.com/931201/chemin-byron-house-olson-kundig,"high: Completed in 2017 (ArchDaily, Architizer)."
+5522258917358043053,3414837c43,olson-kundig,"Chemin Byron Geneva, Switzerland",needs_review,2017,research,https://www.archdaily.com/931201/chemin-byron-house-olson-kundig,"high: Completed in 2017 (ArchDaily, Architizer)."
+5522258917358043053,f630a84656,olson-kundig,Chicken Point Cabin Northern Idaho,needs_review,2002,research,https://sah-archipedia.org/buildings/ID-01-055-0040,high: SAH Archipedia: 2002.
+5522258917358043053,869f1def09,olson-kundig,Chicken Point Cabin Northern Idaho,needs_review,2002,research,https://sah-archipedia.org/buildings/ID-01-055-0040,high: SAH Archipedia: 2002.
+5522258917358043053,b33d5590c6,olson-kundig,Chicken Point Cabin Northern Idaho,needs_review,2002,research,https://sah-archipedia.org/buildings/ID-01-055-0040,high: SAH Archipedia: 2002.
+5522258917358043053,5f259863f6,olson-kundig,"Dallas Apartment Dallas, Texas",needs_review,2016,research,https://www.archdaily.com/923373/dallas-apartment-olson-kundig,high: ArchDaily and Archello both give 2016 as the completion year. The 2019 on olsonkundig.com is a publication year.
+5522258917358043053,c0226926bf,olson-kundig,"Dallas Apartment Dallas, Texas",needs_review,2016,research,https://www.archdaily.com/923373/dallas-apartment-olson-kundig,high: ArchDaily and Archello both give 2016 as the completion year. The 2019 on olsonkundig.com is a publication year.
+5522258917358043053,1e78f62549,olson-kundig,"Desert House Rancho Mirage, California",needs_review,1999,research,https://virtualglobetrotting.com/map/desert-house-by-jim-olson/,"low: The only source is a weak one (Virtual Globetrotting), which lists '1999 Olson Kundig'."
+5522258917358043053,dc6da25ed2,olson-kundig,"Desert House Rancho Mirage, California",needs_review,1999,research,https://virtualglobetrotting.com/map/desert-house-by-jim-olson/,"low: The only source is a weak one (Virtual Globetrotting), which lists '1999 Olson Kundig'."
+5522258917358043053,1a8b254a0e,olson-kundig,"Earth House Longbranch, Washington",needs_review,1968,research,https://olsonkundig.com/projects/earth-house/,"medium: The firm's site says 'Designed in 1968'. This is a design date, not a confirmed completion date."
+5522258917358043053,834fc74d56,olson-kundig,"Earth House Longbranch, Washington",needs_review,1968,research,https://olsonkundig.com/projects/earth-house/,"medium: The firm's site says 'Designed in 1968'. This is a design date, not a confirmed completion date."
+5522258917358043053,d82d40517c,olson-kundig,"Hale Lana Kona, Hawaii",needs_review,2018,research,https://www.archdaily.com/941941/hale-lana-house-olson-kundig,"high: Completed in 2018 (ArchDaily, Archello, World-Architects)."
+5522258917358043053,9944ab0ec3,olson-kundig,"Hale Lana Kona, Hawaii",needs_review,2018,research,https://www.archdaily.com/941941/hale-lana-house-olson-kundig,"high: Completed in 2018 (ArchDaily, Archello, World-Architects)."
+5522258917358043053,d57b6a6cac,olson-kundig,"Hong Kong Villa Shek-O, China",needs_review,2009,research,https://www.thepinnaclelist.com/properties/hong-kong-luxury-villa-shek-o-hong-kong-china/,medium: The Pinnacle List says the Shek O Residence was built in 2009 and designed by Olson Kundig with Scott Allen Architecture. The source is a property listing.
+5522258917358043053,adead721be,olson-kundig,"Hot Rod House Seattle, Washington",needs_review,2006,research,https://www.dwell.com/article/maxon-house-olson-kundig-architects-7c92b63c,"medium: A Dwell caption reads 'Hot Rod House, Seattle, Washington, 2006'. PCAD says Kundig was living there c.2008."
+5522258917358043053,251590e930,olson-kundig,"Hot Rod House Seattle, Washington",needs_review,2006,research,https://www.dwell.com/article/maxon-house-olson-kundig-architects-7c92b63c,"medium: A Dwell caption reads 'Hot Rod House, Seattle, Washington, 2006'. PCAD says Kundig was living there c.2008."
+5522258917358043053,e1747870b4,olson-kundig,"Northwest Art House Seattle, Washington",needs_review,2015,research,https://www.archdaily.com/903850/northwest-art-house-olson-kundig,"high: ArchDaily: completed in 2015, Seattle."
+5522258917358043053,99ed57af8b,olson-kundig,"Northwest Art House Seattle, Washington",needs_review,2015,research,https://www.archdaily.com/903850/northwest-art-house-olson-kundig,"high: ArchDaily: completed in 2015, Seattle."
+5522258917358043053,89044440f5,olson-kundig,"Rio House Rio de Janeiro, Brazil",needs_review,2018,research,https://www.archdaily.com/982027/rio-house-olson-kundig,"high: Completed in 2018 (ArchDaily, Archello)."
+5522258917358043053,1215013170,olson-kundig,"Rio House Rio de Janeiro, Brazil",needs_review,2018,research,https://www.archdaily.com/982027/rio-house-olson-kundig,"high: Completed in 2018 (ArchDaily, Archello)."
+5522258917358043053,db0a1b08de,olson-kundig,"Vermont Cabin Stowe, Vermont",needs_review,2018,research,https://www.designboom.com/architecture/olson-kundig-vermont-cabin-residents-closer-nature-01-23-2020/,"high: Completed 2018 (Designboom, e-architect)."
+5522258917358043053,66c173b83b,olson-kundig,"Vermont Cabin Stowe, Vermont",needs_review,2018,research,https://www.designboom.com/architecture/olson-kundig-vermont-cabin-residents-closer-nature-01-23-2020/,"high: Completed 2018 (Designboom, e-architect)."
+836291851097872288,78ee405564,oskar-schlemmer,Gassenwinkel,auto,c.1911,wikidata,Q28002692,
+3966752666887906774,36d588f677,ozias-leduc,Chasse aux canards par un matin brumeux,needs_review,c.1924,research,https://collections.mnbaq.org/fr/oeuvre/600014512,medium: MNBAQ gives the date as '1924 ?' (uncertain).
+3966752666887906774,1d5b351772,ozias-leduc,Les oignons,needs_review,1892,research,https://www.museejoliette.org/collection/oeuvres/a11OG000001Of4tYAC,"high: Nature morte, oignons, Musée d'art de Joliette."
+3966752666887906774,61b3f67553,ozias-leduc,"Les ombres qui passent, Rivière Nicolet",needs_review,1925,research,https://collections.mnbaq.org/fr/oeuvre/600000053site=Collections,"medium: MNBAQ credits this painting to Marc-Aurèle de Foy Suzor-Coté, not Leduc. The blog caption probably has the wrong artist. MNBAQ dates it 1925."
+4293165796668550536,1ff6ad5557,pablo-picasso,Colombe de la paix,auto,1949,wikidata,Q4142423,
+2049327217016628513,881fedefcc,paddy-bedford,Middle Brand,auto,2000,wikidata,Q50630732,
+2049327217016628513,bc382a90b8,paddy-bedford,Middle Brand,auto,2000,wikidata,Q50630732,
+5230358303594680752,3bd50c5728,paul-klee,Comedians' Handbill,auto,1938,wikidata,Q19920909,
+5230358303594680752,1dbb695d4b,paul-klee,Conquest of the Mountain,auto,1939,wikidata,Q111600085,
+5230358303594680752,13def16248,paul-klee,Forest Witches,auto,1938,wikidata,Q133256111,
+5230358303594680752,abc80d7364,paul-klee,The Vase,auto,1938,wikidata,Q133256123,
+5477380267317701956,d7a4495c75,paul-wunderlich,No Angel,auto,1968,wikidata,Q76355068,
+4860069502556446884,f96a8e7b83,peter-blake,Baron Adolf Kaiser,auto,1961-1963,wikidata,Q119343402,
+5810271481926062063,7365ef48b6,phil-price,Zephyrometer,auto,2003,wikidata,Q8069332,
+5810271481926062063,8228ba6760,phil-price,Zephyrometer,auto,2003,wikidata,Q8069332,
+3404193942962375494,42a45e9e2b,raphael,Saint George and the Dragon,needs_review,,wikidata,Q2529918 Q2622161,"Wikidata works disagree: 1503, 1504, 1505"
+6900915319949962750,72881bce6f,richard-buckminster-fuller,Dymaxion,needs_review,,wikidata,Q581192 Q92795658,"Wikidata works disagree: 1928, 1943"
+3144466146260742101,e5677c4b23,rita-angus,Mother and Child (Jean and Anton Jones with Portrait of Fred Jones Behind),auto,1945,wikidata,Q27883676,
+634799954132606502,840f2bf563,robert-delaunay,Joie de vivre,auto,1930,wikidata,Q18938367,
+2895876466538569186,eb4b106daf,rose-aimee-belanger,Les chuchoteuses,auto,2002,wikidata,Q39057961,
+7380098175703612757,a4777850cb,samuel-morse,Morse code,auto,c.1837,wikidata,Q79897,
+7380098175703612757,53d103e889,samuel-morse,Portrait of James Monroe,auto,c.1819,wikidata,Q131763333,
+3693762255561239578,473018e963,sandro-botticelli,Primavera (detail),auto,1480-1485,wikidata,Q549847,
+5223964185617893568,eab8b3c8d6,sanford-robinson-gifford,Study for a Self-Portrait,auto,c.1848,wikidata,Q135409509,
+7813613692960829393,8d9eee6b39,seward-johnson,Allow me,auto,1983,wikidata,Q14708734,
+7813613692960829393,20f35cfd00,seward-johnson,Crack the whip,auto,1984,wikidata,Q33123624,
+7813613692960829393,d54e495aef,seward-johnson,Double Check,auto,1982,wikidata,Q17151124,
+284994326832860680,1ebb0c2e14,sir-anthony-hopkins,Aloha Nui Loa,needs_review,2009,research,https://www.artbrokerage.com/Anthony-Hopkins/Aloha-Nui-Loa-2009-Harte-Gallery-Lahaina-Maui-Hawaii-158056,"low: Anthony Hopkins; the date comes only from the ArtBrokerage resale listing title 'Aloha Nui Loa 2009' for a limited-edition serigraph. It may be the edition year, not the year it was painted."
+284994326832860680,4de77a8140,sir-anthony-hopkins,Nirvana,needs_review,2019,research,https://hartegalleries.com/art-page/ah-nirvana-2,low: Hopkins; Harte Galleries lists the limited-edition print with Year: 2019. This may be the edition year; Nirvana was already shown at Jeff Mitchum Galleries in 2016.
+284994326832860680,b4ccf156a3,sir-anthony-hopkins,Steelworkers,needs_review,2009,research,https://www.artbrokerage.com/Anthony-Hopkins/prints,"low: Anthony Hopkins; the date comes only from an ArtBrokerage resale listing titled 'Steelworkers 2009' (a limited-edition print). It may be the edition year, not the year it was painted."
+7670656707338499818,dddb5055b0,sir-george-russell-drysdale,The Cricketers,auto,1948,wikidata,Q7776967,
+8680593849931029970,fb7fc57de5,sir-jonathan-jony-ive,iPod,auto,2001,wikidata,Q109773014 Q9479,
+8066991801074327276,4f9191652a,sir-oswald-birley,Kitty of Frying Pan Alley,auto,c.1921,wikidata,Q119680557,
+4645847197803421994,dc1c22397d,sir-thomas-lawrence,Princess Lieven,auto,1812-1820,wikidata,Q28541445,
+4596385272119704797,ea20e9a77b,theo-van-doesburg,Composicion II naturaleza muerta,auto,1916,wikidata,Q2685889,
+4596385272119704797,81df38ba54,theo-van-doesburg,Counter Composition VIII,auto,1924,wikidata,Q1888889,
+4596385272119704797,82ccf9825c,theo-van-doesburg,Dancers,auto,1916,wikidata,Q2678911,
+4596385272119704797,2d6509194e,theo-van-doesburg,Kleine Dada Soiree,auto,1922,wikidata,Q76557381,
+4596385272119704797,8dec8d4852,theo-van-doesburg,Pure painting,auto,1920,wikidata,Q2219023,
+4596385272119704797,8454c04355,theo-van-doesburg,Simultaneous counter composition,auto,1929,wikidata,Q2238698 Q2613150,
+7586449728183598130,fd6f6ceb84,theodoros-papagiannis,Conjoined Pair sculpture,needs_review,2000,research,https://www.veniceclayartists.com/contemporary-sculptures-from-greece/,"medium: The blog captions it 'Sculpture Symposium in Kalamata, 2000'. The artist's site (node/500) lists the Kalamata 2000 symposium work as 'Couple', marble, 4 x 1.2 x 1 m."
+7586449728183598130,4521a3059c,theodoros-papagiannis,"Couple, Sculpture Symposium at Paralimnios, Ioannina",needs_review,1996,research,https://www.veniceclayartists.com/contemporary-sculptures-from-greece/,"high: Captioned 'Marble Couple by the Lake', Penteli marble, Sculpture Symposium at Paralimnios, Ioannina 1996. The artist's symposium list also gives 'Paralimnios, Ioannina, 1996'."
+7586449728183598130,8721f3f616,theodoros-papagiannis,"Runners at the O'Hare Airport, Chicago",needs_review,2011,research,https://en.wikipedia.org/wiki/Theodoros_Papagiannis,"low: Won a City of Chicago competition in 2006; installed at O'Hare March–April 2011 and dedicated September 2011. 2011 is the installation year, not a confirmed fabrication year."
+7586449728183598130,ea86867016,theodoros-papagiannis,"Runners at the O'Hare Airport, Chicago",needs_review,2011,research,https://en.wikipedia.org/wiki/Theodoros_Papagiannis,"low: Won a City of Chicago competition in 2006; installed at O'Hare March–April 2011 and dedicated September 2011. 2011 is the installation year, not a confirmed fabrication year."
+7586449728183598130,a817ab0a67,theodoros-papagiannis,Tribute to the Bread,needs_review,1998,research,https://1historyofgreekfood.wordpress.com/category/bread/page/2/,medium: Captioned 'Tribute to the bread. Installation (clay & metal). 1998'. Feliós Collection says his 1998 installation at the Athens Art Gallery was a tribute to daily bread.
+7511659893848592100,295f5fc906,titian,Titian Self portrait,auto,1560-1570,wikidata,Q3630760,
+5284126081126105718,a8747b8194,tobias-hall,Honk Album,needs_review,2019,research,https://www.debutart.com/news/378-tobias-hall-the-rolling-stones-honk,"medium: Same as #12: cover art commissioned for the Rolling Stones' HONK (2019). The year comes from the page timestamp and the release date, not the article text."
+5284126081126105718,6e585ca977,tobias-hall,Honk CD,needs_review,2019,research,https://www.debutart.com/news/378-tobias-hall-the-rolling-stones-honk,"medium: Debut Art says Studio Fury commissioned Hall to make the cover illustration for the 'new' Rolling Stones compilation HONK. The 2019 date comes from the page's image timestamp (2019-03-15) and the album's 2019 release, not from the article text."
+5284126081126105718,eb81543686,tobias-hall,Warburton bread Ad,needs_review,c.2017,research,https://tobiashall.tumblr.com/,"low: Artist's Tumblr post says he 'recently' worked on the outdoor ads for the new Warburtons 'Pride and Breadjudice' campaign (Behance gallery 57330281). The post shows only '9 years ago' (relative to 2026), which suggests 2017; there is no explicit year."
+5284126081126105718,f376f008f5,tobias-hall,Warburton bread Ad,needs_review,c.2017,research,https://tobiashall.tumblr.com/,"low: Artist's Tumblr post says he 'recently' worked on the outdoor ads for the new Warburtons 'Pride and Breadjudice' campaign (Behance gallery 57330281). The post shows only '9 years ago' (relative to 2026), which suggests 2017; there is no explicit year."
+5284126081126105718,2a8c3a5e79,tobias-hall,Warburton bread Ad,needs_review,c.2017,research,https://tobiashall.tumblr.com/,"low: Artist's Tumblr post says he 'recently' worked on the outdoor ads for the new Warburtons 'Pride and Breadjudice' campaign (Behance gallery 57330281). The post shows only '9 years ago' (relative to 2026), which suggests 2017; there is no explicit year."
+5284126081126105718,be9f986f9a,tobias-hall,Warburton bread Ad,needs_review,c.2017,research,https://tobiashall.tumblr.com/,"low: Artist's Tumblr post says he 'recently' worked on the outdoor ads for the new Warburtons 'Pride and Breadjudice' campaign (Behance gallery 57330281). The post shows only '9 years ago' (relative to 2026), which suggests 2017; there is no explicit year."
+7899734929114498025,693d1a9568,tom-wesselmann,Lichtenstein bedroom face,needs_review,1994,research,https://www.artsy.net/artwork/tom-wesselmann-bedroom-face-with-lichtenstein-1,"medium: Artsy lists 'Bedroom Face with Lichtenstein', 1994, screenprint, edition of 65. The blog may mean a related painting or study with a different date."
+2391056578706243232,07dd1ee32f,vanessa-eckstein-marta-cutler,Nota Bene,needs_review,2016,research,https://brandarchive.xyz/identity/nota-bene,medium: Brand Archive lists Year 2016 for Blok's Nota Bene identity. I saw this in the search result; the page itself didn't load fully when fetched. BP&O also covered it in Feb 2016.
+2391056578706243232,79f3e619c5,vanessa-eckstein-marta-cutler,Nota Bene,needs_review,2016,research,https://brandarchive.xyz/identity/nota-bene,medium: Brand Archive lists Year 2016 for Blok's Nota Bene identity. I saw this in the search result; the page itself didn't load fully when fetched. BP&O also covered it in Feb 2016.
+4067246812213704343,f97508d9bd,vincas-jomantas,Tower II,needs_review,1992,research,https://www.artnet.com/artists/vincas-jomantas/,"high: Artnet auction record: Tower II, 1992 (sold Aug 2003)."
+6236645223861419750,1dee8025b5,vlaho-bukovac,The Toast,auto,c.1900,wikidata,Q111586822,
+3967125981487287434,9010102f42,walter-battiss,Cinderella Deep,needs_review,1974,research,https://www.lotsearch.net/artist/walter-battiss/archive?orderBy=lot-title&order=DESC&perPage=80,"medium: 'The Cinderella Deep G. M. Coy', colour screenprint, dated 1974 in a Galerie Bassenge lot (29 Nov 2019) seen through a LotSearch summary."
+3967125981487287434,88f06ec1e5,walter-battiss,Tenuate Dospan,needs_review,1970,research,https://www.straussart.co.za/auctions/lot/326-9-sep-2024/376,"high: Painted and glazed ceramic tile, signed and dated 1970 (Strauss & Co); WikiArt and artnet also give 1970."
+7615221537590792011,b986633573,wilhelm-bendz,"Marie Raffenberg, the Artist's Betrothed",needs_review,1831,research,https://artvee.com/artist/wilhelm-bendz/,high: SMK KMS1652; Commons filename also gives 1831.
+7615221537590792011,b986633573,wilhelm-bendz,"Marie Raffenberg, the Artist's Betrothed",auto,1831,wikidata,Q20354411,
+7615221537590792011,34e301c6ac,wilhelm-bendz,Mountain landscape,needs_review,1831,research,https://artsandculture.google.com/asset/mountain-landscape-wilhelm-bendz/swHwcOgnrefpNw?hl=en,high: Hirschsprung Collection; Google Arts & Culture Date Created 1831.
+7615221537590792011,34e301c6ac,wilhelm-bendz,Mountain landscape,auto,1831,wikidata,Q113852751,
+7615221537590792011,bc2cff1a61,wilhelm-bendz,Wilhelm Bendz Self-Portrait,needs_review,1826,research,http://art-now-and-then.blogspot.com/2013/08/wilhelm-bendz.html,"low: Bendz made more than one self-portrait (e.g. SMK KMS1653, and one in a white shirt dated 1826 on Artnet). Can't tell which one the caption means; blog gives 1826."
+7615221537590792011,72e01c66e0,wilhelm-bendz,Wilhelm Bendz Self-Portrait,needs_review,1826,research,http://art-now-and-then.blogspot.com/2013/08/wilhelm-bendz.html,"low: Bendz made more than one self-portrait (e.g. SMK KMS1653, and one in a white shirt dated 1826 on Artnet). Can't tell which one the caption means; blog gives 1826."
+1225182014819261396,c4e92eacc9,wu-guanzhong,Twin Pines,needs_review,1988,research,https://baike.baidu.com/en/item/Wu%20Guanzhong/985673,"medium: Baidu lists 'Twin Pines', time of creation 1988. I couldn't confirm it is the same image as the comuseum replica."
+1225182014819261396,7917441ae0,wu-guanzhong,twin swallows,needs_review,1981,research,https://artsandculture.google.com/asset/two-swallows/AwFg1zlk4qWocg?hl=en,"high: Ink painting, 1981, developed from a 1980 sketch. Also confirmed by comuseum and artnet."
+1225182014819261396,a520a6f033,wu-guanzhong,wu-guanzhong dancing-cranes,needs_review,2002,research,https://www.artmuseum.tsinghua.edu.cn/en/cpsj_english/zlxx/zlhg/201910/t20191031_4030.shtml,"medium: Tsinghua University Art Museum lists 'Cranes Dancing', 2002. I couldn't verify that it matches the comuseum 'Dancing Cranes' image."
+6605802486200278863,896a06a168,yiseon-jo,Adults can get sick too,needs_review,2015,research,https://www.opengallery.co.kr/artwork/A1940-0014/,"high: Open Gallery lists it as 어른도 아프다 (all paper, 27x28cm), 2015."
+6605802486200278863,4da17fdcd2,yiseon-jo,Alphabet B is like a fat window,needs_review,2018,research,https://www.opengallery.co.kr/artwork/A1940-0003/,"medium: Matched to 비읍은 고장난 창문 같아 ('Bieup [the letter B] is like a broken window'), paper and leather on paper, 26x26cm, 2018, on Open Gallery. The Saatchi English title says 'fat window', not 'broken', so the match is likely but not confirmed."
+6605802486200278863,e7868b8e87,yiseon-jo,Complete fake and real Collage,needs_review,2017,research,https://www.opengallery.co.kr/artwork/A1940-0016/,"high: Open Gallery lists it as 완전한 가짜 그리고 진짜, (paper on paper, 25x16cm), 2017. Saatchi Art lists it as 'Complete fake and real'."
+6605802486200278863,2feae5e34f,yiseon-jo,Stronger and more beautiful,needs_review,2020,research,https://www.opengallery.co.kr/artwork/A1940-0018/,"high: Open Gallery lists it as 씩씩해서 더 아름다운 (paper and leather on paper, 26x20cm), 2020."

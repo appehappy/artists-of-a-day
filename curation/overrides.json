@@ -22,5 +22,8 @@
     "lyonel-charles-feininger": "lyonel-feininger",
     "rafa-olbinski": "rafal-olbinski",
     "lawren-stewart-harris": "lawren-harris"
+  },
+  "image_year": {
+    "_doc": "\"post id/url_hash\" -> when the work was made: \"1965\", \"c.1965\", \"1960-65\", \"1950s\"; \"\" marks it undated"
   }
 }

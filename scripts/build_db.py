@@ -85,7 +85,9 @@ def build(full, increments, db_path):
             images.append((post_id, img["position"], parse.image_key(img["src_url"], original),
                            img["src_url"], img["link_url"], original, filename,
                            img["width"], img["height"], caption, caption_source,
-                           title_, y0, y1, int(circa), img_kind, "heuristic"))
+                           title_, y0, y1, int(circa), img_kind, "heuristic",
+                           caption_source if y0 else None,
+                           "nd" if caption and parse.CAPTION_UNDATED.search(caption) else None))
 
         if kind in ("artist", "group"):
             slug = parse.slugify(t["subject"])
@@ -137,7 +139,8 @@ def build(full, increments, db_path):
     db.executemany(
         "INSERT INTO images (post_id, position, url_hash, src_url, link_url, original_url, filename, "
         "width, height, caption_raw, caption_source, title, year_start, year_end, circa, kind, "
-        "kind_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", images)
+        "kind_source, year_source, year_note) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", images)
     enrich_stats = enrich.merge(db, overrides)
     db.executemany("INSERT INTO build_info VALUES (?, ?)", [
         ("snapshot", full.name),
