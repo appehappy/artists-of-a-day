@@ -78,6 +78,11 @@ class GuessTests(unittest.TestCase):
         self.assertEqual(dates.guess([], [], near, (1940, None, "person"), 2020),
                          (1955, 2020, 1975, "life"))
         self.assertEqual(dates.guess([], [], [], None, 2020), (None, 2020, None, "post"))
+        # An estimate stays inside the artist's working life, whatever the works around it say.
+        self.assertEqual(dates.guess([(1995, 1995), (2001, 2001)], [], [], (1900, 1998, "person"), 2020),
+                         (1993, 1998, 1998, "siblings"))
+        self.assertEqual(dates.guess([(2005, 2005)], [], [], (1900, 1998, "person"), 2020),
+                         (1915, 1998, 1935, "life"))
 
     def test_never_after_the_post(self):
         self.assertEqual(dates.guess([(2019, 2019)], [], [], None, 2018), (2017, 2018, 2018, "siblings"))

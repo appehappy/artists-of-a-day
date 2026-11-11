@@ -164,6 +164,17 @@ class CaptionTests(unittest.TestCase):
         self.assertEqual(parse_caption("Scarab. 1980 BC")[1:3], (-1980, None))
         self.assertEqual(parse_caption("Pectoral of Princess Sithathoriunet. 1887–1813 BC")[1:3], (-1887, -1813))
         self.assertEqual(parse_caption("Stele, 1500 B.C.")[1], -1500)
+        self.assertEqual(parse_caption("Tomb of Vizier Ramose, Amarna period. 1350 bc")[1], -1350)
+
+    def test_model_numbers_are_not_years(self):
+        self.assertIsNone(parse_caption("Hasselblad 1600F + Kodak Ektar Lens")[1])
+        self.assertEqual(parse_caption("Hasselblad 500C, 1957")[1], 1957)
+
+    def test_centuries(self):
+        self.assertEqual(parse_caption("21st Century Cocktail hat")[:3], ("Cocktail hat", 2000, 2099))
+        self.assertEqual(parse_caption("Late 18th Century Shepherdess hat")[1:3], (1766, 1799))
+        self.assertEqual(parse_caption("Early 20th Century Edwardian hat")[1:3], (1900, 1933))
+        self.assertEqual(parse_caption("Bowl, 5th century BC")[1:3], (-500, -401))
         # British Columbia, not BC
         self.assertEqual(parse_caption("The Skeena River – B.C., circa 1927")[1], 1927)
 
@@ -175,6 +186,13 @@ class CaptionTests(unittest.TestCase):
         self.assertIsNone(filename_caption("a2191503-0.jpg"))
         self.assertEqual(filename_caption("A-typical-Pakistani-truck-art-1.jpg"), "A typical Pakistani truck art 1")
         self.assertEqual(filename_caption("34 Beach egg.jpg"), "Beach egg")
+
+    def test_filename_image_sizes_are_not_years(self):
+        for name in ("Robert_Montgomery_Spectacle-Billboard-1200x796.jpg", "Type gnue7o9_1280.jpg",
+                     "tumblr_ncsb9tpxhQ1rpgpe2o2_r1_1280.jpg", "Photoprovocations-02-2-copy-1280x839.jpg"):
+            self.assertIsNone(parse_caption(filename_caption(name))[1], name)
+        # A real year at the end of a filename stays.
+        self.assertEqual(parse_caption(filename_caption("Blue Nude 1952.jpg"))[1], 1952)
 
 
 class ImageTests(unittest.TestCase):

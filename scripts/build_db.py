@@ -86,7 +86,7 @@ def build(full, increments, db_path):
                            img["src_url"], img["link_url"], original, filename,
                            img["width"], img["height"], caption, caption_source,
                            title_, y0, y1, int(circa), img_kind, "heuristic",
-                           caption_source if y0 else None,
+                           caption_source if y0 is not None else None,   # 0: "1st century CE"
                            "nd" if caption and parse.CAPTION_UNDATED.search(caption) else None))
 
         if kind in ("artist", "group"):

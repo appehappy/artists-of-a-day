@@ -103,8 +103,8 @@ def merge(db, overrides):
             db.execute("UPDATE artists SET region = ? WHERE id = ?", (region, aid))
             stats["regions from nationality"] += 1
 
+    stats.update(apply_media(db, overrides))   # before dates: a photograph can't predate 1826
     stats.update(dates.apply(db, overrides))
-    stats.update(apply_media(db, overrides))
     return stats
 
 

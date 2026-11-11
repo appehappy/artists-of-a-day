@@ -10,7 +10,18 @@ Sources, strongest first:
 
 A year later than the post that featured the work is a completion or model year ("to be
 completed by 2028", "2030 Lexus"), not when it was made: it's dropped and kept in
-year_note as after_post:<year>.
+year_note as after_post:<year>. A caption or filename year before the artist was born is
+a number that only looks like a year (a catalogue or file number: "cri_1234", "P 1359"):
+it's dropped too, as before_birth:<year>. So is one before 1826 on a photograph (the oldest
+surviving photograph is from 1826): it dates what the photo shows, a 1500 hat or a
+"Hasselblad 1600F", not the photo (before_photography:<year>). An estimate for a photograph
+starts no earlier than 1826, and one that falls wholly before it is discarded.
+And a caption year before 1800 in a modern artist's post, where everything the post's
+works look like is from after 1900, names a brand or a subject rather than the work
+("1664 Line-Up", Kronenbourg's beer; "Black Jockey of 1790"): modern_post:<year>.
+Likewise a likeness estimate before 1800 for an artist whose birth we don't know: those
+are almost all living artists quoting the old masters (Photoshop pastiche, pop-surrealist
+portraits), so it starts no earlier than 1800, or is discarded if it falls wholly before.
 
 year_lo/year_hi give the span each work was made in: the stated date, widened by
 CIRCA_SPREAD for circa dates, never later than the post. Undated works get only that
@@ -32,6 +43,11 @@ STATED = {"caption", "filename", "manual"}   # year_source of dates the archive 
                                              # others come from artwork_years.csv
 APPLY = {"auto", "confirmed"}     # statuses whose year goes into the database
 CIRCA_SPREAD = 5
+FIRST_PHOTOGRAPH = 1826           # Niépce's view from the window at Le Gras
+PHOTO_SURE = 0.5                  # classifier confidence above which a photograph is one
+OLD_YEAR = 1800                   # modern_post: a stated year before this ...
+MODERN_LOOKALIKES = 1900          # ... in a post whose look-alikes' 10th percentile is after this
+MIN_LOOKALIKES = 20               # ... out of at least this many dated look-alikes
 SAME_IMAGE = 0.95                 # CLIP cosine above which two images are one work
 
 # Words that, with only numbers beside them, name many different works: "Untitled 3",
@@ -123,6 +139,25 @@ def apply(db, overrides):
                        "year_source = NULL, year_note = ? WHERE id = ?", (f"after_post:{y}", iid))
             stats["years later than their post, dropped"] += 1
 
+    for iid, y in db.execute(
+            "SELECT i.id, i.year_start FROM images i JOIN post_artists pa ON pa.post_id = i.post_id "
+            "JOIN artists a ON a.id = pa.artist_id WHERE i.year_start IS NOT NULL "
+            "AND i.year_source IN ('caption', 'filename') AND a.birth_year IS NOT NULL "
+            "AND i.year_start < a.birth_year").fetchall():
+        db.execute("UPDATE images SET year_start = NULL, year_end = NULL, circa = 0, "
+                   "year_source = NULL, year_note = ? WHERE id = ?", (f"before_birth:{y}", iid))
+        stats["years before the artist was born, dropped"] += 1
+
+    for iid, y in db.execute(
+            "SELECT id, year_start FROM images WHERE year_start < ? AND year_source IN ('caption', 'filename') "
+            "AND medium = 'photography' AND (medium_source = 'manual' OR medium_p >= ?)",
+            (FIRST_PHOTOGRAPH, PHOTO_SURE)).fetchall():
+        db.execute("UPDATE images SET year_start = NULL, year_end = NULL, circa = 0, "
+                   "year_source = NULL, year_note = ? WHERE id = ?", (f"before_photography:{y}", iid))
+        stats["photographs dated before photography, dropped"] += 1
+
+    stats.update(drop_unlike_their_post(db))
+
     for key, text in overrides["image_year"].items():
         post_id, url_hash = key.split("/")
         y = parse_year(text)
@@ -159,6 +194,29 @@ def apply(db, overrides):
     return stats
 
 
+def drop_unlike_their_post(db):
+    """Drop caption years before OLD_YEAR in artists' posts (not themes, not artists born
+    before 1900) whose works look only like modern ones. One such date would otherwise
+    become every undated sibling's estimate: a lettering artist's whole post in the 1660s."""
+    stats = Counter()
+    dated = {(p, h): y for p, h, y in db.execute(
+        "SELECT post_id, url_hash, year_start FROM images WHERE kind = 'artwork' AND year_start IS NOT NULL")}
+    lookalikes = defaultdict(list)
+    for p, h, similar in db.execute("SELECT post_id, url_hash, similar FROM image_similar"):
+        lookalikes[p] += [dated[(q, qh)] for q, qh, _ in json.loads(similar) if (q, qh) in dated and q != p]
+    for iid, pid, y in db.execute(
+            "SELECT i.id, i.post_id, i.year_start FROM images i JOIN posts p ON p.id = i.post_id "
+            "LEFT JOIN post_artists pa ON pa.post_id = p.id LEFT JOIN artists a ON a.id = pa.artist_id "
+            "WHERE i.year_start < ? AND i.year_source IN ('caption', 'filename') AND p.kind != 'theme' "
+            "AND (a.birth_year IS NULL OR a.birth_year >= 1900)", (OLD_YEAR,)).fetchall():
+        ys = sorted(lookalikes[pid])
+        if len(ys) >= MIN_LOOKALIKES and ys[len(ys) // 10] > MODERN_LOOKALIKES:
+            db.execute("UPDATE images SET year_start = NULL, year_end = NULL, circa = 0, "
+                       "year_source = NULL, year_note = ? WHERE id = ?", (f"modern_post:{y}", iid))
+            stats["old years in modern posts, dropped"] += 1
+    return stats
+
+
 def estimate(db, ceiling):
     """Give each undated artwork an estimated span (year_lo..year_hi), a best guess
     (year_est) and what they rest on (year_basis), strongest first:
@@ -183,20 +241,31 @@ def estimate(db, ceiling):
         by_post[p].append((pos, lo, hi))
         if p in artist_of:
             by_artist[artist_of[p]].append((p, lo, hi))
+    post_kind = dict(db.execute("SELECT id, kind FROM posts"))
     life = {aid: (birth, death, kind) for aid, birth, death, kind in
             db.execute("SELECT id, birth_year, death_year, type FROM artists")}
     similar = {(p, h): json.loads(s) for p, h, s in db.execute(
         "SELECT post_id, url_hash, similar FROM image_similar")}
 
     rows = []
-    for iid, p, h, pos in db.execute("SELECT id, post_id, url_hash, position FROM images "
-                                     "WHERE kind = 'artwork' AND year_start IS NULL").fetchall():
+    for iid, p, h, pos, medium in db.execute("SELECT id, post_id, url_hash, position, medium FROM images "
+                                             "WHERE kind = 'artwork' AND year_start IS NULL").fetchall():
         aid = artist_of.get(p)
         before = [s[1:] for s in by_post.get(p, []) if s[0] < pos][-1:]
         after = [s[1:] for s in by_post.get(p, []) if s[0] > pos][:1]
         others = [(lo, hi) for q, lo, hi in by_artist.get(aid, []) if q != p]
         neighbours = [dated[(q, qh)] for q, qh, _ in similar.get((p, h), []) if (q, qh) in dated]
         lo, hi, est, basis = guess(before + after, others, neighbours, life.get(aid), ceiling[p])
+        if medium == "photography" and lo is not None:
+            if hi < FIRST_PHOTOGRAPH:       # the evidence points before photography: it's wrong
+                lo, hi, est, basis = None, ceiling[p], None, "post"
+            else:
+                lo, est = max(lo, FIRST_PHOTOGRAPH), max(est, FIRST_PHOTOGRAPH)
+        if basis == "likeness" and post_kind[p] != "theme" and not (life.get(aid) or (None,))[0]:
+            if hi < OLD_YEAR:               # looks old, by an artist we can't place: a pastiche
+                lo, hi, est, basis = None, ceiling[p], None, "post"
+            else:
+                lo, est = max(lo, OLD_YEAR), max(est, OLD_YEAR)
         rows.append((lo, hi, est, basis, iid))
         stats[f"estimated artworks: {basis}"] += 1
     db.executemany("UPDATE images SET year_lo = ?, year_hi = ?, year_est = ?, year_basis = ? "
@@ -245,6 +314,14 @@ def guess(siblings, artist, neighbours, life, ceiling):
         if lo is None or lo > hi:                   # no look-alikes, or none inside their life
             if not birth:
                 return None, ceiling, None, "post"
+            lo, hi = adult
+            est, basis = birth + MIDCAREER_AGE, "life"
+    if birth and basis in ("siblings", "artist"):
+        # Dated works around it can lie outside the artist's working life (a later cast,
+        # a reprint, a stray date): the estimate can't.
+        if max(lo, adult[0]) <= min(hi, adult[1]):
+            lo, hi = max(lo, adult[0]), min(hi, adult[1])
+        else:
             lo, hi = adult
             est, basis = birth + MIDCAREER_AGE, "life"
     hi = min(hi, ceiling)

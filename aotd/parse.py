@@ -45,19 +45,26 @@ ROLE_WORDS = {"painter", "sculptor", "artist", "photographer", "designer", "illu
 YEAR = r"(1[2-9]\d\d|20[0-3]\d)"
 CIRCA = r"(?:(c\.|ca\.|circa|c)\s*)?"
 YEAR_RANGE = YEAR + r"(?:\s*[-–/]\s*(\d{2,4}))?"
+# A "year" run into letters is a model or catalogue number, not a year: "Hasselblad 1600F".
 CAPTION_LEADING_YEAR = re.compile(
-    r"^\s*" + CIRCA + YEAR_RANGE + r"(?![\d'\"s])\s*[,.:;\-–]?\s+(?P<rest>.+)$", re.I | re.S)
+    r"^\s*" + CIRCA + YEAR_RANGE + r"(?![\w'\"])\s*[,.:;\-–]?\s+(?P<rest>.+)$", re.I | re.S)
 CAPTION_TRAILING_YEAR = re.compile(
-    r"^(?P<rest>.*?)[\s,(]+" + CIRCA + YEAR_RANGE + r"(?![\d'\"s])\s*\)?\s*\.?$", re.I | re.S)
-CAPTION_ANY_YEAR = re.compile(r"(?<!\d)" + CIRCA + YEAR_RANGE + r"(?![\d'\"s])", re.I)
+    r"^(?P<rest>.*?)[\s,(]+" + CIRCA + YEAR_RANGE + r"(?![\w'\"])\s*\)?\s*\.?$", re.I | re.S)
+CAPTION_ANY_YEAR = re.compile(r"(?<![\w])" + CIRCA + YEAR_RANGE + r"(?![\w'\"])", re.I)
 COPYRIGHT = re.compile(r"^\s*©|all rights reserved", re.I)
 # "1950s", "1960's", "late-1960s", "c.1920s"
 CAPTION_DECADE = re.compile(
     r"(?<![\w-])(?:(early|mid|late)[\s-]*)?" + CIRCA + r"(1[2-9]\d0|20[0-3]0)['’]?s\b", re.I)
 DECADE_PART = {None: (0, 9), "early": (0, 4), "mid": (3, 7), "late": (5, 9)}
+# "21st Century", "Late 18th Century", "early 5th century BC"
+CAPTION_CENTURY = re.compile(
+    r"(?<![\w-])(?:(early|mid|late|end of the|end)[\s-]*)?(\d{1,2})(?:st|nd|rd|th)[\s-]+century\b"
+    r"(\s*(?:BCE?|B\.\s?C\.(?:E\.)?)(?![A-Za-z]))?", re.I)
+CENTURY_PART = {None: (0, 99), "early": (0, 33), "mid": (33, 66), "late": (66, 99),
+                "end": (66, 99), "end of the": (66, 99)}
 # A caption that says the work is undated: "Deux Amis n.d.", "Untitled, undated"
 CAPTION_UNDATED = re.compile(r"(?<!\w)(?:n\.\s?d\.?|undated|no date)(?!\w)", re.I)
-CAPTION_BC_AFTER = re.compile(r"\s*(?:BCE?|B\.\s?C\.(?:E\.)?)(?![A-Za-z])")
+CAPTION_BC_AFTER = re.compile(r"\s*(?:[Bb][Cc][Ee]?|B\.\s?C\.(?:E\.)?)(?![A-Za-z])")   # "1350 bc" too
 # "№. 2029, Golden heart cake" is a catalogue number, not a year
 CATALOGUE_BEFORE = re.compile(r"(?:№|Nº|N°|\bNo|#)\.?\s*$", re.I)
 
@@ -360,6 +367,13 @@ def parse_caption(caption):
         lo, hi = DECADE_PART[(m.group(1) or "").lower() or None]
         rest = caption[:m.start()] + " " + caption[m.end():]
         return _clean_title(rest), decade + lo, decade + hi, bool(m.group(2))
+    m = CAPTION_CENTURY.search(caption)
+    if m and 1 <= int(m.group(2)) <= 21:
+        n = int(m.group(2))
+        lo, hi = CENTURY_PART[(m.group(1) or "").lower() or None]
+        base = -n * 100 if m.group(3) else (n - 1) * 100   # BC centuries count down
+        rest = caption[:m.start()] + " " + caption[m.end():]
+        return _clean_title(rest), base + lo, base + hi, False
     return _clean_title(caption), None, None, False
 
 
@@ -369,6 +383,9 @@ def filename_caption(filename):
         return None
     stem = re.sub(r"\.(jpe?g|png|gif|webp|tiff?)$", "", filename, flags=re.I)
     stem = re.sub(r"^\d{1,2}(\.\d+)?\s+(?=\S)", "", stem)   # leading sort index
+    # Image sizes, not years: "Billboard-1200x796", tumblr's "..._1280" and "..._r1_1280"
+    stem = re.sub(r"[\s_-]*\b\d{2,5}\s?[x×]\s?\d{2,5}\b", "", stem)
+    stem = re.sub(r"_(?:r\d+_)?(?:1280|540|500|400|250|100|75)$", "", stem)
     stem = re.sub(r"[_]+", " ", stem).strip()
     if " " not in stem:
         stem = stem.replace("-", " ")   # "A-typical-Pakistani-truck-art-1"

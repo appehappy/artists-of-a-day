@@ -110,7 +110,10 @@ CREATE TABLE images (
                                       --   first: siblings | artist | likeness | life | post
     year_note     TEXT,               -- nd (caption says undated) | after_post:<year>
                                       --   (a completion or model year, not when it was made)
-    kind          TEXT NOT NULL,      -- artwork | intro | portrait | other
+                                      --   | before_birth:<year> (a file or catalogue number)
+                                      --   | before_photography:<year> (a photo dated by its subject)
+                                      --   | modern_post:<year> (a brand or subject in a modern post)
+    kind         TEXT NOT NULL,      -- artwork | intro | portrait | other
     kind_source   TEXT NOT NULL,      -- heuristic (phase 1); later: clip, manual
     -- What the artwork physically is (aotd/media.py): painting | drawing | print |
     -- sculpture | ceramics | media | photography | graphic | design | exclude.
