@@ -158,6 +158,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .search { width: 100%; }
   .lightbox { padding: 48px 12px; }
 }
+/* Five nav pills fit a 375px phone only a little tighter. */
+@media (max-width: 420px) {
+  .site-nav > a, .site-nav > button { padding-inline: 9px; }
+}
 
 /* Page transitions (see pageMotion in Base.astro) */
 @keyframes page-out { to { opacity: 0; transform: translateY(-10px); } }

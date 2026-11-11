@@ -10,6 +10,7 @@ const { title } = Astro.props;
 const path = route(Astro.url.pathname);
 const nav = [
   { href: at(""), label: "Wall", match: (p: string) => p === "/" },
+  { href: at("century"), label: "Century", match: (p: string) => p === "/century" },
   { href: at("explore/colour"), label: "Explore", match: (p: string) => p.startsWith("/explore") },
   { href: at("today"), label: "On this day", match: (p: string) => p === "/today" },
 ];

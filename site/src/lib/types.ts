@@ -43,10 +43,17 @@ export interface SiteData {
   disciplines: Discipline[];
   regions: { key: string; artists: number }[];
   colours: { key: string; hex: string }[]; // see artworkHasColour
+  media: { key: string; label: string }[]; // aotd/media.py, in the plate's 3×3 order
 }
 
-// [post index, filename, width, height, year, title, colours (see artworkHasColour)]
-export type ArtworkRow = [number, string, number, number, number | null, string | null, number];
+// [post index, filename, width, height, year (as its source states it), title,
+//  colours (see artworkHasColour), medium (index into SiteData.media; null: not one
+//  artwork), year_est (undated works: best guess at when it was made), year_end (the
+//  end of a stated range, "1950s" -> 1959), est_kind (how far to trust year_est: 1
+//  close, from the dated works beside it in its post; 2 rough, from look-alikes or the
+//  artist's lifetime), copy (1: a later post of a work the archive already has)]
+export type ArtworkRow = [number, string, number, number, number | null, string | null, number,
+                          number | null, number | null, number | null, number, number];
 
 // Similar works for one post, from /data/similar/<post index>.json
 export type SimilarMap = Record<string, [number, string][]>;

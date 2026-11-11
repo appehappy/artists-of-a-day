@@ -1,6 +1,6 @@
 """Export data/aotd.sqlite + the image manifest into JSON for the site.
 
-Writes site/public/data/site.json (posts, artists, disciplines, regions, colours),
+Writes site/public/data/site.json (posts, artists, disciplines, regions, colours, media),
 site/public/data/artworks.json (compact rows for the Wall) and
 site/public/data/similar/<post index>.json (similar works, loaded on demand).
 An image's URL is /img/<post dir>/<file> and its thumbnail /thumbs/<post dir>/<stem>.webp;
@@ -19,11 +19,17 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from aotd import media  # noqa: E402
 from aotd.colors import BUCKETS  # noqa: E402
 from aotd.config import DB_PATH  # noqa: E402
 from aotd.manifest import load_downloads  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "site" / "public" / "data"
+# How far to trust an undated work's estimated year (images.year_basis): 1 close (the dated
+# works beside it in its post, within a few years), 2 rough (look-alikes or the artist's
+# lifetime, a generation either way).
+EST_KIND = {"siblings": 1, "artist": 1, "likeness": 2, "life": 2}
+SAME_IMAGE = 0.95   # CLIP cosine above which two images are one work (as in aotd/dates.py)
 
 # Ordered discipline groups, matched against an artist's roles + descriptor.
 DISCIPLINES = [
@@ -69,11 +75,14 @@ def main():
         colours[(r["post_id"], r["url_hash"])] = mask | hue << 12
     wikidata = {r["artist_id"]: r for r in db.execute("SELECT * FROM artist_wikidata")}
 
+    medium_index = {k: i for i, k in enumerate(media.KEYS)}  # "exclude" -> None
+
     def filename(image_row):
         f = files.get((image_row["post_id"], image_row["url_hash"]))
         return f and Path(f["path"]).name
 
     posts, post_index, artworks, exported = [], {}, [], {}
+    row_keys = []   # (post_id, url_hash) of each artworks row
     artist_posts, artist_years = {}, {}
     for p in post_rows:
         imgs = images_by_post.get(p["id"], [])
@@ -100,9 +109,39 @@ def main():
             if artist and i["year_start"]:
                 artist_years.setdefault(artist["id"], []).append(i["year_start"])
             exported[(i["post_id"], i["url_hash"])] = (idx, Path(f["path"]).name)
+            row_keys.append((i["post_id"], i["url_hash"]))
             artworks.append([idx, Path(f["path"]).name, f["width"], f["height"],
                              i["year_start"], (i["title"] or "")[:140] or None,
-                             colours.get((i["post_id"], i["url_hash"]), 0)])
+                             colours.get((i["post_id"], i["url_hash"]), 0),
+                             medium_index.get(i["medium"]), i["year_est"],
+                             i["year_end"] if i["year_start"] is not None else None,
+                             EST_KIND.get(i["year_basis"], 0) if i["year_start"] is None else 0, 0])
+
+    # A work posted more than once is counted once: every copy after the first is marked.
+    row_of = {key: n for n, key in enumerate(row_keys)}
+    group = list(range(len(artworks)))
+
+    def find(n):
+        while group[n] != n:
+            group[n] = group[group[n]]
+            n = group[n]
+        return n
+
+    for r in db.execute("SELECT post_id, url_hash, similar FROM image_similar"):
+        me = row_of.get((r["post_id"], r["url_hash"]))
+        if me is None:
+            continue
+        for pid, h, cosine in json.loads(r["similar"]):
+            other = row_of.get((pid, h))
+            if other is not None and cosine >= SAME_IMAGE:
+                a_, b_ = find(me), find(other)
+                group[max(a_, b_)] = min(a_, b_)     # rows run oldest post first
+    copies = 0
+    for n, row in enumerate(artworks):
+        if find(n) != n:
+            row[-1] = 1
+            copies += 1
+    print(f"later copies of reposted works: {copies}")
 
     artists = []
     for aid, a in artist_rows.items():
@@ -157,10 +196,13 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "site.json").write_text(json.dumps(
         {"posts": posts, "artists": artists, "disciplines": disciplines, "regions": regions,
-         "colours": [{"key": k, "hex": v} for k, v in BUCKETS.items()]},
+         "colours": [{"key": k, "hex": v} for k, v in BUCKETS.items()],
+         "media": [{"key": k, "label": label} for k, label in media.MEDIA]},
         ensure_ascii=False, separators=(",", ":")))
     (OUT / "artworks.json").write_text(json.dumps(
-        {"columns": ["post", "file", "w", "h", "year", "title", "colours"], "rows": artworks},
+        {"columns": ["post", "file", "w", "h", "year", "title", "colours", "medium", "year_est",
+                     "year_end", "est_kind", "copy"],
+         "rows": artworks},
         ensure_ascii=False, separators=(",", ":")))
 
     # Similar works, one small file per post: {file: [[post index, file], ...]}

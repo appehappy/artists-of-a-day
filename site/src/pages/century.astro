@@ -1,0 +1,867 @@
+---
+// The Century (lib/century.ts): the whole archive as one long quilt, earliest first:
+// decades before 1800, then a square for every year. Each square is a 3×3 of shapes
+// by medium, sized by how busy that medium was then. Prototype of a primary view.
+import Base from "../layouts/Base.astro";
+import { shapePath } from "../lib/century";
+import { media } from "../lib/data";
+import chevronLeft from "../icons/chevron-left.svg";
+import chevronRight from "../icons/chevron-right.svg";
+import closeIcon from "../icons/x.svg";
+---
+
+<Base title="Century">
+  <section class="century" data-century-page>
+    <div class="bar">
+      <div class="heading reveal" style="--i:0">
+        <h1 class="serif" data-title>&nbsp;</h1>
+        <p class="sub" data-sub>&nbsp;</p>
+      </div>
+      <div class="key reveal" style="--i:1">
+        <ul class="legend" aria-label="Media: pick one to follow it">
+          {media.map((m, i) => (
+            <li>
+              <button type="button" data-m={i} aria-pressed="false" style={`--c: var(--m${i})`}>
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d={shapePath(i, 16)} /></svg>
+                <span>{m.label}</span>
+                <span class="n" data-n></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <button class="toggle-est" type="button" data-est="close" aria-pressed="true"
+                title="Undated works placed by the dated works beside them in the same post, usually within two years">
+          Close estimates <span class="n" data-est-n></span>
+        </button>
+        <button class="toggle-est" type="button" data-est="rough" aria-pressed="false"
+                title="Undated works placed by look-alikes or the artist's lifetime, and ranges like “1950s”: often a generation either way">
+          Rough estimates <span class="n" data-est-n></span>
+        </button>
+        <span class="size-key" aria-label="Shape size: works a year">
+          <svg viewBox="0 0 66 16" aria-hidden="true">
+            <path d={shapePath(0, 16)} transform="translate(9.3 9.3) scale(0.42)" />
+            <path d={shapePath(0, 16)} transform="translate(25.8 4.8) scale(0.7)" />
+            <path d={shapePath(0, 16)} transform="translate(50 0)" />
+          </svg>
+          under 10 · 10–99 · 100+ works a year
+        </span>
+      </div>
+    </div>
+
+    <p class="hint muted reveal" style="--i:2">
+      This is one collection, not a history of art: what the Artist of the Day blog featured between
+      2017 and 2026. A busy year means more was collected from it, not that more was made.
+      Each square is a year, each row a decade; before 1800, a decade and a century. Inside, one
+      shape per medium, sized by how many works a year. Click a square, or any shape in it.
+    </p>
+
+    <div class="plates" data-plates></div>
+
+    <aside class="drawer" aria-live="polite" hidden>
+      <header>
+        <div>
+          <p class="eyebrow" data-d-kind></p>
+          <h2 class="serif" data-d-title></h2>
+        </div>
+        <div class="drawer-nav">
+          <button class="icon-btn lg" type="button" data-step="-1" aria-label="Previous">
+            <img src={chevronLeft.src} width="12" height="12" alt="" />
+          </button>
+          <button class="icon-btn lg" type="button" data-step="1" aria-label="Next">
+            <img src={chevronRight.src} width="12" height="12" alt="" />
+          </button>
+          <button class="icon-btn lg" type="button" data-close aria-label="Close">
+            <img src={closeIcon.src} width="12" height="12" alt="" />
+          </button>
+        </div>
+      </header>
+      <p class="sub" data-d-sub></p>
+      <ul class="drawer-miles" data-d-miles hidden></ul>
+      <div class="drawer-media" data-d-media></div>
+      <div class="thumbs"></div>
+      <button class="chip more" type="button" hidden>Show more</button>
+    </aside>
+
+    <div class="century-tip" hidden></div>
+  </section>
+</Base>
+
+<style>
+  /* One colour per medium, printed on the paper: ink and the wordmark's red, then a
+     riso-like set (Figma: AoTD-A › Year tile). */
+  .century {
+    --m0: var(--ink); --m1: #8a55b8; --m2: #6f8a2a; --m3: #a8743e; --m4: #5f8279;
+    --m5: #52489c; --m6: var(--accent); --m7: #e0a614; --m8: #e2668c;
+    padding: 0 var(--gutter) 96px;
+    transition: padding-right 0.45s var(--ease);
+  }
+  /* On wide screens the quilt draws in to make room for the drawer. */
+  @media (min-width: 1100px) {
+    .century.drawer-open { padding-right: 436px; }
+  }
+  @media (prefers-color-scheme: dark) {
+    .century { --m1: #b48ae0; --m2: #9cb84a; --m3: #c9945c; --m4: #84a59d; --m7: #f2c84a; --m8: #f08aa8; }
+  }
+
+  /* The bar: the whole span, then the key, which is also the medium filter. */
+  .bar {
+    position: sticky; top: var(--header-h); z-index: 5; padding: 8px 0 14px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px);
+  }
+  .heading { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
+  .heading h1 { margin: 0; font-size: clamp(32px, 3.6vw, 48px); line-height: 1; font-weight: 300; }
+  .sub { margin: 0; font-size: 14px; color: var(--muted); }
+
+  .key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; }
+  .legend { display: contents; }
+  .legend li { list-style: none; }
+  .legend button, .toggle-est {
+    display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 4px 10px 4px 7px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
+    font-size: 12px; color: var(--muted); white-space: nowrap;
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.3s var(--ease), opacity 0.3s var(--ease);
+  }
+  .legend button:hover, .toggle-est:hover { color: var(--ink); border-color: var(--muted); }
+  .legend svg { width: 14px; height: 14px; flex: none; }
+  .legend path { fill: var(--c); }
+  .legend .n { font-variant-numeric: tabular-nums; opacity: 0.7; }
+  .legend button[aria-pressed="true"] { border-color: var(--c); color: var(--ink); background: color-mix(in srgb, var(--c) 12%, var(--surface)); }
+  .key.focused .legend button[aria-pressed="false"] { opacity: 0.55; }
+  .toggle-est { padding-left: 10px; }
+  .legend + .toggle-est { margin-left: 6px; }
+  .toggle-est .n { font-variant-numeric: tabular-nums; opacity: 0.7; }
+  .toggle-est[aria-pressed="true"] { color: var(--ink); border-color: var(--muted); }
+  .toggle-est[aria-pressed="false"] { background: none; }
+  .size-key { display: inline-flex; align-items: center; gap: 8px; margin-left: 10px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .size-key svg { width: 66px; height: 16px; flex: none; }
+  .size-key path { fill: var(--muted); }
+  .hint { margin: 2px 0 0; font-size: 12px; max-width: 72ch; }
+
+  /* One quilt per period, one after another down the page, each with a quiet heading. */
+  /* One quilt down the page: the periods meet with the same hairline as any two rows. */
+  .plates { display: flex; flex-direction: column; gap: 1px; margin-top: 28px; }
+  /* Each period's title and count head its stretch of the rail. */
+  .plates :global(.rail-head) { position: absolute; top: -3px; left: 82px; right: 0; }
+  .plates :global(.rail-head h2) { margin: 0; font: 300 28px/1 var(--serif); letter-spacing: -0.01em; }
+  .plates :global(.rail-head .sub) { margin-top: 6px; font-size: 12px; line-height: 1.4; }
+
+  /* Each period: its quilt, and a rail beside it with the rows' dates and the milestones
+     of art, design and photography, each at its year and in its medium's shape. */
+  .plates :global(.plate-body) { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; }
+  .plates :global(.rail) { position: relative; }
+  .plates :global(.rail::before) {
+    content: ""; position: absolute; top: 0; bottom: 0; left: 64px; width: 1px; background: var(--line);
+  }
+  .plates :global(.rail-row) {
+    position: absolute; left: 0; width: 52px; text-align: right;
+    font: 300 18px/1 var(--serif); letter-spacing: -0.01em; color: var(--muted);
+    transition: color 0.2s var(--ease);
+  }
+  .plates :global(.rail-row.on) { color: var(--ink); }
+  .plates :global(.rail-tick) { position: absolute; left: 60px; width: 9px; height: 1px; background: var(--muted); opacity: 0.6; }
+  .plates :global(.mile) {
+    position: absolute; left: 56px; right: 0; display: grid; grid-template-columns: 16px 1fr; column-gap: 10px;
+    align-items: start; padding: 0; border: 0; background: none; text-align: left; cursor: pointer;
+    font-size: 12.5px; line-height: 1.3; color: var(--muted); transition: color 0.2s var(--ease);
+  }
+  .plates :global(.mile svg) {
+    width: 16px; height: 16px; margin-top: 1px; padding: 1px; overflow: visible; background: var(--bg);
+    transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
+  }
+  .plates :global(.mile path) { fill: var(--c); }
+  .plates :global(.mile .y) { font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .plates :global(.mile b) { font-weight: 500; font-size: 13px; color: color-mix(in srgb, var(--ink) 82%, var(--muted)); transition: color 0.2s var(--ease); }
+  .plates :global(.mile .note) { display: block; margin-top: 1px; font-size: 12px; }
+  .plates :global(.mile:hover), .plates :global(.mile.on) { color: var(--ink); }
+  .plates :global(.mile:hover b), .plates :global(.mile.on b) { color: var(--ink); }
+  .plates :global(.mile:hover svg), .plates :global(.mile.on svg) { transform: scale(1.25); }
+  /* A milestone under the pointer lights its year, and its medium's shape in it. */
+  .plates :global(.year.hl > .tile) { fill: var(--tile); }
+  .plates :global(.year.hl > .label) { opacity: 1; }
+  .plates :global(.node.hl .s) { transform: scale(calc(var(--k, 1) * 1.15)); transition-delay: 0ms; }
+  /* The drawer takes the rail's place. */
+  .century.drawer-open :global(.plate-body) { grid-template-columns: minmax(0, 1fr); }
+  .century.drawer-open :global(.rail) { display: none; }
+
+  /* Years 104 units square and 1 apart; slots 30 and 3 apart. */
+  .plates :global(.quilt) { display: block; width: 100%; height: auto; overflow: visible; }
+  .plates :global(.year > .tile) { fill: var(--surface); transition: fill 0.25s var(--ease); }
+  .plates :global(.year:hover > .tile), .plates :global(.year.open > .tile) { fill: var(--tile); }
+  .plates :global(.year.future > .tile) { fill: color-mix(in srgb, var(--surface) 45%, transparent); }
+  .plates :global(.year > .label) {
+    font: 500 11px var(--sans); fill: var(--muted); opacity: 0; pointer-events: none;
+    transition: opacity 0.2s var(--ease);
+  }
+  .plates :global(.year:hover > .label), .plates :global(.year.open > .label) { opacity: 1; }
+  .plates :global(.node) { cursor: pointer; }
+  /* Each shape grows from the point of its slot nearest the square's centre (the
+     node's origin), to one of three sizes (--k). */
+  .plates :global(.node .s) {
+    transform: scale(var(--k, 1)); transform-origin: 0 0;
+    transition: transform 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) var(--d, 0ms);
+  }
+  .plates :global(.node.out) { pointer-events: none; }
+  .plates :global(.node.out .s) { transform: scale(0); }
+  .plates :global(.node:hover .s) { transform: scale(calc(var(--k, 1) * 1.12)); transition-delay: 0ms; }
+  .plates :global(.node path) { fill: var(--c); transition: opacity 0.35s var(--ease); }
+  .plates :global(.node.dim path) { opacity: 0.12; }
+  .plates :global(.ring) {
+    fill: none; stroke: var(--ink); stroke-width: 1.5px; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s var(--ease);
+  }
+  .plates :global(.ring.on) { opacity: 1; }
+
+  /* The drawer: a year, or one shape of it. */
+  .drawer {
+    position: fixed; z-index: 15; top: calc(var(--header-h) + 12px); right: 12px; bottom: 12px;
+    width: min(400px, calc(100% - 24px)); overflow-y: auto; padding: 18px;
+    display: flex; flex-direction: column; gap: 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
+    animation: drawer-in 0.45s var(--ease) both;
+  }
+  .drawer[hidden] { display: none; }
+  @keyframes drawer-in { from { opacity: 0; transform: translateX(28px); } }
+  .drawer header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .eyebrow { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); min-height: 1em; }
+  .drawer h2 { margin: 0; font-size: 56px; line-height: 0.95; font-weight: 300; }
+  .drawer-nav { display: flex; gap: 6px; }
+  .drawer-media { display: flex; flex-wrap: wrap; gap: 6px; }
+  .drawer-media :global(button) {
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 4px 10px 4px 7px;
+    border: 1px solid var(--line); border-radius: 999px; background: none; font-size: 12px; color: var(--muted);
+    transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.3s var(--ease);
+  }
+  .drawer-media :global(button:hover) { color: var(--ink); border-color: var(--muted); }
+  .drawer-media :global(button[aria-pressed="true"]) { color: var(--ink); border-color: var(--c, var(--ink)); background: color-mix(in srgb, var(--c, var(--ink)) 12%, transparent); }
+  .drawer-media :global(svg) { width: 13px; height: 13px; }
+  .drawer-media :global(path) { fill: var(--c); }
+  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .thumbs :global(a) {
+    position: relative; display: block; aspect-ratio: 1; border-radius: 4px; overflow: hidden;
+    background: var(--tile); animation: rise 0.5s var(--ease) both; animation-delay: calc(var(--k, 0) * 18ms);
+  }
+  .thumbs :global(img) { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.5s var(--ease); }
+  .thumbs :global(a:hover img) { transform: scale(1.05); }
+  /* Its medium's shape in the corner. */
+  .thumbs :global(a svg) { position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; overflow: visible; }
+  .thumbs :global(a path) { fill: var(--c); stroke: var(--bg); stroke-width: 1.2px; paint-order: stroke; }
+  .more { align-self: flex-start; }
+  .more[hidden] { display: none; } /* .chip's display would otherwise override [hidden] */
+  .drawer.moment h2 { font-size: 44px; line-height: 1; }
+  .drawer.moment .sub { color: var(--ink); font-size: 15px; }
+  .drawer .sub :global(.count) { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
+  .thumbs :global(.thumbs-head) { grid-column: 1 / -1; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+  .drawer-miles :global(button) {
+    display: grid; grid-template-columns: 14px 1fr; column-gap: 8px; width: 100%; padding: 0; border: 0;
+    background: none; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  }
+  .drawer-miles :global(button:hover) { color: var(--ink); }
+  .drawer-miles { margin: -4px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .drawer-miles[hidden] { display: none; }
+  .drawer-miles :global(li) { font-size: 13px; line-height: 1.35; }
+  .drawer-miles :global(svg) { width: 14px; height: 14px; margin-top: 2px; }
+  .drawer-miles :global(path) { fill: var(--c); }
+  .drawer-miles :global(.y) { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  .drawer-miles :global(.note) { display: block; color: var(--muted); font-size: 12px; }
+
+  .century-tip {
+    position: fixed; z-index: 30; pointer-events: none; max-width: 240px;
+    background: var(--ink); color: var(--bg); padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.35;
+  }
+  .century-tip :global(b) { display: block; font-weight: 500; font-size: 13px; }
+  .century-tip[hidden] { display: none; }
+
+  @media (max-width: 960px) {
+    .plates :global(.plate-body) { grid-template-columns: minmax(0, 1fr); }
+    .plates :global(.rail) { display: none; }
+  }
+  @media (max-width: 720px) {
+    .bar { position: relative; top: 0; }
+    .legend span:not(.n) { display: none; } /* shapes and counts only */
+    .plates :global(.plate-body) { grid-template-columns: minmax(0, 1fr); }
+    .plates :global(.rail) { display: none; }
+    .drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 72dvh; border-radius: 16px 16px 0 0; }
+    .drawer h2 { font-size: 44px; }
+    .century-tip { display: none; }
+  }
+</style>
+
+<script>
+  import { loadArtworks, loadSite, onPage } from "../lib/client";
+  import {
+    CLOSE, DATED, isDated, kindOf, plateOf, plateTitle, shapePath, sizeOf, SLOT, squareLabel, squareOf, squareStart,
+    squareTally, squareWorks, tally, turnOf, yearOf, type Plate, type Tally,
+  } from "../lib/century";
+  import { MILESTONES, momentSlug, momentWorks, type Milestone } from "../lib/milestones";
+  import { at } from "../lib/paths";
+  import { thumbUrl, type ArtworkRow } from "../lib/types";
+
+  const SVG = "http://www.w3.org/2000/svg";
+  // Geometry in viewBox units: 30-unit slots 3 apart, inset 4 in a 104 year; years sit
+  // 1 apart, so each quilt reads as one field.
+  const S = 30, GAP = 3, PAD = 4, CELL = 2 * PAD + 3 * S + 2 * GAP, YGAP = 1, PITCH = CELL + YGAP, WIDTH = 10 * PITCH - YGAP;
+  const SIZES = [0.42, 0.7, 1]; // shape scale for sizeOf: under 10, 10–99, 100+ works a year
+  const PAGE = 24;
+  const THIS_YEAR = new Date().getFullYear();
+  const el = (tag: string, attrs: Record<string, string | number> = {}) => {
+    const e = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    return e;
+  };
+  const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+  const motion = () => !matchMedia("(prefers-reduced-motion: reduce)").matches;
+  /** Top-left of medium m's slot in an unturned square. */
+  const slotXY = (m: number) => [PAD + (SLOT[m] % 3) * (S + GAP), PAD + Math.floor(SLOT[m] / 3) * (S + GAP)];
+  /** The point of medium m's slot nearest the square's centre, which its shape grows from. */
+  const anchorOf = (m: number) => {
+    const c = SLOT[m] % 3, r = Math.floor(SLOT[m] / 3);
+    return [c === 0 ? S : c === 2 ? 0 : S / 2, r === 0 ? S : r === 2 ? 0 : S / 2];
+  };
+  /** Where a point of an unturned square lands once the square turns `deg` clockwise. */
+  const turnPoint = (x: number, y: number, deg: number) => {
+    const a = (deg * Math.PI) / 180, c = CELL / 2;
+    return [c + (x - c) * Math.cos(a) - (y - c) * Math.sin(a), c + (x - c) * Math.sin(a) + (y - c) * Math.cos(a)];
+  };
+
+  interface Mile { ms: Milestone; m: number; i: number; el: HTMLButtonElement; tick: HTMLElement }
+  interface View {
+    p: Plate; svg: SVGSVGElement; sub: HTMLElement; ring: SVGRectElement;
+    years: SVGGElement[]; nodes: SVGGElement[][]; labels: SVGTextElement[];
+    rows: HTMLElement[]; miles: Mile[]; // the rail: row dates, and milestones
+    seen: boolean; // its shapes spring up the first time it scrolls into view
+  }
+  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+
+  onPage("[data-century-page]", async (root) => {
+    const ac = new AbortController();
+    document.addEventListener("astro:before-swap", () => ac.abort(), { once: true });
+    const { signal } = ac;
+    const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+
+    const platesEl = $("[data-plates]");
+    const titleEl = $("[data-title]"), subEl = $("[data-sub]");
+    const keyEl = $(".key");
+    const legend = [...root.querySelectorAll<HTMLButtonElement>(".legend button")];
+    const estBtns = [...root.querySelectorAll<HTMLButtonElement>("[data-est]")];
+    const drawer = $("aside.drawer");
+    const dKind = $("[data-d-kind]"), dTitle = $("[data-d-title]"), dSub = $("[data-d-sub]"), dMedia = $("[data-d-media]");
+    const dMiles = $("[data-d-miles]");
+    const thumbs = $(".thumbs"), moreBtn = $<HTMLButtonElement>(".more");
+    const tip = $(".century-tip");
+
+    const params = new URLSearchParams(location.search);
+    const num = (k: string) => (params.get(k) != null && params.get(k) !== "" ? Number(params.get(k)) : null);
+    const state = {
+      open: null as { p: string; i: number } | null, // the open square
+      moment: null as number | null, // or the open moment (index into MILESTONES)
+      node: num("n"), // the open shape's medium within it; null: the whole square
+      focus: num("m"), // the medium followed down the page
+      close: params.get("est") !== "0", // close estimates: on unless turned off
+      rough: params.get("rough") === "1", // rough estimates: off unless asked for
+      shown: PAGE,
+    };
+
+    const [site, rows] = await Promise.all([loadSite(), loadArtworks()]);
+    if (signal.aborted) return;
+    const nMedia = site.media.length;
+    const mediumIndex = new Map(site.media.map((m, i) => [m.key, i]));
+    const mediaKeys = site.media.map((m) => m.key);
+    const data = tally(rows, nMedia, THIS_YEAR);
+    const artistBySlug = new Map(site.artists.map((a) => [a.slug, a]));
+    const count = (t: Tally) => t.dated + (state.close ? t.close : 0) + (state.rough ? t.rough : 0);
+    /** Whether a work is on the quilt, given which estimates are switched on. */
+    const shown = (r: ArtworkRow) => { const k = kindOf(r); return k === DATED || (k === CLOSE ? state.close : state.rough); };
+    const cache = new Map<string, Tally[]>();
+    const tallyAt = (p: Plate, i: number) => {
+      const key = `${p.key}:${i}`;
+      if (!cache.has(key)) cache.set(key, squareTally(data, p, i, nMedia));
+      return cache.get(key)!;
+    };
+    const squares = (p: Plate) => p.rows * 10;
+
+    // Build every period's quilt, earliest first.
+    const views: View[] = data.plates.map((p) => {
+      const sec = document.createElement("section");
+      sec.className = "plate";
+      sec.dataset.p = p.key;
+      // The period's title and count head its stretch of rail, not the quilt, so the
+      // quilt runs on unbroken from one period to the next.
+      const head = document.createElement("header");
+      head.className = "rail-head";
+      const h2 = document.createElement("h2");
+      h2.textContent = plateTitle(p, THIS_YEAR);
+      const sub = document.createElement("p");
+      sub.className = "sub";
+      head.append(h2, sub);
+      const svg = el("svg", { class: "quilt", viewBox: `0 0 ${WIDTH} ${p.rows * PITCH - YGAP}`, role: "img",
+                              "aria-label": `Works from ${plateTitle(p, THIS_YEAR)} by ${p.unit > 1 ? "decade" : "year"} and medium`,
+                              "data-p": p.key }) as SVGSVGElement;
+      const years: SVGGElement[] = [], nodes: SVGGElement[][] = [], labels: SVGTextElement[] = [];
+      for (let i = 0; i < squares(p); i++) {
+        const col = i % 10, row = Math.floor(i / 10);
+        const g = el("g", { class: "year", transform: `translate(${col * PITCH} ${row * PITCH})`, "data-i": i }) as SVGGElement;
+        g.append(el("rect", { class: "tile", width: CELL, height: CELL }));
+        // The shapes turn with the square; the tile and the year label stay put.
+        const turn = el("g", { transform: `rotate(${turnOf(i)} ${CELL / 2} ${CELL / 2})` });
+        g.append(turn);
+        const yearNodes: SVGGElement[] = [];
+        for (let m = 0; m < nMedia; m++) {
+          const [x, y] = slotXY(m), [ax, ay] = anchorOf(m);
+          const n = el("g", { class: "node out", transform: `translate(${x + ax} ${y + ay})`, "data-m": m }) as SVGGElement;
+          n.style.setProperty("--c", `var(--m${m})`);
+          n.style.setProperty("--d", `${(row + col) * 28 + m * 14}ms`);
+          const s = el("g", { class: "s" });
+          s.append(el("path", { d: shapePath(m, S), transform: `translate(${-ax} ${-ay})` }));
+          n.append(s);
+          turn.append(n);
+          yearNodes.push(n);
+        }
+        const label = el("text", { class: "label", x: CELL - 5, y: CELL - 5, "text-anchor": "end" }) as SVGTextElement;
+        label.textContent = squareLabel(p, i);
+        g.append(label);
+        svg.append(g);
+        years.push(g); nodes.push(yearNodes); labels.push(label);
+      }
+      const ring = el("rect", { class: "ring", "vector-effect": "non-scaling-stroke" }) as SVGRectElement;
+      svg.append(ring);
+
+      // The rail: each row's date, then this period's milestones (laid out by layoutRail).
+      const rail = document.createElement("div");
+      rail.className = "rail";
+      rail.append(head);
+      const rowEls = Array.from({ length: p.rows }, (_, r) => {
+        const d = document.createElement("div");
+        d.className = "rail-row";
+        d.textContent = String(squareStart(p, r * 10));
+        rail.append(d);
+        return d;
+      });
+      const miles: Mile[] = [];
+      for (const ms of MILESTONES) {
+        const i = squareOf(p, ms.year), m = mediumIndex.get(ms.medium);
+        if (i == null || m == null) continue;
+        const tick = document.createElement("div");
+        tick.className = "rail-tick";
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "mile";
+        b.style.setProperty("--c", `var(--m${m})`);
+        b.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${shapePath(m, 16)}" /></svg>` +
+          `<span><span class="y">${ms.circa ? "c." : ""}${ms.year}</span><b>${esc(ms.label)}</b>` +
+          `<span class="note">${esc(ms.note)}</span></span>`;
+        b.setAttribute("aria-label", `${ms.year}: ${ms.label}, ${ms.note}. Open ${squareLabel(p, i)}`);
+        rail.append(tick, b);
+        miles.push({ ms, m, i, el: b, tick });
+      }
+      const body = document.createElement("div");
+      body.className = "plate-body";
+      body.append(svg, rail);
+      sec.append(body);
+      platesEl.append(sec);
+      return { p, svg, sub, ring, years, nodes, labels, rows: rowEls, miles, seen: false };
+    });
+    const viewOf = (key: string) => views.find((v) => v.p.key === key)!;
+
+    // A year in the URL opens its square.
+    const y0 = num("y");
+    const p0 = y0 != null ? plateOf(data, y0) : null;
+    if (p0) state.open = { p: p0.key, i: squareOf(p0, y0!)! };
+    else state.node = null;
+    const m0 = MILESTONES.findIndex((ms) => momentSlug(ms) === params.get("moment"));
+    if (m0 >= 0) { state.moment = m0; state.open = null; }
+
+    /** The square the ring marks: the open one, or the open moment's (and its medium). */
+    const target = () => {
+      if (state.moment != null) {
+        const ms = MILESTONES[state.moment], p = plateOf(data, ms.year);
+        return p ? { p: p.key, i: squareOf(p, ms.year)!, node: mediumIndex.get(ms.medium) ?? null } : null;
+      }
+      return state.open ? { ...state.open, node: state.node } : null;
+    };
+
+    const roll = (e: HTMLElement, n: number) => {
+      const from = Number(e.dataset.v ?? 0), start = performance.now();
+      e.dataset.v = String(n);
+      const tick = () => {
+        const t = motion() ? Math.min(1, (performance.now() - start) / 500) : 1;
+        e.textContent = Math.round(from + (n - from) * (1 - (1 - t) ** 3)).toLocaleString();
+        if (t < 1 && e.dataset.v === String(n)) requestAnimationFrame(tick);
+      };
+      tick();
+    };
+
+    function paintView(v: View) {
+      const { p } = v;
+      let total = 0;
+      for (let i = 0; i < squares(p); i++) {
+        const t = tallyAt(p, i);
+        v.years[i].classList.toggle("future", squareStart(p, i) > THIS_YEAR);
+        v.years[i].classList.toggle("open", state.open?.p === p.key && state.open.i === i);
+        v.nodes[i].forEach((n, m) => {
+          const c = count(t[m]);
+          total += state.focus == null || state.focus === m ? c : 0;
+          n.classList.toggle("out", c === 0 || !v.seen);
+          n.classList.toggle("dim", state.focus != null && m !== state.focus);
+          n.style.setProperty("--k", String(SIZES[sizeOf(c / p.unit)])); // works a year, on one scale
+        });
+      }
+      let sub = plural(total, "work") + (state.focus == null ? "" : ` in ${site.media[state.focus].label.toLowerCase()}`);
+      if (p.unit > 1) sub += " · a square for each decade";
+      if (p.key === data.plates[0].key && data.older) sub += ` · ${plural(data.older, "older work")} not shown`;
+      if (p.key === data.plates[data.plates.length - 1].key && data.undated) sub += ` · ${plural(data.undated, "work")} can’t be dated at all`;
+      v.sub.textContent = sub;
+      // The ring marks the open square, or the open shape inside it.
+      const tg = target();
+      const open = tg?.p === p.key ? tg.i : null;
+      if (open != null) {
+        const x0 = (open % 10) * PITCH, top = Math.floor(open / 10) * PITCH;
+        let dx = 0, dy = 0, w = CELL, pad = 3;
+        if (tg!.node != null) {
+          // The open shape's slot, wherever this square's turn has carried it.
+          const [sx, sy] = slotXY(tg!.node);
+          const [cx, cy] = turnPoint(sx + S / 2, sy + S / 2, turnOf(open));
+          [dx, dy, w, pad] = [cx - S / 2, cy - S / 2, S, 2];
+        }
+        v.ring.setAttribute("x", String(x0 + dx - pad));
+        v.ring.setAttribute("y", String(top + dy - pad));
+        v.ring.setAttribute("width", String(w + 2 * pad));
+        v.ring.setAttribute("height", String(w + 2 * pad));
+      }
+      v.ring.classList.toggle("on", open != null);
+    }
+
+    function paintBar() {
+      const sums: Tally[] = site.media.map(() => ({ dated: 0, close: 0, rough: 0 }));
+      for (const { p } of views) {
+        for (let i = 0; i < squares(p); i++) {
+          tallyAt(p, i).forEach((t, m) => { sums[m].dated += t.dated; sums[m].close += t.close; sums[m].rough += t.rough; });
+        }
+      }
+      legend.forEach((b, m) => {
+        roll(b.querySelector<HTMLElement>("[data-n]")!, count(sums[m]));
+        b.setAttribute("aria-pressed", String(m === state.focus));
+      });
+      keyEl.classList.toggle("focused", state.focus != null);
+      const list = state.focus == null ? sums : [sums[state.focus]];
+      const total = list.reduce((s, t) => s + count(t), 0);
+      const dated = list.reduce((s, t) => s + t.dated, 0);
+      titleEl.textContent = `${data.plates[0].start}–${THIS_YEAR}`;
+      let sub = plural(total, "work") + (state.focus == null ? "" : ` in ${site.media[state.focus].label.toLowerCase()}`);
+      if (state.focus == null) sub += ` of ${data.total.toLocaleString()} in the collection`;
+      if (total) sub += ` · ${Math.round((dated / total) * 100)}% dated by their source`;
+      subEl.textContent = sub;
+      for (const b of estBtns) {
+        const kind = b.dataset.est as "close" | "rough";
+        b.setAttribute("aria-pressed", String(state[kind]));
+        b.querySelector("[data-est-n]")!.textContent = list.reduce((n, t) => n + t[kind], 0).toLocaleString();
+      }
+    }
+
+    const openPlate = () => viewOf(state.open!.p).p;
+    const drawerWorks = () => squareWorks(data, openPlate(), state.open!.i)
+      .filter((r) => (state.node == null || r[7] === state.node) && shown(r));
+
+    // A moment's drawer: what it was, then the archive's works that bear it out.
+    let momentList: ArtworkRow[] = [], momentSplit = 0, momentHead = "";
+    function paintMoment(k: number) {
+      const ms = MILESTONES[k], m = mediumIndex.get(ms.medium)!;
+      const { linked, around, widened } = momentWorks(ms, rows, site.posts, (slug) => artistBySlug.get(slug), mediaKeys);
+      // Tied works are listed whatever their date's certainty (they're tied by who made
+      // them); the context works follow the estimate switches like the quilt does.
+      const [a, b] = [linked, around.filter(shown)];
+      momentList = [...a, ...b];
+      momentSplit = a.length;
+      const label = site.media[m].label.toLowerCase();
+      momentHead = widened ? `Not tied to it: the nearest ${label} in the collection`
+        : `Not tied to it: other ${label}, ${ms.from}–${Math.min(ms.to, THIS_YEAR)}`;
+      drawer.classList.add("moment");
+      dKind.textContent = `${ms.circa ? "c." : ""}${ms.year}`;
+      dTitle.textContent = ms.label;
+      const artists = new Set(a.map((r) => site.posts[r[0]].artist ?? site.posts[r[0]].id));
+      dSub.innerHTML = `${esc(ms.note)}<span class="count">` + (a.length
+        ? `${plural(a.length, "work")} in the collection by ${plural(artists.size, "artist")} tied to it`
+        : `Nothing in the collection is tied to it directly. Below: ${label} from around then, for context`) + "</span>";
+      dMiles.hidden = true;
+      dMedia.innerHTML = "";
+      paintThumbs(momentList, true);
+    }
+
+    function paintDrawer() {
+      root.classList.toggle("drawer-open", state.open != null || state.moment != null);
+      drawer.classList.remove("moment");
+      if (state.moment != null) { drawer.hidden = false; paintMoment(state.moment); return; }
+      if (state.open == null) { drawer.hidden = true; return; }
+      const p = openPlate(), i = state.open.i;
+      const t = tallyAt(p, i);
+      drawer.hidden = false;
+      dTitle.textContent = squareLabel(p, i);
+      dKind.textContent = state.node != null ? site.media[state.node].label : p.unit > 1 ? "The decade" : "The year";
+      const list = drawerWorks();
+      const artists = new Set(list.map((r) => site.posts[r[0]].artist ?? site.posts[r[0]].id));
+      const est = list.filter((r) => !isDated(r)).length;
+      dSub.textContent = list.length
+        ? `${plural(list.length, "work")} by ${plural(artists.size, "artist")}` + (est ? ` · ${est.toLocaleString()} by estimate` : "")
+        : squareStart(p, i) > THIS_YEAR ? "Still to come" : "Nothing in the archive from then yet";
+      const here = MILESTONES.filter((ms) => squareOf(p, ms.year) === i);
+      dMiles.hidden = !here.length;
+      dMiles.innerHTML = here.map((ms) => {
+        const m = mediumIndex.get(ms.medium)!;
+        return `<li style="--c: var(--m${m})"><button type="button" data-moment="${MILESTONES.indexOf(ms)}">` +
+          `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${shapePath(m, 16)}" /></svg>` +
+          `<span><span class="y">${ms.circa ? "c." : ""}${ms.year}</span>${esc(ms.label)}` +
+          `<span class="note">${esc(ms.note)}</span></span></button></li>`;
+      }).join("");
+      // Chips for this square's media: all, then each one it has.
+      const all = t.reduce((s, c) => s + count(c), 0);
+      dMedia.innerHTML = `<button type="button" data-node="" aria-pressed="${state.node == null}">All ${all.toLocaleString()}</button>` +
+        t.map((c, m) => (count(c)
+          ? `<button type="button" data-node="${m}" aria-pressed="${state.node === m}" style="--c: var(--m${m})">` +
+            `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${shapePath(m, 16)}" /></svg>${site.media[m].label} ${count(c).toLocaleString()}</button>`
+          : "")).join("");
+      paintThumbs(list, true);
+    }
+
+    function paintThumbs(list: ArtworkRow[], reset: boolean) {
+      if (reset) { thumbs.replaceChildren(); state.shown = PAGE; drawer.scrollTop = 0; }
+      const from = thumbs.querySelectorAll("a").length;
+      const split = state.moment != null ? momentSplit : -1;
+      list.slice(from, state.shown).forEach((r, k) => {
+        if (from + k === split && split < list.length) {
+          const h = document.createElement("p");
+          h.className = "thumbs-head";
+          h.textContent = momentHead;
+          thumbs.append(h);
+        }
+        const [pi, file, , , , title] = r;
+        const post = site.posts[pi];
+        const artist = post.artist ? artistBySlug.get(post.artist) : undefined;
+        const a = document.createElement("a");
+        a.href = at(artist ? `artist/${artist.slug}` : `post/${post.id}`) + `?art=${encodeURIComponent(file)}&p=${pi}`;
+        a.style.setProperty("--k", String(k));
+        a.style.setProperty("--c", `var(--m${r[7]})`);
+        const name = artist?.name ?? post.subject ?? "";
+        const when = r[4] != null ? (r[9] != null && r[9] > r[4] ? `${r[4]}–${r[9]}` : String(r[4]))
+          : kindOf(r) === CLOSE ? `about ${yearOf(r)}, estimated` : `around ${yearOf(r)}, a rough estimate`;
+        a.title = [name, title, when].filter(Boolean).join(" — ");
+        const img = document.createElement("img");
+        img.className = "fade";
+        img.loading = "lazy";
+        img.alt = [title, name].filter(Boolean).join(" — ");
+        img.src = thumbUrl(post, file);
+        img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
+        const mark = el("svg", { viewBox: "0 0 16 16", "aria-hidden": "true" });
+        mark.append(el("path", { d: shapePath(r[7]!, 16) }));
+        a.append(img, mark);
+        thumbs.append(a);
+      });
+      moreBtn.hidden = list.length <= state.shown;
+      moreBtn.textContent = `Show ${Math.max(0, Math.min(PAGE * 2, list.length - state.shown)).toLocaleString()} more`;
+    }
+
+    function saveUrl() {
+      const q = new URLSearchParams();
+      if (state.moment != null) q.set("moment", momentSlug(MILESTONES[state.moment]));
+      else if (state.open) {
+        q.set("y", String(squareStart(openPlate(), state.open.i)));
+        if (state.node != null) q.set("n", String(state.node));
+      }
+      if (state.focus != null) q.set("m", String(state.focus));
+      if (!state.close) q.set("est", "0");
+      if (state.rough) q.set("rough", "1");
+      history.replaceState(history.state, "", location.pathname + (q.size ? `?${q}` : ""));
+    }
+
+    const update = () => { views.forEach(paintView); paintBar(); paintDrawer(); saveUrl(); };
+    update();
+
+    // The rail follows the quilt's rows: a row's date at its top, each milestone at its
+    // year (along the row, read as time running down the rail), nudged down to clear the
+    // one above; a tick on the spine marks where it belongs.
+    function layoutRail(v: View) {
+      const h = v.svg.getBoundingClientRect().height;
+      if (!h) return;
+      const scale = h / (v.p.rows * PITCH - YGAP);
+      v.rows.forEach((d, r) => (d.style.top = `${r * PITCH * scale}px`));
+      // Down the rail, each one clears the one above; then up from the bottom, so the
+      // last ones end with the quilt rather than hanging below it.
+      const miles = [...v.miles].sort((a, b) => a.ms.year - b.ms.year);
+      const tops = miles.map((mi) => {
+        const within = (mi.ms.year - squareStart(v.p, mi.i)) / v.p.unit;
+        const want = (Math.floor(mi.i / 10) * PITCH + ((mi.i % 10) + within) / 10 * CELL) * scale;
+        mi.tick.style.top = `${want}px`;
+        return want;
+      });
+      const GAP_PX = 8;
+      const head = v.rows[0].parentElement!.querySelector<HTMLElement>(".rail-head")!;
+      const below = head.offsetHeight + GAP_PX * 2;   // the moments start under the period's title
+      if (miles.length) tops[0] = Math.max(tops[0], below);
+      for (let k = 1; k < miles.length; k++) tops[k] = Math.max(tops[k], tops[k - 1] + miles[k - 1].el.offsetHeight + GAP_PX);
+      const down = [...tops];
+      let ceiling = h - GAP_PX * 2;   // room before the next period's title
+      for (let k = miles.length - 1; k >= 0; k--) {
+        tops[k] = Math.min(tops[k], ceiling - miles[k].el.offsetHeight);
+        ceiling = tops[k] - GAP_PX;
+      }
+      // Only a period with more moments than its rows can hold keeps the top-down layout
+      // and grows to fit.
+      const crowded = miles.length > 0 && tops[0] < below;
+      const final = crowded ? down : tops;
+      miles.forEach((mi, k) => (mi.el.style.top = `${final[k] - 2}px`));
+      const last = miles.length - 1;
+      const rail = v.rows[0].parentElement!;
+      rail.style.minHeight = crowded ? `${Math.ceil(down[last] + miles[last].el.offsetHeight)}px` : "";
+    }
+    const resize = new ResizeObserver(() => views.forEach(layoutRail));
+    for (const v of views) resize.observe(v.svg);
+    signal.addEventListener("abort", () => resize.disconnect());
+
+    // Rail ↔ quilt: a milestone lights its year and its medium's shape there; a year
+    // under the pointer lights its milestones and its row's date.
+    for (const v of views) {
+      for (const mi of v.miles) {
+        mi.el.addEventListener("pointerenter", () => {
+          v.years[mi.i].classList.add("hl");
+          v.nodes[mi.i][mi.m].classList.add("hl");
+        }, { signal });
+        mi.el.addEventListener("pointerleave", () => {
+          v.years[mi.i].classList.remove("hl");
+          v.nodes[mi.i][mi.m].classList.remove("hl");
+        }, { signal });
+        mi.el.addEventListener("click", () => openMoment(MILESTONES.indexOf(mi.ms)), { signal });
+      }
+    }
+    let lit: { v: View; i: number } | null = null;
+    const light = (v: View | null, i: number | null) => {
+      if (lit && (lit.v !== v || lit.i !== i)) {
+        for (const mi of lit.v.miles) mi.el.classList.toggle("on", false);
+        lit.v.rows.forEach((d) => d.classList.remove("on"));
+      }
+      lit = v && i != null ? { v, i } : null;
+      if (!lit) return;
+      for (const mi of lit.v.miles) mi.el.classList.toggle("on", mi.i === i);
+      lit.v.rows[Math.floor(lit.i / 10)]?.classList.add("on");
+    };
+
+    // Each period's shapes spring up, a wave from its top-left, as it scrolls into view.
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const v = viewOf((e.target as SVGElement).dataset.p!);
+        io.unobserve(e.target);
+        requestAnimationFrame(() => { v.seen = true; paintView(v); });
+      }
+    }, { rootMargin: "0px 0px -15% 0px" });
+    for (const v of views) io.observe(v.svg);
+    signal.addEventListener("abort", () => io.disconnect());
+
+    const scrollToOpen = () => {
+      const tg = target();
+      if (!tg) return;
+      const g = viewOf(tg.p).years[tg.i];
+      const box = g.getBoundingClientRect();
+      const top = (document.querySelector(".bar")?.getBoundingClientRect().bottom ?? 0) + 8;
+      if (box.top < top || box.bottom > innerHeight - 8) {
+        scrollBy({ top: box.top - top - (innerHeight - top - box.height) / 2, behavior: motion() ? "smooth" : "auto" });
+      }
+    };
+    if (target()) requestAnimationFrame(scrollToOpen);
+    const openMoment = (k: number) => {
+      state.moment = k;
+      state.open = null;
+      state.node = null;
+      update();
+      scrollToOpen();
+    };
+
+    // Pointer: a shape, or the year around it, in whichever period's quilt.
+    const hit = (e: Event) => {
+      const t = e.target as Element;
+      const svg = t.closest<SVGSVGElement>("svg.quilt"), y = t.closest<SVGGElement>(".year"), n = t.closest<SVGGElement>(".node");
+      return svg && y ? { v: viewOf(svg.dataset.p!), i: Number(y.dataset.i), m: n ? Number(n.dataset.m) : null } : null;
+    };
+    platesEl.addEventListener("pointermove", (e) => {
+      const h = hit(e);
+      light(h?.v ?? null, h?.i ?? null);
+      if (!h) { tip.hidden = true; return; }
+      const { p } = h.v;
+      const t = tallyAt(p, h.i);
+      const label = squareLabel(p, h.i);
+      if (h.m != null) {
+        const c = t[h.m];
+        tip.innerHTML = `<b>${label} · ${site.media[h.m].label}</b>${plural(count(c), "work")}` +
+          (count(c) > c.dated ? `, ${(count(c) - c.dated).toLocaleString()} by estimate` : "");
+      } else {
+        const all = t.reduce((s, c) => s + count(c), 0);
+        tip.innerHTML = `<b>${label}</b>${all ? plural(all, "work") : squareStart(p, h.i) > THIS_YEAR ? "Still to come" : "No works yet"}`;
+      }
+      tip.hidden = false;
+      tip.style.left = `${Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8)}px`;
+      tip.style.top = `${e.clientY + 14}px`;
+    }, { signal });
+    platesEl.addEventListener("pointerleave", () => { tip.hidden = true; light(null, null); }, { signal });
+    platesEl.addEventListener("click", (e) => {
+      const h = hit(e);
+      if (!h) return;
+      const same = state.open?.p === h.v.p.key && state.open.i === h.i && state.node === h.m;
+      state.moment = null;
+      state.open = same ? null : { p: h.v.p.key, i: h.i };
+      state.node = same ? null : h.m;
+      update();
+    }, { signal });
+
+    legend.forEach((b, m) => b.addEventListener("click", () => {
+      state.focus = state.focus === m ? null : m;
+      update();
+    }, { signal }));
+    for (const b of estBtns) {
+      b.addEventListener("click", () => {
+        const kind = b.dataset.est as "close" | "rough";
+        state[kind] = !state[kind];
+        update();
+      }, { signal });
+    }
+    dMedia.addEventListener("click", (e) => {
+      const b = (e.target as Element).closest<HTMLButtonElement>("button");
+      if (!b) return;
+      state.node = b.dataset.node === "" ? null : Number(b.dataset.node);
+      update();
+    }, { signal });
+    moreBtn.addEventListener("click", () => {
+      state.shown += PAGE * 2;
+      paintThumbs(state.moment != null ? momentList : drawerWorks(), false);
+    }, { signal });
+    dMiles.addEventListener("click", (e) => {
+      const b = (e.target as Element).closest<HTMLButtonElement>("[data-moment]");
+      if (b) openMoment(Number(b.dataset.moment));
+    }, { signal });
+
+    // Step by squares (keeping the open medium), on across periods, keeping it in view.
+    const step = (d: number) => {
+      // A moment steps to the moment before or after it.
+      if (state.moment != null) {
+        const k = state.moment + Math.sign(d);
+        if (k >= 0 && k < MILESTONES.length) openMoment(k);
+        return;
+      }
+      if (!state.open) return;
+      const p = openPlate();
+      const target = squareStart(p, state.open.i) + d * p.unit;
+      const next = plateOf(data, target);
+      if (!next) return;
+      state.open = { p: next.key, i: squareOf(next, target)! };
+      update();
+      scrollToOpen();
+    };
+    root.querySelectorAll<HTMLButtonElement>("[data-step]").forEach((b) =>
+      b.addEventListener("click", () => step(Number(b.dataset.step)), { signal }));
+    const close = () => { state.open = null; state.moment = null; state.node = null; update(); };
+    $("[data-close]").addEventListener("click", close, { signal });
+    document.addEventListener("keydown", (e) => {
+      if ((e.target as HTMLElement).closest("input, textarea") || (!state.open && state.moment == null)) return;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") step(e.key === "ArrowLeft" ? -1 : 1);
+      else if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); step(e.key === "ArrowUp" ? -10 : 10); }
+      else if (e.key === "Escape") close();
+    }, { signal });
+  });
+</script>

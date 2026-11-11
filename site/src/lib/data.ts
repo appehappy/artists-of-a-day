@@ -15,6 +15,7 @@ export const artists: Artist[] = site.artists;
 export const disciplines = site.disciplines;
 export const regions = site.regions;
 export const colours = site.colours;
+export const media = site.media;
 export const artistBySlug = new Map(artists.map((a) => [a.slug, a]));
 
 export const artworksByPost = new Map<number, ArtworkRow[]>();
