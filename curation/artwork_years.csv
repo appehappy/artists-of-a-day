@@ -122,6 +122,7 @@ post_id,url_hash,artist,title,status,year,source,evidence,note
 606063827093300487,27aec32dc3,fermin-revueltas,Alegoría a la Virgen de Guadalupe,auto,1923,wikidata,Q130719958,
 906166956937729590,e7a272dbfe,fernand-khnopff,Memories,auto,1889,wikidata,Q4126317,
 6209395572025150673,710a2078e9,fernand-khnopff,Still water,auto,1894,wikidata,Q28007521,
+867587230207011705,f79afb16d3,filippino-lippi,Adoration of the Child,auto,1483,wikidata,Q3605559,
 8933331673690433005,0ae17092e2,filippino-lippi,Portrait of an old man,auto,1485,wikidata,Q3937767,
 867587230207011705,d0a2e71b8c,filippino-lippi,The Annunciation,needs_review,,wikidata,Q21723145 Q3618174,"Wikidata works disagree: 1460, 1490"
 721521821392705312,f5f378cd72,frits-thaulow,Village on the Bank of a Stream,auto,c.1897,wikidata,Q18748519,
@@ -145,7 +146,7 @@ post_id,url_hash,artist,title,status,year,source,evidence,note
 4476069443877591635,bcb96625ad,george-lance,Still Life with a Golden Peacock,auto,1857,wikidata,Q119082787,
 4476069443877591635,d1758ea5c2,george-lance,Still life with fruit,needs_review,,wikidata,Q119070791 Q119081363,"Wikidata works disagree: 1847, 1855"
 4476069443877591635,c8a2d97bb4,george-lance,The Maréchal Biron Conspiracy,auto,1845,wikidata,Q119068568,
-4476069443877591635,abc8ea2879,george-lance,The Red Cap,auto,c.1847,wikidata,Q104248385 Q28540775,
+4476069443877591635,abc8ea2879,george-lance,The Red Cap,auto,1847,wikidata,Q104248385 Q28540775,
 4476069443877591635,6b4f531392,george-lance,Thomas Duncan,auto,1840,wikidata,Q119057950,
 3821815503306508456,fa4b9a1b04,gustav-klimt,Die Umarmung ( The Embrace),auto,1905-1909,wikidata,Q3818154,
 3821815503306508456,a1c2ef8e93,gustav-klimt,Sonja Knips,auto,1898,wikidata,Q28002801,
@@ -349,6 +350,7 @@ post_id,url_hash,artist,title,status,year,source,evidence,note
 6236645223861419750,1dee8025b5,vlaho-bukovac,The Toast,auto,c.1900,wikidata,Q111586822,
 3967125981487287434,9010102f42,walter-battiss,Cinderella Deep,needs_review,1974,research,https://www.lotsearch.net/artist/walter-battiss/archive?orderBy=lot-title&order=DESC&perPage=80,"medium: 'The Cinderella Deep G. M. Coy', colour screenprint, dated 1974 in a Galerie Bassenge lot (29 Nov 2019) seen through a LotSearch summary."
 3967125981487287434,88f06ec1e5,walter-battiss,Tenuate Dospan,needs_review,1970,research,https://www.straussart.co.za/auctions/lot/326-9-sep-2024/376,"high: Painted and glazed ceramic tile, signed and dated 1970 (Strauss & Co); WikiArt and artnet also give 1970."
+560399400882227439,c8d6c5be66,wassily-kandinsky,Color study. Squares with concentric circles,auto,1914,wikidata,Q18709526,
 7615221537590792011,b986633573,wilhelm-bendz,"Marie Raffenberg, the Artist's Betrothed",needs_review,1831,research,https://artvee.com/artist/wilhelm-bendz/,high: SMK KMS1652; Commons filename also gives 1831.
 7615221537590792011,b986633573,wilhelm-bendz,"Marie Raffenberg, the Artist's Betrothed",auto,1831,wikidata,Q20354411,
 7615221537590792011,34e301c6ac,wilhelm-bendz,Mountain landscape,needs_review,1831,research,https://artsandculture.google.com/asset/mountain-landscape-wilhelm-bendz/swHwcOgnrefpNw?hl=en,high: Hirschsprung Collection; Google Arts & Culture Date Created 1831.
