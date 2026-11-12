@@ -11,7 +11,7 @@
   --sans: "Google Sans", system-ui, -apple-system, sans-serif;
   --gutter: clamp(16px, 3vw, 40px);
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --header-h: 80px;
+  --header-h: 56px;
   /* The Wall's chosen colour (set on <body> while a colour filter is on), else ink:
      the current nav pill, pressed chips and the search line take it. */
   --pick: var(--ink);
@@ -56,12 +56,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* Header */
 .site-header {
   position: sticky; top: 0; z-index: 20; height: var(--header-h);
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
-  padding: 24px var(--gutter) 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  padding: 8px var(--gutter);
   background: var(--bg);
   backdrop-filter: blur(7px);
 }
-.header-left { display: flex; align-items: center; gap: 32px; min-width: 0; }
+.header-left { display: flex; align-items: center; gap: 24px; min-width: 0; }
 /* The logo: 20px tall, centred in a 24px box (Figma: Site header › Wordmark) */
 .wordmark { display: flex; align-items: center; flex: none; height: 24px; color: var(--ink); }
 .wordmark svg { display: block; width: auto; height: 20px; fill: currentColor; }
@@ -130,6 +130,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .icon-btn:hover { border-color: var(--muted); }
 .icon-btn:disabled { opacity: 0.35; cursor: default; border-color: var(--line); }
 
+/* Windows over a page (drawers, cards, panels, the lens) share one look: the page's
+   own colour, a hairline, a small radius and a soft shadow. Ones that run the height
+   of a view sit 16px in from its edges, below the site header. */
+.window {
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
+}
+.window-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.window-eyebrow {
+  margin: 0 0 6px; min-height: 18px; font-size: 12px; line-height: 18px;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.window-title { margin: 0; font: 300 44px/1 var(--serif); letter-spacing: -0.01em; }
+.window-title a { color: inherit; text-decoration: none; }
+.window-buttons { display: flex; gap: 6px; }
+
 /* Image tiles fade in once decoded */
 .fade { opacity: 0; transition: opacity 0.5s var(--ease); }
 .fade.loaded { opacity: 1; }
@@ -153,7 +169,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 @media (max-width: 720px) {
   :root { --header-h: auto; }
-  .site-header { flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 14px; }
+  .site-header { flex-wrap: wrap; align-items: center; gap: 10px; padding-top: 14px; padding-bottom: 16px; }
   .header-left { flex-wrap: wrap; gap: 12px; }
   .search { width: 100%; }
   .lightbox { padding: 48px 12px; }

@@ -3,74 +3,63 @@
 // decades before 1800, then a square for every year. Each square is a 3×3 of shapes
 // by medium, sized by how busy that medium was then. Prototype of a primary view.
 import Base from "../layouts/Base.astro";
-import { shapePath } from "../lib/century";
+import { glyphPath, shapePath } from "../lib/century";
 import { media } from "../lib/data";
 import chevronLeft from "../icons/chevron-left.svg";
 import chevronRight from "../icons/chevron-right.svg";
 import closeIcon from "../icons/x.svg";
+
+// The key's labels: short enough to sit on one line (the full name is the button's title).
+const SHORT: Record<string, string> = {
+  drawing: "Drawing", print: "Print", ceramics: "Ceramics", media: "Installation",
+  graphic: "Graphic", design: "Design",
+};
 ---
 
 <Base title="Century">
   <section class="century" data-century-page>
     <div class="bar">
-      <div class="heading reveal" style="--i:0">
+      <div class="bar-top reveal" style="--i:0">
         <h1 class="serif" data-title>&nbsp;</h1>
-        <p class="sub" data-sub>&nbsp;</p>
+        <div class="key">
+          <ul class="legend" aria-label="Media: pick one to follow it">
+            {media.map((m, i) => (
+              <li>
+                <button type="button" data-m={i} aria-pressed="false" title={m.label} style={`--c: var(--m${i})`}>
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d={glyphPath(i, 16)} /></svg>
+                  <span class="label">{SHORT[m.key] ?? m.label}</span>
+                  <span class="n" data-n></span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
-      <div class="key reveal" style="--i:1">
-        <ul class="legend" aria-label="Media: pick one to follow it">
-          {media.map((m, i) => (
-            <li>
-              <button type="button" data-m={i} aria-pressed="false" style={`--c: var(--m${i})`}>
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d={shapePath(i, 16)} /></svg>
-                <span>{m.label}</span>
-                <span class="n" data-n></span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <button class="toggle-est" type="button" data-est="close" aria-pressed="true"
-                title="Undated works placed by the dated works beside them in the same post, usually within two years">
-          Close estimates <span class="n" data-est-n></span>
-        </button>
-        <button class="toggle-est" type="button" data-est="rough" aria-pressed="false"
-                title="Undated works placed by look-alikes or the artist's lifetime, and ranges like “1950s”: often a generation either way">
-          Rough estimates <span class="n" data-est-n></span>
-        </button>
-        <span class="size-key" aria-label="Shape size: works a year">
-          <svg viewBox="0 0 66 16" aria-hidden="true">
-            <path d={shapePath(0, 16)} transform="translate(9.3 9.3) scale(0.42)" />
-            <path d={shapePath(0, 16)} transform="translate(25.8 4.8) scale(0.7)" />
-            <path d={shapePath(0, 16)} transform="translate(50 0)" />
-          </svg>
-          under 10 · 10–99 · 100+ works a year
-        </span>
+      <!-- The whole collection at a glance: a bar for every row of the quilt, a window
+           for what's on screen. Click or drag to travel. -->
+      <div class="strip reveal" style="--i:1" data-strip title="Click or drag to travel through time">
+        <div class="strip-rows" aria-hidden="true"></div>
+        <div class="strip-window" aria-hidden="true"></div>
+        <div class="strip-ticks" aria-hidden="true"></div>
       </div>
     </div>
 
-    <p class="hint muted reveal" style="--i:2">
-      This is one collection, not a history of art: what the Artist of the Day blog featured between
-      2017 and 2026. A busy year means more was collected from it, not that more was made.
-      Each square is a year, each row a decade; before 1800, a decade and a century. Inside, one
-      shape per medium, sized by how many works a year. Click a square, or any shape in it.
-    </p>
-
     <div class="plates" data-plates></div>
 
-    <aside class="drawer" aria-live="polite" hidden>
-      <header>
+    <aside class="drawer window" aria-live="polite" hidden>
+      <header class="window-head">
         <div>
-          <p class="eyebrow" data-d-kind></p>
-          <h2 class="serif" data-d-title></h2>
+          <p class="window-eyebrow" data-d-kind></p>
+          <h2 class="window-title" data-d-title></h2>
         </div>
-        <div class="drawer-nav">
-          <button class="icon-btn lg" type="button" data-step="-1" aria-label="Previous">
+        <div class="window-buttons">
+          <button class="icon-btn" type="button" data-step="-1" aria-label="Previous">
             <img src={chevronLeft.src} width="12" height="12" alt="" />
           </button>
-          <button class="icon-btn lg" type="button" data-step="1" aria-label="Next">
+          <button class="icon-btn" type="button" data-step="1" aria-label="Next">
             <img src={chevronRight.src} width="12" height="12" alt="" />
           </button>
-          <button class="icon-btn lg" type="button" data-close aria-label="Close">
+          <button class="icon-btn" type="button" data-close aria-label="Close">
             <img src={closeIcon.src} width="12" height="12" alt="" />
           </button>
         </div>
@@ -82,7 +71,8 @@ import closeIcon from "../icons/x.svg";
       <button class="chip more" type="button" hidden>Show more</button>
     </aside>
 
-    <div class="century-tip" hidden></div>
+    <!-- The lens: the work under the pointer, with who made it. -->
+    <div class="lens window" hidden></div>
   </section>
 </Base>
 
@@ -93,101 +83,123 @@ import closeIcon from "../icons/x.svg";
     --m0: var(--ink); --m1: #8a55b8; --m2: #6f8a2a; --m3: #a8743e; --m4: #5f8279;
     --m5: #52489c; --m6: var(--accent); --m7: #e0a614; --m8: #e2668c;
     padding: 0 var(--gutter) 96px;
-    transition: padding-right 0.45s var(--ease);
-  }
-  /* On wide screens the quilt draws in to make room for the drawer. */
-  @media (min-width: 1100px) {
-    .century.drawer-open { padding-right: 436px; }
   }
   @media (prefers-color-scheme: dark) {
     .century { --m1: #b48ae0; --m2: #9cb84a; --m3: #c9945c; --m4: #84a59d; --m7: #f2c84a; --m8: #f08aa8; }
   }
 
-  /* The bar: the whole span, then the key, which is also the medium filter. */
+  /* The bar: the span and the key, then the strip (Figma: Century — the collection › Bar). */
+  /* Scrolled away from the top, the site's header tucks up out of sight and the bar (the
+     span, the key and the strip) takes its place at the top of the window. */
+  :global(.site-header) { transition: transform 0.45s var(--ease); }
+  :global(html.nav-tucked .site-header) { transform: translateY(-100%); pointer-events: none; }
+  :global(html.nav-tucked) .bar { position: sticky; top: 0; }
   .bar {
-    position: sticky; top: var(--header-h); z-index: 5; padding: 8px 0 14px;
-    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px);
+    position: sticky; top: var(--header-h); z-index: 5;
+    margin-inline: calc(-1 * var(--gutter)); padding: 24px var(--gutter) 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 64%, transparent);
+    transition: top 0.45s var(--ease);
+    background: var(--bg);
   }
-  .heading { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; }
-  .heading h1 { margin: 0; font-size: clamp(32px, 3.6vw, 48px); line-height: 1; font-weight: 300; }
-  .sub { margin: 0; font-size: 14px; color: var(--muted); }
+  .bar-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px 32px; flex-wrap: wrap; }
+  .bar-top h1 { margin: 0; font-size: 30px; line-height: 32px; font-weight: 400; letter-spacing: -0.01em; }
+  /* The overview strip: a bar for every row of the quilt, a window over what's on
+     screen, and the years beneath. */
+  .strip { position: relative; margin-top: 12px; cursor: pointer; touch-action: none; user-select: none; }
+  .strip-rows {
+    display: flex; align-items: flex-end; gap: 4px; height: 32px; padding-top: 4px; opacity: 0.6; color: var(--muted);
+  }
+  /* Each bar is lit as its row of tiles is: the strip's colour in the middle of the
+     window, fading to the line colour toward its edges and beyond (--lit, lightRows). */
+  .strip-rows :global(span) {
+    flex: 1; min-width: 1px; background: color-mix(in srgb, currentColor calc(var(--lit, 0) * 100%), var(--line));
+  }
+  .strip-window {
+    position: absolute; top: 0; height: 32px; min-width: 8px; pointer-events: none;
+    border: 0 solid var(--ink); border-width: 0 1px; opacity: 0.8;
+  }
+  .strip-ticks { margin-top: 4px; }
+  .strip-ticks { display: flex; gap: 4px; }
+  .strip-ticks :global(span) {
+    flex: 1; min-width: 0; text-align: center; font: 11px/1.5 var(--sans); color: var(--muted);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .strip-ticks :global(span.off) { visibility: hidden; }
 
-  .key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; }
-  .legend { display: contents; }
+  .sub { margin: 0; font-size: 13px; color: var(--muted); }
+
+  /* The key: bare shapes and names, the medium followed underlined in its colour. */
+  .key { padding-top: 6px; }
+  .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 4px; margin: 0; padding: 0; }
   .legend li { list-style: none; }
-  .legend button, .toggle-est {
-    display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 4px 10px 4px 7px;
-    border: 1px solid var(--line); border-radius: 999px; background: var(--surface);
-    font-size: 12px; color: var(--muted); white-space: nowrap;
-    transition: color 0.2s var(--ease), border-color 0.2s var(--ease), background-color 0.3s var(--ease), opacity 0.3s var(--ease);
+  .legend button {
+    display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px; border: 0; background: none;
+    font: 11px/12px var(--sans); color: var(--muted); white-space: nowrap; box-shadow: inset 0 -1.5px 0 transparent;
+    transition: color 0.2s var(--ease), opacity 0.3s var(--ease), box-shadow 0.3s var(--ease);
   }
-  .legend button:hover, .toggle-est:hover { color: var(--ink); border-color: var(--muted); }
-  .legend svg { width: 14px; height: 14px; flex: none; }
+  .legend button:hover { color: var(--ink); }
+  .legend svg { width: 12px; height: 12px; flex: none; }
   .legend path { fill: var(--c); }
-  .legend .n { font-variant-numeric: tabular-nums; opacity: 0.7; }
-  .legend button[aria-pressed="true"] { border-color: var(--c); color: var(--ink); background: color-mix(in srgb, var(--c) 12%, var(--surface)); }
-  .key.focused .legend button[aria-pressed="false"] { opacity: 0.55; }
-  .toggle-est { padding-left: 10px; }
-  .legend + .toggle-est { margin-left: 6px; }
-  .toggle-est .n { font-variant-numeric: tabular-nums; opacity: 0.7; }
-  .toggle-est[aria-pressed="true"] { color: var(--ink); border-color: var(--muted); }
-  .toggle-est[aria-pressed="false"] { background: none; }
-  .size-key { display: inline-flex; align-items: center; gap: 8px; margin-left: 10px; font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .size-key svg { width: 66px; height: 16px; flex: none; }
-  .size-key path { fill: var(--muted); }
-  .hint { margin: 2px 0 0; font-size: 12px; max-width: 72ch; }
+  .legend .n { display: none; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .legend button[aria-pressed="true"] { color: var(--ink); box-shadow: inset 0 -1.5px 0 var(--c); }
+  .legend button[aria-pressed="true"] .n { display: inline; }
+  .key.focused .legend button[aria-pressed="false"] { opacity: 0.45; }
 
   /* One quilt per period, one after another down the page, each with a quiet heading. */
   /* One quilt down the page: the periods meet with the same hairline as any two rows. */
   .plates { display: flex; flex-direction: column; gap: 1px; margin-top: 28px; }
   /* Each period's title and count head its stretch of the rail. */
-  .plates :global(.rail-head) { position: absolute; top: -3px; left: 82px; right: 0; }
+  .plates :global(.rail-head) { position: absolute; top: -3px; left: 66px; right: 0; }
   .plates :global(.rail-head h2) { margin: 0; font: 300 28px/1 var(--serif); letter-spacing: -0.01em; }
-  .plates :global(.rail-head .sub) { margin-top: 6px; font-size: 12px; line-height: 1.4; }
+  .plates :global(.rail-head .sub) { margin-top: 6px; font-size: 12px; line-height: 1.5; }
 
   /* Each period: its quilt, and a rail beside it with the rows' dates and the milestones
      of art, design and photography, each at its year and in its medium's shape. */
-  .plates :global(.plate-body) { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; }
+  .plates :global(.plate-body) { display: grid; grid-template-columns: minmax(0, 1fr) 291px; gap: 24px; }
   .plates :global(.rail) { position: relative; }
   .plates :global(.rail::before) {
-    content: ""; position: absolute; top: 0; bottom: 0; left: 64px; width: 1px; background: var(--line);
+    content: ""; position: absolute; top: 0; bottom: -1px; left: 48px; width: 1px; background: var(--tile);
   }
+  /* The spine runs up through the space above the quilt to meet the bar's hairline. */
+  .plates :global(.plate:first-child .rail::before) { top: -28px; }
   .plates :global(.rail-row) {
-    position: absolute; left: 0; width: 52px; text-align: right;
+    position: absolute; left: 4px; width: 32px; text-align: right;
     font: 300 18px/1 var(--serif); letter-spacing: -0.01em; color: var(--muted);
     transition: color 0.2s var(--ease);
   }
   .plates :global(.rail-row.on) { color: var(--ink); }
-  .plates :global(.rail-tick) { position: absolute; left: 60px; width: 9px; height: 1px; background: var(--muted); opacity: 0.6; }
+  .plates :global(.rail-tick) { position: absolute; left: 44px; width: 9px; height: 1px; background: var(--tile); opacity: 0.6; }
+  .plates :global(.rail-tick.first) { opacity: 1; }
+  /* A moment: its medium's icon on the spine, then its year and name on one line. */
   .plates :global(.mile) {
-    position: absolute; left: 56px; right: 0; display: grid; grid-template-columns: 16px 1fr; column-gap: 10px;
-    align-items: start; padding: 0; border: 0; background: none; text-align: left; cursor: pointer;
-    font-size: 12.5px; line-height: 1.3; color: var(--muted); transition: color 0.2s var(--ease);
+    position: absolute; left: 43px; right: 4px; display: grid; grid-template-columns: 11px 1fr; column-gap: 10px;
+    align-items: center; padding: 0; border: 0; background: none; text-align: left; cursor: pointer;
+    font: 11px/12px var(--sans); color: var(--muted); transition: color 0.2s var(--ease);
   }
   .plates :global(.mile svg) {
-    width: 16px; height: 16px; margin-top: 1px; padding: 1px; overflow: visible; background: var(--bg);
+    width: 11px; height: 11px; overflow: visible; background: var(--bg);
     transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1);
   }
+  .plates :global(.mile > span) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .plates :global(.mile path) { fill: var(--c); }
   .plates :global(.mile .y) { font-variant-numeric: tabular-nums; margin-right: 6px; }
-  .plates :global(.mile b) { font-weight: 500; font-size: 13px; color: color-mix(in srgb, var(--ink) 82%, var(--muted)); transition: color 0.2s var(--ease); }
-  .plates :global(.mile .note) { display: block; margin-top: 1px; font-size: 12px; }
+  .plates :global(.mile b) { font-weight: 400; color: var(--ink); }
   .plates :global(.mile:hover), .plates :global(.mile.on) { color: var(--ink); }
-  .plates :global(.mile:hover b), .plates :global(.mile.on b) { color: var(--ink); }
   .plates :global(.mile:hover svg), .plates :global(.mile.on svg) { transform: scale(1.25); }
   /* A milestone under the pointer lights its year, and its medium's shape in it. */
-  .plates :global(.year.hl > .tile) { fill: var(--tile); }
   .plates :global(.year.hl > .label) { opacity: 1; }
   .plates :global(.node.hl .s) { transform: scale(calc(var(--k, 1) * 1.15)); transition-delay: 0ms; }
-  /* The drawer takes the rail's place. */
-  .century.drawer-open :global(.plate-body) { grid-template-columns: minmax(0, 1fr); }
-  .century.drawer-open :global(.rail) { display: none; }
 
-  /* Years 104 units square and 1 apart; slots 30 and 3 apart. */
+  /* Years 130 units square and 1 apart; slots 37 and 4 apart. */
   .plates :global(.quilt) { display: block; width: 100%; height: auto; overflow: visible; }
-  .plates :global(.year > .tile) { fill: var(--surface); transition: fill 0.25s var(--ease); }
-  .plates :global(.year:hover > .tile), .plates :global(.year.open > .tile) { fill: var(--tile); }
-  .plates :global(.year.future > .tile) { fill: color-mix(in srgb, var(--surface) 45%, transparent); }
+  /* The squares in the middle of the window are lit: their backplates rise to the
+     surface and their shapes to full colour, fading out toward the window's edges (--lit,
+     0–1, follows the scroll). */
+  .plates :global(.year > .tile) { fill: var(--surface); fill-opacity: var(--lit, 0); transition: fill 0.25s var(--ease); }
+  .plates :global(.year > g) { opacity: calc(0.5 + 0.5 * var(--lit, 0)); }
+  .plates :global(.year:hover > .tile), .plates :global(.year.open > .tile), .plates :global(.year.hl > .tile) { fill: var(--tile); fill-opacity: 1; }
+  .plates :global(.year:hover > g), .plates :global(.year.open > g), .plates :global(.year.bloom > g), .plates :global(.year.hl > g) { opacity: 1; }
+  .plates :global(.year.future > .tile) { fill-opacity: calc(0.45 * var(--lit, 0)); }
   .plates :global(.year > .label) {
     font: 500 11px var(--sans); fill: var(--muted); opacity: 0; pointer-events: none;
     transition: opacity 0.2s var(--ease);
@@ -201,6 +213,17 @@ import closeIcon from "../icons/x.svg";
     transition: transform 0.6s cubic-bezier(0.34, 1.4, 0.64, 1) var(--d, 0ms);
   }
   .plates :global(.node.out) { pointer-events: none; }
+  /* A square blooms under the pointer (and now and then on its own): its shapes swell
+     to full size and become windows onto works from that year. */
+  .plates :global(.year.bloom .node:not(.out) .s), .plates :global(.year.open .node:not(.out) .s) {
+    transform: scale(1); transition-delay: 0ms;
+  }
+  .plates :global(.year.bloom .node:not(.out):hover .s), .plates :global(.year.open .node:not(.out):hover .s) { transform: scale(1.12); }
+  .plates :global(.win image) { opacity: 0; transition: opacity 0.5s var(--ease); }
+  .plates :global(.year.bloom .win image.ready), .plates :global(.year.open .win image.ready) { opacity: 1; }
+  .plates :global(.node.dim .win) { opacity: 0.15; }
+  .plates :global(.year) { outline: none; }
+  .plates :global(.year:focus-visible > .tile) { stroke: var(--ink); stroke-width: 1.5px; }
   .plates :global(.node.out .s) { transform: scale(0); }
   .plates :global(.node:hover .s) { transform: scale(calc(var(--k, 1) * 1.12)); transition-delay: 0ms; }
   .plates :global(.node path) { fill: var(--c); transition: opacity 0.35s var(--ease); }
@@ -213,19 +236,14 @@ import closeIcon from "../icons/x.svg";
 
   /* The drawer: a year, or one shape of it. */
   .drawer {
-    position: fixed; z-index: 15; top: calc(var(--header-h) + 12px); right: 12px; bottom: 12px;
-    width: min(400px, calc(100% - 24px)); overflow-y: auto; padding: 18px;
+    /* Below where the site header sits, even once it has tucked away. */
+    position: fixed; z-index: 15; top: calc(var(--header-h) + 16px); right: 16px; bottom: 16px;
+    width: min(360px, calc(100% - 32px)); overflow-y: auto; padding: 16px;
     display: flex; flex-direction: column; gap: 14px;
-    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
-    box-shadow: 0 16px 50px rgba(0, 0, 0, 0.2);
     animation: drawer-in 0.45s var(--ease) both;
   }
   .drawer[hidden] { display: none; }
   @keyframes drawer-in { from { opacity: 0; transform: translateX(28px); } }
-  .drawer header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-  .eyebrow { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); min-height: 1em; }
-  .drawer h2 { margin: 0; font-size: 56px; line-height: 0.95; font-weight: 300; }
-  .drawer-nav { display: flex; gap: 6px; }
   .drawer-media { display: flex; flex-wrap: wrap; gap: 6px; }
   .drawer-media :global(button) {
     display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 4px 10px 4px 7px;
@@ -236,22 +254,25 @@ import closeIcon from "../icons/x.svg";
   .drawer-media :global(button[aria-pressed="true"]) { color: var(--ink); border-color: var(--c, var(--ink)); background: color-mix(in srgb, var(--c, var(--ink)) 12%, transparent); }
   .drawer-media :global(svg) { width: 13px; height: 13px; }
   .drawer-media :global(path) { fill: var(--c); }
-  .thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  /* The viewing room: works at their own proportions, each with who made it. */
+  .thumbs { column-count: 2; column-gap: 12px; }
   .thumbs :global(a) {
-    position: relative; display: block; aspect-ratio: 1; border-radius: 4px; overflow: hidden;
-    background: var(--tile); animation: rise 0.5s var(--ease) both; animation-delay: calc(var(--k, 0) * 18ms);
+    display: block; break-inside: avoid; margin: 0 0 16px; text-decoration: none; color: inherit;
+    animation: rise 0.5s var(--ease) both; animation-delay: calc(var(--k, 0) * 18ms);
   }
-  .thumbs :global(img) { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.5s var(--ease); }
-  .thumbs :global(a:hover img) { transform: scale(1.05); }
+  .thumbs :global(.pic) { position: relative; display: block; border-radius: 4px; overflow: hidden; background: var(--tile); }
+  .thumbs :global(img) { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s var(--ease), transform 0.6s var(--ease); }
+  .thumbs :global(a:hover img) { transform: scale(1.04); }
+  .thumbs :global(.cap) { display: block; margin-top: 7px; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .thumbs :global(.cap b) { display: block; font-weight: 500; font-size: 13px; color: var(--ink); }
   /* Its medium's shape in the corner. */
   .thumbs :global(a svg) { position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; overflow: visible; }
   .thumbs :global(a path) { fill: var(--c); stroke: var(--bg); stroke-width: 1.2px; paint-order: stroke; }
   .more { align-self: flex-start; }
   .more[hidden] { display: none; } /* .chip's display would otherwise override [hidden] */
-  .drawer.moment h2 { font-size: 44px; line-height: 1; }
-  .drawer.moment .sub { color: var(--ink); font-size: 15px; }
+  .drawer.moment .sub { color: var(--ink); font-size: 14px; line-height: 1.55; text-wrap: pretty; }
   .drawer .sub :global(.count) { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; }
-  .thumbs :global(.thumbs-head) { grid-column: 1 / -1; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+  .drawer.moment .sub :global(.count) { margin-top: 14px; }
   .drawer-miles :global(button) {
     display: grid; grid-template-columns: 14px 1fr; column-gap: 8px; width: 100%; padding: 0; border: 0;
     background: none; text-align: left; font: inherit; color: inherit; cursor: pointer;
@@ -265,12 +286,21 @@ import closeIcon from "../icons/x.svg";
   .drawer-miles :global(.y) { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
   .drawer-miles :global(.note) { display: block; color: var(--muted); font-size: 12px; }
 
-  .century-tip {
-    position: fixed; z-index: 30; pointer-events: none; max-width: 240px;
-    background: var(--ink); color: var(--bg); padding: 7px 10px; border-radius: 8px; font-size: 12px; line-height: 1.35;
+  .lens {
+    position: fixed; z-index: 30; pointer-events: none; width: max-content; max-width: 280px; padding: 8px;
+    font-size: 12px; line-height: 1.35; color: var(--muted);
   }
-  .century-tip :global(b) { display: block; font-weight: 500; font-size: 13px; }
-  .century-tip[hidden] { display: none; }
+  .lens[hidden] { display: none; }
+  .lens :global(.lens-pic) { display: block; max-width: 100%; border-radius: 4px; overflow: hidden; background: var(--tile); margin-bottom: 10px; }
+  .lens :global(img) { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .lens :global(b) { display: block; margin-bottom: 2px; font-weight: 500; font-size: 14px; color: var(--ink); }
+  .lens :global(.lens-title) { display: block; max-width: 264px; }
+  .lens :global(.lens-meta) {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line);
+    font-size: 11px; line-height: 12px;
+  }
+  .lens :global(.lens-meta svg) { width: 11px; height: 11px; flex: none; }
+  .lens :global(.lens-meta path) { fill: var(--c); }
 
   @media (max-width: 960px) {
     .plates :global(.plate-body) { grid-template-columns: minmax(0, 1fr); }
@@ -278,19 +308,19 @@ import closeIcon from "../icons/x.svg";
   }
   @media (max-width: 720px) {
     .bar { position: relative; top: 0; }
-    .legend span:not(.n) { display: none; } /* shapes and counts only */
+    .legend .label { display: none; } /* shapes only */
+    .legend { justify-content: flex-start; margin-left: -6px; }
     .plates :global(.plate-body) { grid-template-columns: minmax(0, 1fr); }
     .plates :global(.rail) { display: none; }
-    .drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 72dvh; border-radius: 16px 16px 0 0; }
-    .drawer h2 { font-size: 44px; }
-    .century-tip { display: none; }
+    .drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100%; height: 72dvh; border-radius: 8px 8px 0 0; }
+    .lens { display: none; }
   }
 </style>
 
 <script>
   import { loadArtworks, loadSite, onPage } from "../lib/client";
   import {
-    CLOSE, DATED, isDated, kindOf, plateOf, plateTitle, shapePath, sizeOf, SLOT, squareLabel, squareOf, squareStart,
+    CLOSE, DATED, glyphPath, isDated, kindOf, plateOf, plateTitle, shapePath, sizeOf, SLOT, squareLabel, squareOf, squareStart,
     squareTally, squareWorks, tally, turnOf, yearOf, type Plate, type Tally,
   } from "../lib/century";
   import { MILESTONES, momentSlug, momentWorks, type Milestone } from "../lib/milestones";
@@ -298,9 +328,9 @@ import closeIcon from "../icons/x.svg";
   import { thumbUrl, type ArtworkRow } from "../lib/types";
 
   const SVG = "http://www.w3.org/2000/svg";
-  // Geometry in viewBox units: 30-unit slots 3 apart, inset 4 in a 104 year; years sit
-  // 1 apart, so each quilt reads as one field.
-  const S = 30, GAP = 3, PAD = 4, CELL = 2 * PAD + 3 * S + 2 * GAP, YGAP = 1, PITCH = CELL + YGAP, WIDTH = 10 * PITCH - YGAP;
+  // Geometry in viewBox units (a pixel at full width): 37-unit slots 4 apart, inset 5.5
+  // in a 130 year; years sit 1 apart, so each quilt reads as one field.
+  const S = 37, GAP = 4, PAD = 5.5, CELL = 2 * PAD + 3 * S + 2 * GAP, YGAP = 1, PITCH = CELL + YGAP, WIDTH = 10 * PITCH - YGAP;
   const SIZES = [0.42, 0.7, 1]; // shape scale for sizeOf: under 10, 10–99, 100+ works a year
   const PAGE = 24;
   const THIS_YEAR = new Date().getFullYear();
@@ -324,7 +354,11 @@ import closeIcon from "../icons/x.svg";
     return [c + (x - c) * Math.cos(a) - (y - c) * Math.sin(a), c + (x - c) * Math.sin(a) + (y - c) * Math.cos(a)];
   };
 
-  interface Mile { ms: Milestone; m: number; i: number; el: HTMLButtonElement; tick: HTMLElement }
+  /** A work's date as its caption gives it, or how it was estimated. */
+  const whenOf = (r: ArtworkRow) => (r[4] != null ? (r[9] != null && r[9] > r[4] ? `${r[4]}–${r[9]}` : String(r[4]))
+    : kindOf(r) === CLOSE ? `about ${yearOf(r)}, estimated` : `around ${yearOf(r)}, a rough estimate`);
+
+  interface Mile { ms: Milestone; m: number; i: number; el: HTMLButtonElement }
   interface View {
     p: Plate; svg: SVGSVGElement; sub: HTMLElement; ring: SVGRectElement;
     years: SVGGElement[]; nodes: SVGGElement[][]; labels: SVGTextElement[];
@@ -337,18 +371,26 @@ import closeIcon from "../icons/x.svg";
     const ac = new AbortController();
     document.addEventListener("astro:before-swap", () => ac.abort(), { once: true });
     const { signal } = ac;
+
+    // Tuck the site's header away once the page is scrolled; bring it back at the top.
+    const html = document.documentElement;
+    const tuck = () => html.classList.toggle("nav-tucked", scrollY > 40);
+    addEventListener("scroll", tuck, { passive: true, signal });
+    tuck();
+    signal.addEventListener("abort", () => html.classList.remove("nav-tucked"));
     const $ = <T extends Element = HTMLElement>(s: string) => root.querySelector<T>(s)!;
 
     const platesEl = $("[data-plates]");
-    const titleEl = $("[data-title]"), subEl = $("[data-sub]");
+    const titleEl = $("[data-title]");
     const keyEl = $(".key");
     const legend = [...root.querySelectorAll<HTMLButtonElement>(".legend button")];
-    const estBtns = [...root.querySelectorAll<HTMLButtonElement>("[data-est]")];
     const drawer = $("aside.drawer");
     const dKind = $("[data-d-kind]"), dTitle = $("[data-d-title]"), dSub = $("[data-d-sub]"), dMedia = $("[data-d-media]");
     const dMiles = $("[data-d-miles]");
     const thumbs = $(".thumbs"), moreBtn = $<HTMLButtonElement>(".more");
-    const tip = $(".century-tip");
+    const lens = $(".lens");
+    const stripEl = $("[data-strip]"), stripRows = $(".strip-rows"), stripWindow = $(".strip-window");
+    const stripTicks = $(".strip-ticks"), barEl = $(".bar");
 
     const params = new URLSearchParams(location.search);
     const num = (k: string) => (params.get(k) != null && params.get(k) !== "" ? Number(params.get(k)) : null);
@@ -379,6 +421,7 @@ import closeIcon from "../icons/x.svg";
       return cache.get(key)!;
     };
     const squares = (p: Plate) => p.rows * 10;
+    const clipId = (p: Plate, m: number) => `win-${p.key}-${m}`;
 
     // Build every period's quilt, earliest first.
     const views: View[] = data.plates.map((p) => {
@@ -397,10 +440,20 @@ import closeIcon from "../icons/x.svg";
       const svg = el("svg", { class: "quilt", viewBox: `0 0 ${WIDTH} ${p.rows * PITCH - YGAP}`, role: "img",
                               "aria-label": `Works from ${plateTitle(p, THIS_YEAR)} by ${p.unit > 1 ? "decade" : "year"} and medium`,
                               "data-p": p.key }) as SVGSVGElement;
+      // Each medium's shape as a clip, for the works that show through it.
+      const defs = el("defs");
+      for (let m = 0; m < nMedia; m++) {
+        const [ax, ay] = anchorOf(m);
+        const clip = el("clipPath", { id: clipId(p, m) });
+        clip.append(el("path", { d: shapePath(m, S), transform: `translate(${-ax} ${-ay})` }));
+        defs.append(clip);
+      }
+      svg.append(defs);
       const years: SVGGElement[] = [], nodes: SVGGElement[][] = [], labels: SVGTextElement[] = [];
       for (let i = 0; i < squares(p); i++) {
         const col = i % 10, row = Math.floor(i / 10);
-        const g = el("g", { class: "year", transform: `translate(${col * PITCH} ${row * PITCH})`, "data-i": i }) as SVGGElement;
+        const g = el("g", { class: "year", transform: `translate(${col * PITCH} ${row * PITCH})`, "data-i": i,
+                            tabindex: -1, role: "button" }) as SVGGElement;
         g.append(el("rect", { class: "tile", width: CELL, height: CELL }));
         // The shapes turn with the square; the tile and the year label stay put.
         const turn = el("g", { transform: `rotate(${turnOf(i)} ${CELL / 2} ${CELL / 2})` });
@@ -434,25 +487,25 @@ import closeIcon from "../icons/x.svg";
         const d = document.createElement("div");
         d.className = "rail-row";
         d.textContent = String(squareStart(p, r * 10));
-        rail.append(d);
+        const tick = document.createElement("div"); // a tick on the spine beside each row's date
+        tick.className = r === 0 ? "rail-tick first" : "rail-tick";
+        rail.append(d, tick);
         return d;
       });
       const miles: Mile[] = [];
       for (const ms of MILESTONES) {
         const i = squareOf(p, ms.year), m = mediumIndex.get(ms.medium);
         if (i == null || m == null) continue;
-        const tick = document.createElement("div");
-        tick.className = "rail-tick";
         const b = document.createElement("button");
         b.type = "button";
         b.className = "mile";
         b.style.setProperty("--c", `var(--m${m})`);
-        b.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${shapePath(m, 16)}" /></svg>` +
-          `<span><span class="y">${ms.circa ? "c." : ""}${ms.year}</span><b>${esc(ms.label)}</b>` +
-          `<span class="note">${esc(ms.note)}</span></span>`;
+        b.innerHTML = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${glyphPath(m, 16)}" /></svg>` +
+          `<span><span class="y">${ms.circa ? "c." : ""}${ms.year}</span><b>${esc(ms.label)}</b></span>`;
+        b.title = ms.note;
         b.setAttribute("aria-label", `${ms.year}: ${ms.label}, ${ms.note}. Open ${squareLabel(p, i)}`);
-        rail.append(tick, b);
-        miles.push({ ms, m, i, el: b, tick });
+        rail.append(b);
+        miles.push({ ms, m, i, el: b });
       }
       const body = document.createElement("div");
       body.className = "plate-body";
@@ -491,13 +544,59 @@ import closeIcon from "../icons/x.svg";
       tick();
     };
 
+    // What shows through a square's shapes: for each medium, the work with the surest
+    // date. Chosen once per square and setting of the estimate switches.
+    const pickCache = new Map<string, (ArtworkRow | null)[]>();
+    function picks(v: View, i: number) {
+      const key = `${v.p.key}:${i}:${state.close}:${state.rough}`;
+      let out = pickCache.get(key);
+      if (!out) {
+        out = Array<ArtworkRow | null>(nMedia).fill(null);
+        for (const r of squareWorks(data, v.p, i)) if (out[r[7]!] == null && shown(r)) out[r[7]!] = r;
+        pickCache.set(key, out);
+      }
+      return out;
+    }
+    /** Put a work behind each of a square's shapes (the images load when first needed).
+     *  The shapes turn with their square; the works inside them stay upright. */
+    function fill(v: View, i: number) {
+      const ps = picks(v, i);
+      v.nodes[i].forEach((n, m) => {
+        const r = ps[m];
+        let win = n.querySelector<SVGGElement>(".win");
+        if (!r) { win?.remove(); return; }
+        const href = thumbUrl(site.posts[r[0]], r[1]);
+        if (!win) {
+          const [ax, ay] = anchorOf(m);
+          win = el("g", { class: "win", "clip-path": `url(#${clipId(v.p, m)})` }) as SVGGElement;
+          const img = el("image", { x: -ax, y: -ay, width: S, height: S, preserveAspectRatio: "xMidYMid slice",
+                                    transform: `rotate(${-turnOf(i)} ${S / 2 - ax} ${S / 2 - ay})` });
+          img.addEventListener("load", () => img.classList.add("ready"));
+          win.append(img);
+          n.querySelector(".s")!.append(win);
+        }
+        const img = win.firstElementChild!;
+        if (img.getAttribute("href") !== href) { img.classList.remove("ready"); img.setAttribute("href", href); }
+      });
+    }
+    const hasWorks = (v: View, i: number) => tallyAt(v.p, i).some((c) => count(c) > 0);
+    const bloom = (v: View, i: number, on: boolean) => {
+      if (on) fill(v, i);
+      v.years[i].classList.toggle("bloom", on);
+    };
+
     function paintView(v: View) {
       const { p } = v;
+      const tgNow = target();
       let total = 0;
       for (let i = 0; i < squares(p); i++) {
         const t = tallyAt(p, i);
         v.years[i].classList.toggle("future", squareStart(p, i) > THIS_YEAR);
-        v.years[i].classList.toggle("open", state.open?.p === p.key && state.open.i === i);
+        const isOpen = tgNow?.p === p.key && tgNow.i === i;
+        v.years[i].classList.toggle("open", isOpen);
+        if (isOpen) fill(v, i);
+        const all = t.reduce((n, c) => n + count(c), 0);
+        v.years[i].setAttribute("aria-label", `${squareLabel(p, i)}: ${all ? plural(all, "work") : "no works"}`);
         v.nodes[i].forEach((n, m) => {
           const c = count(t[m]);
           total += state.focus == null || state.focus === m ? c : 0;
@@ -507,8 +606,6 @@ import closeIcon from "../icons/x.svg";
         });
       }
       let sub = plural(total, "work") + (state.focus == null ? "" : ` in ${site.media[state.focus].label.toLowerCase()}`);
-      if (p.unit > 1) sub += " · a square for each decade";
-      if (p.key === data.plates[0].key && data.older) sub += ` · ${plural(data.older, "older work")} not shown`;
       if (p.key === data.plates[data.plates.length - 1].key && data.undated) sub += ` · ${plural(data.undated, "work")} can’t be dated at all`;
       v.sub.textContent = sub;
       // The ring marks the open square, or the open shape inside it.
@@ -543,45 +640,29 @@ import closeIcon from "../icons/x.svg";
         b.setAttribute("aria-pressed", String(m === state.focus));
       });
       keyEl.classList.toggle("focused", state.focus != null);
-      const list = state.focus == null ? sums : [sums[state.focus]];
-      const total = list.reduce((s, t) => s + count(t), 0);
-      const dated = list.reduce((s, t) => s + t.dated, 0);
       titleEl.textContent = `${data.plates[0].start}–${THIS_YEAR}`;
-      let sub = plural(total, "work") + (state.focus == null ? "" : ` in ${site.media[state.focus].label.toLowerCase()}`);
-      if (state.focus == null) sub += ` of ${data.total.toLocaleString()} in the collection`;
-      if (total) sub += ` · ${Math.round((dated / total) * 100)}% dated by their source`;
-      subEl.textContent = sub;
-      for (const b of estBtns) {
-        const kind = b.dataset.est as "close" | "rough";
-        b.setAttribute("aria-pressed", String(state[kind]));
-        b.querySelector("[data-est-n]")!.textContent = list.reduce((n, t) => n + t[kind], 0).toLocaleString();
-      }
     }
 
     const openPlate = () => viewOf(state.open!.p).p;
     const drawerWorks = () => squareWorks(data, openPlate(), state.open!.i)
       .filter((r) => (state.node == null || r[7] === state.node) && shown(r));
 
-    // A moment's drawer: what it was, then the archive's works that bear it out.
-    let momentList: ArtworkRow[] = [], momentSplit = 0, momentHead = "";
+    // A moment's drawer: what happened, then the archive's works that bear it out, and
+    // only those (lib/milestones.ts): a moment the archive has nothing from says so.
+    let momentList: ArtworkRow[] = [];
     function paintMoment(k: number) {
-      const ms = MILESTONES[k], m = mediumIndex.get(ms.medium)!;
-      const { linked, around, widened } = momentWorks(ms, rows, site.posts, (slug) => artistBySlug.get(slug), mediaKeys);
-      // Tied works are listed whatever their date's certainty (they're tied by who made
-      // them); the context works follow the estimate switches like the quilt does.
-      const [a, b] = [linked, around.filter(shown)];
-      momentList = [...a, ...b];
-      momentSplit = a.length;
-      const label = site.media[m].label.toLowerCase();
-      momentHead = widened ? `Not tied to it: the nearest ${label} in the collection`
-        : `Not tied to it: other ${label}, ${ms.from}–${Math.min(ms.to, THIS_YEAR)}`;
+      const ms = MILESTONES[k];
+      momentList = momentWorks(ms, rows, site.posts, mediaKeys);
       drawer.classList.add("moment");
       dKind.textContent = `${ms.circa ? "c." : ""}${ms.year}`;
       dTitle.textContent = ms.label;
-      const artists = new Set(a.map((r) => site.posts[r[0]].artist ?? site.posts[r[0]].id));
-      dSub.innerHTML = `${esc(ms.note)}<span class="count">` + (a.length
-        ? `${plural(a.length, "work")} in the collection by ${plural(artists.size, "artist")} tied to it`
-        : `Nothing in the collection is tied to it directly. Below: ${label} from around then, for context`) + "</span>";
+      const artists = new Set(momentList.map((r) => site.posts[r[0]].artist ?? site.posts[r[0]].id));
+      const whose = artists.size === 1 && momentList.length
+        ? ` by ${artistBySlug.get(site.posts[momentList[0][0]].artist ?? "")?.name ?? "one artist"}`
+        : ` by ${plural(artists.size, "artist")}`;
+      dSub.innerHTML = `${esc(ms.about)}<span class="count">` + (momentList.length
+        ? `${plural(momentList.length, "work")} in the collection${whose}`
+        : "Nothing in the collection is from this moment yet") + "</span>";
       dMiles.hidden = true;
       dMedia.innerHTML = "";
       paintThumbs(momentList, true);
@@ -608,7 +689,7 @@ import closeIcon from "../icons/x.svg";
       dMiles.innerHTML = here.map((ms) => {
         const m = mediumIndex.get(ms.medium)!;
         return `<li style="--c: var(--m${m})"><button type="button" data-moment="${MILESTONES.indexOf(ms)}">` +
-          `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${shapePath(m, 16)}" /></svg>` +
+          `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${glyphPath(m, 16)}" /></svg>` +
           `<span><span class="y">${ms.circa ? "c." : ""}${ms.year}</span>${esc(ms.label)}` +
           `<span class="note">${esc(ms.note)}</span></span></button></li>`;
       }).join("");
@@ -617,7 +698,7 @@ import closeIcon from "../icons/x.svg";
       dMedia.innerHTML = `<button type="button" data-node="" aria-pressed="${state.node == null}">All ${all.toLocaleString()}</button>` +
         t.map((c, m) => (count(c)
           ? `<button type="button" data-node="${m}" aria-pressed="${state.node === m}" style="--c: var(--m${m})">` +
-            `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${shapePath(m, 16)}" /></svg>${site.media[m].label} ${count(c).toLocaleString()}</button>`
+            `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${glyphPath(m, 16)}" /></svg>${site.media[m].label} ${count(c).toLocaleString()}</button>`
           : "")).join("");
       paintThumbs(list, true);
     }
@@ -625,14 +706,7 @@ import closeIcon from "../icons/x.svg";
     function paintThumbs(list: ArtworkRow[], reset: boolean) {
       if (reset) { thumbs.replaceChildren(); state.shown = PAGE; drawer.scrollTop = 0; }
       const from = thumbs.querySelectorAll("a").length;
-      const split = state.moment != null ? momentSplit : -1;
       list.slice(from, state.shown).forEach((r, k) => {
-        if (from + k === split && split < list.length) {
-          const h = document.createElement("p");
-          h.className = "thumbs-head";
-          h.textContent = momentHead;
-          thumbs.append(h);
-        }
         const [pi, file, , , , title] = r;
         const post = site.posts[pi];
         const artist = post.artist ? artistBySlug.get(post.artist) : undefined;
@@ -641,9 +715,10 @@ import closeIcon from "../icons/x.svg";
         a.style.setProperty("--k", String(k));
         a.style.setProperty("--c", `var(--m${r[7]})`);
         const name = artist?.name ?? post.subject ?? "";
-        const when = r[4] != null ? (r[9] != null && r[9] > r[4] ? `${r[4]}–${r[9]}` : String(r[4]))
-          : kindOf(r) === CLOSE ? `about ${yearOf(r)}, estimated` : `around ${yearOf(r)}, a rough estimate`;
-        a.title = [name, title, when].filter(Boolean).join(" — ");
+        a.title = [name, title, whenOf(r)].filter(Boolean).join(" — ");
+        const pic = document.createElement("span");
+        pic.className = "pic";
+        pic.style.aspectRatio = `${r[2]} / ${Math.min(r[3], r[2] * 1.8)}`; // its own proportions, within reason
         const img = document.createElement("img");
         img.className = "fade";
         img.loading = "lazy";
@@ -651,8 +726,14 @@ import closeIcon from "../icons/x.svg";
         img.src = thumbUrl(post, file);
         img.addEventListener("load", () => img.classList.add("loaded"), { once: true });
         const mark = el("svg", { viewBox: "0 0 16 16", "aria-hidden": "true" });
-        mark.append(el("path", { d: shapePath(r[7]!, 16) }));
-        a.append(img, mark);
+        mark.append(el("path", { d: glyphPath(r[7]!, 16) }));
+        pic.append(img, mark);
+        const cap = document.createElement("span");
+        cap.className = "cap";
+        const who = document.createElement("b");
+        who.textContent = name;
+        cap.append(who, [title, whenOf(r)].filter(Boolean).join(", "));
+        a.append(pic, cap);
         thumbs.append(a);
       });
       moreBtn.hidden = list.length <= state.shown;
@@ -672,25 +753,142 @@ import closeIcon from "../icons/x.svg";
       history.replaceState(history.state, "", location.pathname + (q.size ? `?${q}` : ""));
     }
 
-    const update = () => { views.forEach(paintView); paintBar(); paintDrawer(); saveUrl(); };
+    // The overview strip: a bar per row of the quilt, as tall as the row is full (in the
+    // followed medium's colour when one is followed), and a window over what's on screen.
+    const rowsBefore = views.map((_, k) => views.slice(0, k).reduce((n, v) => n + v.p.rows, 0));
+    const totalRows = rowsBefore[views.length - 1] + views[views.length - 1].p.rows;
+    const stripBars = Array.from({ length: totalRows }, () => stripRows.appendChild(document.createElement("span")));
+    // A year under each bar that starts a period or a half century (every century
+    // before 1800, where a row is one); the others hold their place empty.
+    views.forEach((v) => {
+      for (let r = 0; r < v.p.rows; r++) {
+        const year = squareStart(v.p, r * 10);
+        const t = stripTicks.appendChild(document.createElement("span"));
+        if (r === 0 || year % 50 === 0) t.textContent = String(year);
+        if (r === 0) t.dataset.start = "";
+      }
+    });
+    // Where the bars are too narrow for every year (on a phone), hide years that would
+    // run into one already shown: the periods' first years first, then the rest in order.
+    const tickRange = document.createRange();
+    function thinTicks() {
+      const ticks = [...stripTicks.children].filter((t) => t.textContent) as HTMLElement[];
+      const shown: [number, number][] = [];
+      const fits = (t: HTMLElement) => {
+        tickRange.selectNodeContents(t);
+        const w = tickRange.getBoundingClientRect().width, mid = t.offsetLeft + t.offsetWidth / 2;
+        const span: [number, number] = [mid - w / 2 - 3, mid + w / 2 + 3];
+        if (shown.some(([a, b]) => span[0] < b && span[1] > a)) return false;
+        shown.push(span);
+        return true;
+      };
+      for (const t of ticks) t.classList.remove("off");
+      const order = [...ticks.filter((t) => "start" in t.dataset), ...ticks.filter((t) => !("start" in t.dataset))];
+      for (const t of order) t.classList.toggle("off", !fits(t));
+    }
+    thinTicks();
+    document.fonts?.ready.then(() => { if (!signal.aborted) thinTicks(); });
+    const tickResize = new ResizeObserver(thinTicks);
+    tickResize.observe(stripTicks);
+    signal.addEventListener("abort", () => tickResize.disconnect());
+    function paintStrip() {
+      const ns: number[] = [];
+      views.forEach((v) => {
+        for (let r = 0; r < v.p.rows; r++) {
+          let n = 0;
+          for (let i = r * 10; i < r * 10 + 10; i++) {
+            const t = tallyAt(v.p, i);
+            n += state.focus == null ? t.reduce((x, c) => x + count(c), 0) : count(t[state.focus]);
+          }
+          ns.push(n / v.p.unit); // works a year, so decade rows compare with year rows
+        }
+      });
+      const max = Math.max(1, ...ns);
+      stripBars.forEach((b, k) => {
+        b.style.height = `${ns[k] ? Math.max(0.06, Math.sqrt(ns[k] / max)) * 100 : 0}%`;
+      });
+      stripRows.style.color = state.focus == null ? "" : `var(--m${state.focus})`;
+    }
+    let stripFrame = 0;
+    const syncStrip = () => {
+      cancelAnimationFrame(stripFrame);
+      stripFrame = requestAnimationFrame(() => {
+        const box = platesEl.getBoundingClientRect();
+        if (!box.height) return;
+        const top = barEl.getBoundingClientRect().bottom;
+        const clamp = (x: number) => Math.min(1, Math.max(0, x));
+        const a = clamp((top - box.top) / box.height), b = clamp((innerHeight - box.top) / box.height);
+        stripWindow.style.left = `${a * 100}%`;
+        stripWindow.style.width = `${Math.max(0, b - a) * 100}%`;
+      });
+    };
+    const travel = (e: PointerEvent, smooth: boolean) => {
+      const s = stripEl.getBoundingClientRect(), box = platesEl.getBoundingClientRect();
+      const f = Math.min(1, Math.max(0, (e.clientX - s.left) / s.width));
+      const top = barEl.getBoundingClientRect().bottom;
+      scrollTo({ top: scrollY + box.top + f * box.height - (top + innerHeight) / 2, behavior: smooth && motion() ? "smooth" : "auto" });
+    };
+    let travelling = false;
+    stripEl.addEventListener("pointerdown", (e) => {
+      travelling = true;
+      try { stripEl.setPointerCapture(e.pointerId); } catch { /* a pointer that can't be captured still travels */ }
+      travel(e, true);
+    }, { signal });
+    stripEl.addEventListener("pointermove", (e) => { if (travelling) travel(e, false); }, { signal });
+    stripEl.addEventListener("pointerup", () => (travelling = false), { signal });
+    stripEl.addEventListener("pointercancel", () => (travelling = false), { signal });
+    addEventListener("scroll", syncStrip, { passive: true, signal });
+    addEventListener("resize", syncStrip, { signal });
+
+    // Light the rows by how near they are to the middle of the clear part of the window:
+    // the middle rows lit fully, the rest fading out toward the window's edges (and
+    // beyond them, dark). Their bars in the strip take the same light. Only rows whose
+    // light changes are touched.
+    const litOf = views.map((v) => new Float32Array(v.p.rows).fill(-1));
+    let lightFrame = 0;
+    const lightRows = () => {
+      cancelAnimationFrame(lightFrame);
+      lightFrame = requestAnimationFrame(() => {
+        const top = barEl.getBoundingClientRect().bottom;
+        const mid = (top + innerHeight) / 2, half = Math.max(1, (innerHeight - top) / 2);
+        views.forEach((v, k) => {
+          const box = v.svg.getBoundingClientRect(), rowH = box.height / v.p.rows;
+          for (let r = 0; r < v.p.rows; r++) {
+            const d = Math.abs(box.top + (r + 0.5) * rowH - mid) / (half + rowH / 2); // 0 middle, 1 edge
+            const e = Math.min(1, Math.max(0, (d - 0.2) / 0.8));
+            const lit = Math.round((1 - e * e * (3 - 2 * e)) * 50) / 50; // smoothstep, in fiftieths
+            if (lit === litOf[k][r]) continue;
+            litOf[k][r] = lit;
+            for (let i = r * 10; i < r * 10 + 10; i++) v.years[i].style.setProperty("--lit", String(lit));
+            stripBars[rowsBefore[k] + r].style.setProperty("--lit", String(lit));
+          }
+        });
+      });
+    };
+    addEventListener("scroll", lightRows, { passive: true, signal });
+    addEventListener("resize", lightRows, { signal });
+    signal.addEventListener("abort", () => cancelAnimationFrame(lightFrame));
+
+    const update = () => { views.forEach(paintView); paintBar(); paintStrip(); paintDrawer(); saveUrl(); syncStrip(); lightRows(); };
     update();
 
-    // The rail follows the quilt's rows: a row's date at its top, each milestone at its
-    // year (along the row, read as time running down the rail), nudged down to clear the
-    // one above; a tick on the spine marks where it belongs.
+    // The rail follows the quilt's rows: a row's date at its top, with a tick on the
+    // spine, and each moment at its year (along the row, read as time running down the
+    // rail), nudged down to clear the one above.
     function layoutRail(v: View) {
       const h = v.svg.getBoundingClientRect().height;
       if (!h) return;
       const scale = h / (v.p.rows * PITCH - YGAP);
-      v.rows.forEach((d, r) => (d.style.top = `${r * PITCH * scale}px`));
+      v.rows.forEach((d, r) => {
+        d.style.top = `${r * PITCH * scale}px`;
+        (d.nextElementSibling as HTMLElement).style.top = `${r * PITCH * scale + 9}px`; // its tick, mid-date
+      });
       // Down the rail, each one clears the one above; then up from the bottom, so the
       // last ones end with the quilt rather than hanging below it.
       const miles = [...v.miles].sort((a, b) => a.ms.year - b.ms.year);
       const tops = miles.map((mi) => {
         const within = (mi.ms.year - squareStart(v.p, mi.i)) / v.p.unit;
-        const want = (Math.floor(mi.i / 10) * PITCH + ((mi.i % 10) + within) / 10 * CELL) * scale;
-        mi.tick.style.top = `${want}px`;
-        return want;
+        return (Math.floor(mi.i / 10) * PITCH + ((mi.i % 10) + within) / 10 * CELL) * scale;
       });
       const GAP_PX = 8;
       const head = v.rows[0].parentElement!.querySelector<HTMLElement>(".rail-head")!;
@@ -755,15 +953,17 @@ import closeIcon from "../icons/x.svg";
     for (const v of views) io.observe(v.svg);
     signal.addEventListener("abort", () => io.disconnect());
 
-    const scrollToOpen = () => {
-      const tg = target();
-      if (!tg) return;
-      const g = viewOf(tg.p).years[tg.i];
+    /** Bring a square into the clear part of the window, centred, if it isn't already. */
+    const scrollToSquare = (g: SVGGElement) => {
       const box = g.getBoundingClientRect();
       const top = (document.querySelector(".bar")?.getBoundingClientRect().bottom ?? 0) + 8;
       if (box.top < top || box.bottom > innerHeight - 8) {
         scrollBy({ top: box.top - top - (innerHeight - top - box.height) / 2, behavior: motion() ? "smooth" : "auto" });
       }
+    };
+    const scrollToOpen = () => {
+      const tg = target();
+      if (tg) scrollToSquare(viewOf(tg.p).years[tg.i]);
     };
     if (target()) requestAnimationFrame(scrollToOpen);
     const openMoment = (k: number) => {
@@ -780,26 +980,112 @@ import closeIcon from "../icons/x.svg";
       const svg = t.closest<SVGSVGElement>("svg.quilt"), y = t.closest<SVGGElement>(".year"), n = t.closest<SVGGElement>(".node");
       return svg && y ? { v: viewOf(svg.dataset.p!), i: Number(y.dataset.i), m: n ? Number(n.dataset.m) : null } : null;
     };
-    platesEl.addEventListener("pointermove", (e) => {
-      const h = hit(e);
-      light(h?.v ?? null, h?.i ?? null);
-      if (!h) { tip.hidden = true; return; }
-      const { p } = h.v;
-      const t = tallyAt(p, h.i);
-      const label = squareLabel(p, h.i);
-      if (h.m != null) {
-        const c = t[h.m];
-        tip.innerHTML = `<b>${label} · ${site.media[h.m].label}</b>${plural(count(c), "work")}` +
-          (count(c) > c.dated ? `, ${(count(c) - c.dated).toLocaleString()} by estimate` : "");
-      } else {
-        const all = t.reduce((s, c) => s + count(c), 0);
-        tip.innerHTML = `<b>${label}</b>${all ? plural(all, "work") : squareStart(p, h.i) > THIS_YEAR ? "Still to come" : "No works yet"}`;
+    // The lens: the work behind the shape under the pointer (or the square's fullest
+    // medium), large enough to see, with who made it.
+    let lensKey = "";
+    function paintLens(v: View, i: number, m: number | null) {
+      const { p } = v, t = tallyAt(p, i), label = squareLabel(p, i);
+      const ps = picks(v, i);
+      const lead = m ?? t.reduce((best, c, k) => (ps[k] && count(c) > (best < 0 ? 0 : count(t[best])) ? k : best), -1);
+      const r = lead >= 0 ? ps[lead] : null;
+      if (!r) {
+        lens.innerHTML = `<b>${label}</b>${squareStart(p, i) > THIS_YEAR ? "Still to come" : "Nothing in the collection yet"}`;
+        return;
       }
-      tip.hidden = false;
-      tip.style.left = `${Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8)}px`;
-      tip.style.top = `${e.clientY + 14}px`;
+      const post = site.posts[r[0]];
+      const artist = post.artist ? artistBySlug.get(post.artist) : undefined;
+      const k = Math.min(264 / r[2], 250 / r[3]);
+      const c = t[lead], all = t.reduce((n, x) => n + count(x), 0);
+      const meta = m != null
+        ? `${label} · one of ${plural(count(c), "work")} in ${site.media[lead].label.toLowerCase()}`
+        : `${label} · one of ${plural(all, "work")}`;
+      lens.innerHTML =
+        `<span class="lens-pic" style="width:${Math.round(r[2] * k)}px;height:${Math.round(r[3] * k)}px"><img alt="" src="${thumbUrl(post, r[1])}"></span>` +
+        `<b>${esc(artist?.name ?? post.subject ?? "")}</b>` +
+        `<span class="lens-title">${esc([r[5], whenOf(r)].filter(Boolean).join(", "))}</span>` +
+        `<span class="lens-meta" style="--c: var(--m${lead})"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="${glyphPath(lead, 16)}" /></svg>${meta}</span>`;
+    }
+    const placeLens = (x: number, y: number) => {
+      const w = lens.offsetWidth, h = lens.offsetHeight;
+      lens.style.left = `${x + 20 + w > innerWidth - 8 ? Math.max(8, x - 20 - w) : x + 20}px`;
+      lens.style.top = `${Math.max(8, Math.min(y + 20, innerHeight - h - 8))}px`;
+    };
+
+    // One square blooms at a time under the pointer or the keyboard focus.
+    let bloomed: { v: View; i: number } | null = null;
+    const bloomAt = (v: View | null, i: number | null) => {
+      if (bloomed && (bloomed.v !== v || bloomed.i !== i)) { bloom(bloomed.v, bloomed.i, false); bloomed = null; }
+      if (v && i != null && !bloomed && hasWorks(v, i)) { bloom(v, i, true); bloomed = { v, i }; }
+    };
+    let inside = false;
+    platesEl.addEventListener("pointermove", (e) => {
+      const h = e.pointerType === "touch" ? null : hit(e);
+      inside = true;
+      light(h?.v ?? null, h?.i ?? null);
+      bloomAt(h?.v ?? null, h?.i ?? null);
+      if (!h) { lens.hidden = true; lensKey = ""; return; }
+      const key = `${h.v.p.key}:${h.i}:${h.m}`;
+      if (key !== lensKey) { lensKey = key; paintLens(h.v, h.i, h.m); }
+      lens.hidden = false;
+      placeLens(e.clientX, e.clientY);
     }, { signal });
-    platesEl.addEventListener("pointerleave", () => { tip.hidden = true; light(null, null); }, { signal });
+    platesEl.addEventListener("pointerleave", () => {
+      inside = false;
+      lens.hidden = true;
+      lensKey = "";
+      light(null, null);
+      bloomAt(null, null);
+    }, { signal });
+
+    // Left alone, the quilt shows what it holds: every few seconds a square somewhere
+    // on screen blooms, then settles.
+    const idle = setInterval(() => {
+      if (inside || bloomed || state.open || state.moment != null || !motion() || document.hidden) return;
+      const top = barEl.getBoundingClientRect().bottom;
+      const on: [View, number][] = [];
+      for (const v of views) {
+        if (!v.seen) continue;
+        const box = v.svg.getBoundingClientRect(), rowH = box.height / v.p.rows;
+        for (let i = 0; i < squares(v.p); i++) {
+          const y = box.top + Math.floor(i / 10) * rowH;
+          if (y > top && y + rowH < innerHeight && hasWorks(v, i)) on.push([v, i]);
+        }
+      }
+      if (!on.length) return;
+      const [v, i] = on[Math.floor(Math.random() * on.length)];
+      bloom(v, i, true);
+      setTimeout(() => { if (!(bloomed?.v === v && bloomed.i === i)) bloom(v, i, false); }, 2400);
+    }, 2800);
+    signal.addEventListener("abort", () => clearInterval(idle));
+
+    // Keyboard: one tab stop in the quilt; arrows move between squares, Enter opens one.
+    const flat = views.flatMap((v) => v.years.map((g, i) => ({ v, i, g })));
+    flat[0].g.setAttribute("tabindex", "0");
+    platesEl.addEventListener("focusin", (e) => {
+      const g = (e.target as Element).closest<SVGGElement>(".year");
+      const at = g && flat.find((f) => f.g === g);
+      if (!at) return;
+      for (const f of flat) f.g.setAttribute("tabindex", f.g === g ? "0" : "-1");
+      if (g.matches(":focus-visible")) { bloomAt(at.v, at.i); light(at.v, at.i); }
+    }, { signal });
+    platesEl.addEventListener("focusout", () => { if (!inside) { bloomAt(null, null); light(null, null); } }, { signal });
+    platesEl.addEventListener("keydown", (e) => {
+      const k = flat.findIndex((f) => f.g === e.target);
+      if (k < 0 || state.open || state.moment != null) return;
+      const move = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -10, ArrowDown: 10 }[e.key];
+      if (move != null) {
+        e.preventDefault();
+        const next = flat[Math.min(flat.length - 1, Math.max(0, k + move))];
+        next.g.focus({ preventScroll: true }); // SVG groups scroll unreliably on focus
+        scrollToSquare(next.g);
+      } else if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        state.open = { p: flat[k].v.p.key, i: flat[k].i };
+        state.node = null;
+        update();
+      }
+    }, { signal });
+
     platesEl.addEventListener("click", (e) => {
       const h = hit(e);
       if (!h) return;
@@ -814,13 +1100,6 @@ import closeIcon from "../icons/x.svg";
       state.focus = state.focus === m ? null : m;
       update();
     }, { signal }));
-    for (const b of estBtns) {
-      b.addEventListener("click", () => {
-        const kind = b.dataset.est as "close" | "rough";
-        state[kind] = !state[kind];
-        update();
-      }, { signal });
-    }
     dMedia.addEventListener("click", (e) => {
       const b = (e.target as Element).closest<HTMLButtonElement>("button");
       if (!b) return;

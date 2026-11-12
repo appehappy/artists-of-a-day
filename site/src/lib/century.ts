@@ -155,3 +155,15 @@ export function shapePath(m: number, s: number): string {
     default: return `M0 ${s}V${h}A${h} ${h} 0 0 1 ${s} ${h}V${s}Z`; // architecture and product: the D turned up, an arch
   }
 }
+
+/** A medium's shape as an icon: the same shape, but every one filling its s×s box,
+ *  so a row of them reads at one size. (On the quilt, drawing's small a and the two
+ *  small o's are smaller on purpose; as icons they're drawn full size.) */
+export function glyphPath(m: number, s: number): string {
+  if (m === 1) return shapePath(0, s); // drawing: the a, grown to the A's size
+  if (m === 2 || m === 6) {             // print, photography: the o, grown to a full disc
+    const h = s / 2;
+    return `M0 ${h}A${h} ${h} 0 1 1 ${s} ${h}A${h} ${h} 0 1 1 0 ${h}Z`;
+  }
+  return shapePath(m, s);
+}
