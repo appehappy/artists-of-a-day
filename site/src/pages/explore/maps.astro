@@ -8,6 +8,7 @@ import ExploreSwitch from "../../components/ExploreSwitch.astro";
 import Base from "../../layouts/Base.astro";
 import { cssGradient, SHAPES, type ColourMap } from "../../lib/colourmaps";
 import "../../styles/explore.css";
+import closeIcon from "../../icons/x.svg";
 
 const mapsFile = path.resolve("public/fields/maps/maps.json");
 const data: { credit: string; maps: ColourMap[] } = fs.existsSync(mapsFile)
@@ -29,13 +30,13 @@ const icons: Record<string, string> = {
     <canvas class="mosaic-canvas gl" aria-hidden="true"></canvas>
     <canvas class="mosaic-canvas top" aria-label="A colour map drawn with artworks"></canvas>
 
-    <div class="panel top-left">
+    <div class="panel window top-left">
       <ExploreSwitch current="maps" />
       <p class="blurb">Pick a shape and a colour map: the archive's closest-matching works fly in to draw it. Zoom in to see each work.</p>
       <p class="hint">Drag to move · pinch or ⌘-scroll to zoom · click a work</p>
     </div>
 
-    <div class="panel picker">
+    <div class="panel window picker">
       <section>
       <h4>Shape</h4>
       <div class="shapes">
@@ -74,12 +75,19 @@ const icons: Record<string, string> = {
     <div class="loading" data-loading>{data.maps.length ? "Gathering 89,000 works…" : "Colour map data isn't built yet. Run scripts/build_colourmaps.py."}</div>
     <div class="tip" hidden></div>
 
-    <aside class="card" aria-live="polite" hidden>
-      <button type="button" class="card-close" aria-label="Close">×</button>
+    <aside class="card window" aria-live="polite" hidden>
+      <header class="window-head">
+        <div>
+          <p class="window-eyebrow card-dates"></p>
+          <h2 class="window-title"><a class="card-artist" href="#"></a></h2>
+        </div>
+        <button type="button" class="icon-btn card-close" aria-label="Close">
+          <img src={closeIcon.src} width="12" height="12" alt="" />
+        </button>
+      </header>
       <div class="card-img"><img alt="" /></div>
-      <a class="card-artist" href="#"></a>
       <p class="card-meta"></p>
-      <a class="card-open" href="#">Open artist page →</a>
+      <a class="card-open" href="#">Open artist page<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.33 8h9.34M8 12.67 12.67 8 8 3.33" /></svg></a>
     </aside>
   </section>
 </Base>
@@ -144,7 +152,7 @@ const icons: Record<string, string> = {
   import { makeShape, match, SHAPES, type ColourMap, type Match, type ShapeKey } from "../../lib/colourmaps";
   import { loadMosaicData, MosaicView } from "../../lib/mosaic";
   import { at } from "../../lib/paths";
-  import { imgUrl, thumbUrl } from "../../lib/types";
+  import { imgUrl, lifeDates, thumbUrl } from "../../lib/types";
 
   let view: MosaicView | null = null;
   document.addEventListener("astro:before-swap", () => { view?.destroy(); view = null; });
@@ -187,8 +195,9 @@ const icons: Record<string, string> = {
       const nameEl = card.querySelector<HTMLAnchorElement>(".card-artist")!;
       nameEl.textContent = d.name;
       nameEl.href = d.href;
+      card.querySelector(".card-dates")!.textContent = d.artist ? lifeDates(d.artist) : "";
       card.querySelector(".card-meta")!.textContent =
-        [d.work || "Untitled", d.artist?.nationality].filter(Boolean).join(" · ");
+        [d.work || "Untitled", d.artist?.nationality, d.artist?.region].filter(Boolean).join(" · ");
       card.querySelector<HTMLAnchorElement>(".card-open")!.href = d.href;
       card.hidden = false;
     };

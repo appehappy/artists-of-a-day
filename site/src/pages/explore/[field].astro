@@ -3,6 +3,7 @@ import ExploreControls from "../../components/ExploreControls.astro";
 import ExploreSwitch from "../../components/ExploreSwitch.astro";
 import Base from "../../layouts/Base.astro";
 import "../../styles/explore.css";
+import closeIcon from "../../icons/x.svg";
 
 export function getStaticPaths() {
   return [
@@ -29,7 +30,7 @@ const { title, blurb, orbits } = Astro.props;
     <canvas class="mosaic-canvas top"
             aria-label={orbits ? "Orbits of the archive's most colourful works" : "A galaxy of every artwork, by visual likeness"}></canvas>
 
-    <div class="panel top-left">
+    <div class="panel window top-left">
       <ExploreSwitch current={field} />
       <p class="blurb">{blurb}</p>
       <p class="hint">Drag to move · pinch or ⌘-scroll to zoom · click a work</p>
@@ -40,12 +41,19 @@ const { title, blurb, orbits } = Astro.props;
     <div class="loading" data-loading>{orbits ? "Gathering colours…" : "Gathering 89,000 stars…"}</div>
     <div class="tip" hidden></div>
 
-    <aside class="card" aria-live="polite" hidden>
-      <button type="button" class="card-close" aria-label="Close">×</button>
+    <aside class="card window" aria-live="polite" hidden>
+      <header class="window-head">
+        <div>
+          <p class="window-eyebrow card-dates"></p>
+          <h2 class="window-title"><a class="card-artist" href="#"></a></h2>
+        </div>
+        <button type="button" class="icon-btn card-close" aria-label="Close">
+          <img src={closeIcon.src} width="12" height="12" alt="" />
+        </button>
+      </header>
       <div class="card-img"><img alt="" /></div>
-      <a class="card-artist" href="#"></a>
       <p class="card-meta"></p>
-      <a class="card-open" href="#">Open artist page →</a>
+      <a class="card-open" href="#">Open artist page<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.33 8h9.34M8 12.67 12.67 8 8 3.33" /></svg></a>
       <h3>More like this</h3>
       <div class="card-similar"></div>
     </aside>
@@ -60,7 +68,7 @@ const { title, blurb, orbits } = Astro.props;
   import { loadMosaicData, MosaicView } from "../../lib/mosaic";
   import { orbitLayout } from "../../lib/orbits";
   import { at } from "../../lib/paths";
-  import { imgUrl, thumbUrl, type SimilarMap } from "../../lib/types";
+  import { imgUrl, lifeDates, thumbUrl, type SimilarMap } from "../../lib/types";
 
   const ORBIT_WORKS = 12000;
 
@@ -108,6 +116,7 @@ const { title, blurb, orbits } = Astro.props;
       const nameEl = card.querySelector<HTMLAnchorElement>(".card-artist")!;
       nameEl.textContent = who;
       nameEl.href = href;
+      card.querySelector(".card-dates")!.textContent = artist ? lifeDates(artist) : "";
       card.querySelector(".card-meta")!.textContent =
         [work || "Untitled", artist?.nationality, artist?.region].filter(Boolean).join(" · ");
       card.querySelector<HTMLAnchorElement>(".card-open")!.href = href;
