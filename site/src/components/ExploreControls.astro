@@ -16,7 +16,7 @@ const { fitLabel, gravity = false } = Astro.props;
   {gravity && (
     <label class="gravity" title="Gravity: lower it and works drift out from the centre">
       <span>Gravity</span>
-      <input type="range" min="0" max="100" step="1" value="100" data-gravity aria-label="Gravity" />
+      <input type="range" min="0" max="100" step="1" value="50" data-gravity aria-label="Gravity" />
     </label>
   )}
   <button type="button" class="icon-btn" data-zoom="1.8" aria-label="Zoom in" title="Zoom in">

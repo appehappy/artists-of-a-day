@@ -200,14 +200,15 @@ const { title, blurb, orbits } = Astro.props;
     root.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) =>
       b.addEventListener("click", () => view!.flyTo({ s: view!.cam.s * Number(b.dataset.zoom) }, 350)));
     root.querySelector("[data-fit]")!.addEventListener("click", () => view!.fit());
-    // Gravity: the slider's filled part runs up to the thumb.
+    // Gravity: the slider's filled part runs up to the thumb. It starts at medium (50%),
+    // the works already loosened, rather than easing out from full on arrival.
     const gravity = root.querySelector<HTMLInputElement>("[data-gravity]")!;
-    const setGravity = () => {
+    const setGravity = (now = false) => {
       gravity.style.setProperty("--pct", `${gravity.value}%`);
-      view?.setGravity(Number(gravity.value) / 100);
+      view?.setGravity(Number(gravity.value) / 100, now);
     };
-    gravity.addEventListener("input", setGravity);
-    setGravity();
+    gravity.addEventListener("input", () => setGravity());
+    setGravity(true);
     root.querySelector("[data-surprise]")!.addEventListener("click", () => {
       const row = view!.randomRow();
       if (row === null) return;

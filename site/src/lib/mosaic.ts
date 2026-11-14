@@ -827,9 +827,11 @@ export class MosaicView {
   }
 
   /** Gravity at the layout's centre, 0–1 (1: as laid out). Lower, works scatter out
-   *  into the canvas, the outer ones furthest; the view stays where it is. */
-  setGravity(g: number) {
+   *  into the canvas, the outer ones furthest; the view stays where it is. With `now`,
+   *  it's there at once instead of easing (the starting setting). */
+  setGravity(g: number, now = false) {
     this.gravityTo = Math.max(0, Math.min(1, g));
+    if (now) { this.gravity = this.gravityTo; this.warpT = 1 - this.gravity; }
     this.invalidate();
   }
 

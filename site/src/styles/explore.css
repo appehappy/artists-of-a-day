@@ -25,7 +25,7 @@
 .gravity:hover { border-color: var(--muted); color: var(--ink); }
 .gravity input {
   -webkit-appearance: none; appearance: none; width: 120px; height: 12px; margin: 0; background: none; cursor: pointer;
-  --fill: linear-gradient(var(--ink), var(--ink)) 0 / var(--pct, 100%) 100% no-repeat, var(--line);
+  --fill: linear-gradient(var(--ink), var(--ink)) 0 / var(--pct, 50%) 100% no-repeat, var(--line);
 }
 .gravity input::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--fill); }
 .gravity input::-moz-range-track { height: 3px; border-radius: 2px; background: var(--fill); }
